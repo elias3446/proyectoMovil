@@ -126,40 +126,48 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 16,
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#f0f2f5",
   },
   formContainer: {
+    width: "100%",
+    maxWidth: 400,
     backgroundColor: "#fff",
     borderRadius: 8,
-    padding: 16,
+    padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
     elevation: 5,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 8,
+    textAlign: "center",
+    marginBottom: 6, // Aplica el mismo margen de separación
   },
   subtitle: {
     fontSize: 16,
+    textAlign: "center",
     color: "#666",
-    marginBottom: 16,
+    marginBottom: 6, // Aplica el mismo margen de separación
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: 6, // Aplica el mismo margen de separación
   },
   input: {
-    borderWidth: 1,
+    width: "100%",
+    height: 50,
     borderColor: "#ccc",
-    borderRadius: 4,
-    padding: 8,
-    fontSize: 16,
-    flex: 1,
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 15,
+    marginBottom: 6, // Aplica el mismo margen de separación
+    backgroundColor: "#f9f9f9",
   },
   inputHalf: {
     width: "48%",
@@ -168,29 +176,32 @@ const styles = StyleSheet.create({
     width: "32%",
   },
   picker: {
+    width: "100%",
     height: 50,
     borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 5,
+    paddingHorizontal: 15,
+    marginBottom: 6, // Aplica el mismo margen de separación
     backgroundColor: "#f9f9f9",
-    marginBottom: 15,
+    
   },
   label: {
     fontSize: 14,
     color: "#333",
-    marginBottom: 8,
+    marginBottom: 6, // Aplica el mismo margen de separación
   },
   note: {
     fontSize: 12,
     color: "#666",
-    marginBottom: 15,
+    marginBottom: 6, // Aplica el mismo margen de separación
   },
   registerButton: {
     backgroundColor: "#1877f2",
     padding: 15,
     borderRadius: 5,
     alignItems: "center",
-    marginTop: 15,
+    marginTop: 6, // Aplica el mismo margen de separación
   },
   registerButtonText: {
     color: "#fff",

@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // Importa Firestore
 
-// Configuración de Firebase
+// Tu configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAnTHAakzA9xX7o10mf6uh6FGx1LaPFSMU",
   authDomain: "proyectomovil-7612c.firebaseapp.com",
@@ -12,8 +13,9 @@ const firebaseConfig = {
   measurementId: "G-RJY0FS3GPG"
 };
 
-// Inicializar Firebase
+// Inicializa Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = getAuth(app); // Autenticación
+const firestore = getFirestore(app); // Firestore
 
-export { auth, signInWithEmailAndPassword };
+export { auth, firestore };

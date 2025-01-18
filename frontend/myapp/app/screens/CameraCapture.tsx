@@ -5,19 +5,17 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 interface LoginProps {
     setCurrentScreen: (screen: string) => void;
-  }
+}
 
-const CameraCapture : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
+const CameraCapture: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
 
   if (!permission) {
-
     return <View />;
   }
 
   if (!permission.granted) {
-    
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionText}>Necesitamos tu permiso para mostrar la cámara</Text>
@@ -32,24 +30,34 @@ const CameraCapture : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   }
 
+  function goToChatbot() {
+    setCurrentScreen('Chat'); // Supone que 'Chat' es el nombre de la pantalla del chatbot
+  }
+
   return (
     <View style={styles.container}>
       <CameraView style={styles.camera} facing={facing}>
         <View style={styles.gridOverlay}>
           {/* Cuadrícula de guía */}
         </View>
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.controlButton}>
-            <MaterialIcons name="photo-library" size={32} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.captureButton} onPress={() => console.log('Capturar imagen')}>
-            <MaterialIcons name="camera-alt" size={32} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-            <MaterialIcons name="flip-camera-android" size={32} color="white" />
-          </TouchableOpacity>
-        </View>
       </CameraView>
+      <TouchableOpacity 
+        style={styles.captureButton} 
+        onPress={() => console.log('Capturar imagen')}
+      >
+        <MaterialIcons name="camera-alt" size={48} color="white" />
+      </TouchableOpacity>
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.controlButton}>
+          <MaterialIcons name="photo-library" size={32} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
+          <MaterialIcons name="flip-camera-android" size={32} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.chatbotButton} onPress={goToChatbot}>
+          <MaterialIcons name="chat" size={32} color="white" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -90,6 +98,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     opacity: 0.6,
   },
+  captureButton: {
+    position: 'absolute',
+    top: -35, // Posicionamos el botón fuera del pie de página, hacia arriba
+    left: '50%',
+    transform: [{ translateX: -35 }], // Centrado horizontalmente
+    backgroundColor: '#f57c00',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,  // Asegura que el botón esté encima de la cámara
+  },
   footer: {
     position: 'absolute',
     bottom: 0,
@@ -100,6 +121,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
+    borderTopLeftRadius: 35, // Curva superior izquierda
+    borderTopRightRadius: 35, // Curva superior derecha
+    paddingBottom: 50, // Ajustamos el espacio para que no se solapen los botones
   },
   controlButton: {
     backgroundColor: 'transparent',
@@ -108,15 +132,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  captureButton: {
-    backgroundColor: '#f57c00',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
+  chatbotButton: {
+    backgroundColor: 'transparent',
+    padding: 10,
+    borderRadius: 25,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  
 });
 
 export default CameraCapture;

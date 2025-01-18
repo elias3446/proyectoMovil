@@ -7,14 +7,15 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { auth, signInWithEmailAndPassword } from "../../Config/firebaseConfig";
+import { auth } from "../../Config/firebaseConfig";  // Importar auth desde el archivo firebaseConfig
+import { signInWithEmailAndPassword } from "firebase/auth";
 import NotificationBanner from "../../Components/NotificationBanner";
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const Login: React.FC<LoginProps> = ({ setCurrentScreen }) => {  // Recibe la función para cambiar de pantalla
+const Login: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,8 +23,8 @@ const Login: React.FC<LoginProps> = ({ setCurrentScreen }) => {  // Recibe la fu
   const [successMessage, setSuccessMessage] = useState("");
 
   const handleLogin = async () => {
-    setErrorMessage("");  
-    setSuccessMessage(""); 
+    setErrorMessage("");
+    setSuccessMessage("");
 
     if (email === "" || password === "") {
       setErrorMessage("Por favor, completa ambos campos.");
@@ -34,7 +35,8 @@ const Login: React.FC<LoginProps> = ({ setCurrentScreen }) => {  // Recibe la fu
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setSuccessMessage("Inicio de sesión exitoso");
-      //setTimeout(() => setCurrentScreen("Home"), 1500);  // Cambiar pantalla después de éxito
+      setCurrentScreen("CameraCapture")
+      //setTimeout(() => setCurrentScreen("CameraCapture"), 150);  // Cambiar pantalla después de éxito
     } catch (error: any) {
       setErrorMessage(error.message || "Credenciales incorrectas o problema de red.");
     } finally {
@@ -47,7 +49,7 @@ const Login: React.FC<LoginProps> = ({ setCurrentScreen }) => {  // Recibe la fu
       const timer = setTimeout(() => {
         setErrorMessage("");
         setSuccessMessage("");
-      }, 3000); 
+      }, 3000);
 
       return () => clearTimeout(timer);
     }
@@ -82,10 +84,10 @@ const Login: React.FC<LoginProps> = ({ setCurrentScreen }) => {  // Recibe la fu
           </View>
 
           <TouchableOpacity
-            style={styles.loginButton}
+            style={styles.loginButton} 
             onPress={handleLogin}
             disabled={loading}
-          >
+            >
             <Text style={styles.loginButtonText}>
               {loading ? "Cargando..." : "Iniciar sesión"}
             </Text>

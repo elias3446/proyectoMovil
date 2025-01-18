@@ -12,7 +12,7 @@ export default function Index() {
   const renderScreen = () => {
     switch (currentScreen) {
       case "Login":
-        return <Chat setCurrentScreen={setCurrentScreen} />;
+        return <Login setCurrentScreen={setCurrentScreen} />;
       case "Register":
         return <Register setCurrentScreen={setCurrentScreen} />;
       case "AccountRecovery":

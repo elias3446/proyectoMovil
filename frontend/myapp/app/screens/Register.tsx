@@ -1,29 +1,86 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, doc, setDoc } from "firebase/firestore";
+import NotificationBanner from "../../Components/NotificationBanner";
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const Register : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
+const Register: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [birthDay, setBirthDay] = useState("1");
   const [birthMonth, setBirthMonth] = useState("1");
   const [birthYear, setBirthYear] = useState("2025");
   const [gender, setGender] = useState("");
   const [pronoun, setPronoun] = useState("");
   const [customGender, setCustomGender] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
-    console.log("Registrando usuario...");
-    // Aquí puedes implementar el registro con Firebase o el backend que utilices
-  };
+  useEffect(() => {
+    if (errorMessage || successMessage) {
+      const timer = setTimeout(() => {
+        setErrorMessage("");
+        setSuccessMessage("");
+      }, 3000);
 
-  const handleCancel = () => {
-    console.log("Registro cancelado");
-    // Aquí puedes implementar la lógica para cancelar o limpiar el formulario
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage, successMessage]);
+
+  const handleRegister = async () => {
+    if (!email || !password || !firstName || !lastName || !birthDay || !birthMonth || !birthYear || !gender) {
+      setErrorMessage("Todos los campos son obligatorios, excepto 'Género (opcional)' en caso de 'Personalizado'.");
+      return;
+    }
+
+    if (gender === "O" && !pronoun) {
+      setErrorMessage("Por favor, selecciona un pronombre para el género personalizado.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const auth = getAuth();
+      const db = getFirestore();
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      const userData = {
+        firstName,
+        lastName,
+        email,
+        birthDay,
+        birthMonth,
+        birthYear,
+        gender,
+        pronoun: pronoun || (gender === "F" ? "Femenino" : gender === "M" ? "Masculino" : ""),
+        customGender,
+      };
+
+      await setDoc(doc(db, "users", user.uid), userData);
+
+      setSuccessMessage("Usuario registrado exitosamente y datos guardados en Firestore");
+      setCurrentScreen("Login");
+      //setTimeout(() => setCurrentScreen("Login"), 1500); 
+    } catch (error: any) {
+      setErrorMessage(`Error al registrar el usuario: ${error.message}`);
+      setLoading(false);
+    }
   };
 
   return (
@@ -32,7 +89,21 @@ const Register : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
         <Text style={styles.title}>Crea una cuenta</Text>
         <Text style={styles.subtitle}>Es rápido y fácil.</Text>
 
-        {/* Nombre y Apellido */}
+        <TextInput
+          style={styles.input}
+          placeholder="Correo electrónico"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+
         <View style={styles.row}>
           <TextInput
             style={[styles.input, styles.inputHalf]}
@@ -48,7 +119,6 @@ const Register : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
           />
         </View>
 
-        {/* Fecha de nacimiento */}
         <Text style={styles.label}>Fecha de nacimiento</Text>
         <View style={styles.row}>
           <Picker
@@ -84,12 +154,14 @@ const Register : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
           </Picker>
         </View>
 
-        {/* Género */}
         <Text style={styles.label}>Género</Text>
         <Picker
           selectedValue={gender}
           style={styles.picker}
-          onValueChange={(itemValue) => setGender(itemValue)}
+          onValueChange={(itemValue) => {
+            setGender(itemValue);
+            if (itemValue !== "O") setPronoun("");
+          }}
         >
           <Picker.Item label="Selecciona tu género" value="" />
           <Picker.Item label="Mujer" value="F" />
@@ -97,7 +169,6 @@ const Register : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
           <Picker.Item label="Personalizado" value="O" />
         </Picker>
 
-        {/* Pronombres y género personalizado */}
         {gender === "O" && (
           <>
             <Text style={styles.label}>Selecciona tu pronombre</Text>
@@ -123,19 +194,18 @@ const Register : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
           </>
         )}
 
-        {/* Botones de registro y cancelar */}
         <View style={[styles.row, styles.buttonRow]}>
           <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setCurrentScreen("Login")}>
             <Text style={styles.cancelButtonText}>Cancelar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.registerButton]} >
-            <Text style={styles.registerButtonText}>Registrar</Text>
+          <TouchableOpacity style={[styles.button, styles.registerButton]} onPress={handleRegister} disabled={loading}> 
+            <Text style={styles.registerButtonText}>{loading ? "Cargando..." : "Registrar"}</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Si deseas navegar después del registro */}
-        {/* navigation.navigate('Home'); */}
       </View>
+
+      <NotificationBanner message={errorMessage} type="error" />
+      <NotificationBanner message={successMessage} type="success" />
     </ScrollView>
   );
 };

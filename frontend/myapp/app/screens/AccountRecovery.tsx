@@ -1,45 +1,88 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+} from "react-native";
+import { auth } from "../../Config/firebaseConfig";  // Asegúrate de importar correctamente
+import { sendPasswordResetEmail } from "firebase/auth";
+import NotificationBanner from "../../Components/NotificationBanner";
 
 interface LoginProps {
-    setCurrentScreen: (screen: string) => void;
-  }
+  setCurrentScreen: (screen: string) => void;
+}
 
-const AccountRecovery : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
+const AccountRecovery: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [emailOrPhone, setEmailOrPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSubmit = () => {
-    console.log("Buscando cuenta con:", emailOrPhone);
+  const handleSubmit = async () => {
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (emailOrPhone === "") {
+      setErrorMessage("Por favor, ingresa tu correo electrónico.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, emailOrPhone);
+      setSuccessMessage("Correo de recuperación enviado exitosamente.");
+      setTimeout(() => setCurrentScreen("Login"), 1500);
+    } catch (error: any) {
+      setErrorMessage(error.message || "Error al enviar el correo de recuperación.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    if (errorMessage || successMessage) {
+      const timer = setTimeout(() => {
+        setErrorMessage("");
+        setSuccessMessage("");
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage, successMessage]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Formulario de Recuperación */}
       <View style={styles.formContainer}>
         <Text style={styles.title}>Recupera tu cuenta</Text>
         <Text style={styles.instruction}>
-          Ingresa tu correo electrónico o número de celular para buscar tu cuenta.
+          Ingresa tu correo electrónico para buscar tu cuenta.
         </Text>
         <TextInput
           style={styles.input}
-          placeholder="Correo electrónico o número de celular"
+          placeholder="Correo electrónico"
           value={emailOrPhone}
           onChangeText={setEmailOrPhone}
           keyboardType="email-address"
           autoFocus={true}
         />
 
-        {/* Botones de acción */}
         <View style={styles.footer}>
           <TouchableOpacity style={styles.cancelButton} onPress={() => setCurrentScreen("Login")}>
             <Text style={styles.cancelButtonText}>Cancelar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Buscar</Text>
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
+            <Text style={styles.submitButtonText}>
+              {loading ? "Cargando..." : "Buscar"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      <NotificationBanner message={errorMessage} type="error" />
+      <NotificationBanner message={successMessage} type="success" />
     </ScrollView>
   );
 };
@@ -114,15 +157,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
-  },
-  footerTextContainer: {
-    marginTop: 20,
-    alignItems: "center",
-  },
-  footerText: {
-    color: "#666",
-    textAlign: "center",
-    fontSize: 14,
   },
 });
 

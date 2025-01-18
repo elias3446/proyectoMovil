@@ -11,52 +11,81 @@ const Chat: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     id: string;
     text: string;
     sender: string;
+    isSending?: boolean; // Estado de si el mensaje está siendo enviado
   }
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
-  
+  const [loading, setLoading] = useState(false);  // Estado para el loading
+  const [error, setError] = useState('');  // Estado para errores
+
   // Ref para controlar el desplazamiento del FlatList
   const flatListRef = useRef<FlatList>(null);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (messageText.trim()) {
-      const userMessage = { id: Date.now().toString(), text: messageText, sender: 'me' };
-      setMessages((prevMessages) => {
-        const updatedMessages = [...prevMessages, userMessage];
-        // Generar respuesta automática después de cada mensaje enviado por el usuario
-        const systemResponse = {
-          id: Date.now().toString(),
-          text: getResponseMessage(messageText),
-          sender: 'other',
-        };
-        return [...updatedMessages, systemResponse];
-      });
+      // Crear mensaje con estado de "enviando" para el bot
+      const userMessage = { 
+        id: `user-${Date.now()}`, 
+        text: messageText, 
+        sender: 'me'
+      };
+
+      const systemMessage = { 
+        id: `bot-${Date.now()}`, 
+        text: '', // Estará vacío inicialmente
+        sender: 'other',
+        isSending: true // El bot está enviando una respuesta
+      };
+
+      setMessages((prevMessages) => [...prevMessages, userMessage, systemMessage]);
       setMessageText('');
 
-      // Desplazar automáticamente hacia el final después de agregar un mensaje
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  };
+      setLoading(true);
+      setError('');  // Limpiar errores si los hubiera
 
-  const getResponseMessage = (userInput: string) => {
-    // Respuestas automáticas básicas según el texto del usuario
-    if (userInput.toLowerCase().includes('hola')) {
-      return '¡Hola! ¿Cómo estás?';
+      try {
+        const response = await fetch('https://chatapi-la39.onrender.com/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ mensaje: messageText }),  // El mensaje que se va a enviar
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al comunicarse con el servidor');
+        }
+
+        const data = await response.json();
+        const botResponse = {
+          id: `bot-${Date.now()}`,  // Nuevo ID único para el mensaje del bot
+          text: data.respuesta || 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?',
+          sender: 'other',
+          isSending: false // El mensaje del bot ya fue recibido
+        };
+
+        setMessages((prevMessages) => {
+          // Actualizamos el mensaje del bot, eliminando el estado de "enviando"
+          const updatedMessages = prevMessages.map((msg) =>
+            msg.id === systemMessage.id ? { ...msg, isSending: false, text: botResponse.text } : msg
+          );
+          return [...updatedMessages];
+        });
+      } catch (error) {
+        console.error(error);
+        setError('No se pudo obtener respuesta del servidor');
+      } finally {
+        setLoading(false);  // Desactivar el loading
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
     }
-    if (userInput.toLowerCase().includes('bien')) {
-      return 'Me alegra saber que estás bien. ¿En qué te puedo ayudar?';
-    }
-    if (userInput.toLowerCase().includes('adiós')) {
-      return '¡Hasta pronto! Que tengas un buen día.';
-    }
-    return 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?';
   };
 
   const handleRecord = () => {
-    // Implement the recording functionality here
+    // Implementar la funcionalidad de grabación aquí
     console.log('Recording...');
   };
 
@@ -65,7 +94,12 @@ const Chat: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
     return (
       <View style={[styles.messageBubble, isMyMessage ? styles.myMessage : styles.otherMessage]}>
-        <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>{item.text}</Text>
+        <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
+          {item.isSending ? '...' : item.text}
+        </Text>
+        {item.isSending && !isMyMessage ? (  // Los puntos de carga solo se muestran en el mensaje del bot
+          <Text style={styles.loadingText}>...</Text>
+        ) : null}
       </View>
     );
   };
@@ -83,6 +117,7 @@ const Chat: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <Text style={styles.contactName}>Contacto</Text>
       </View>
 
+      {/* Messages */}
       <FlatList
         ref={flatListRef} // Asignar la referencia al FlatList
         data={messages}
@@ -90,6 +125,11 @@ const Chat: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesContainer}
       />
+
+      {/* Error Message */}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {/* Input and Send Button */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -97,7 +137,7 @@ const Chat: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           value={messageText}
           onChangeText={setMessageText}
         />
-        <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
+        <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={loading}>
           <MaterialIcons name="send" size={24} color="white" />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleRecord} style={styles.micButton}>
@@ -172,6 +212,11 @@ const styles = StyleSheet.create({
   myMessageText: {
     color: '#fff',
   },
+  loadingText: {
+    fontSize: 16,
+    color: '#000',
+    marginTop: 5, // Ajuste de espacio para los puntos
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -208,6 +253,11 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  error: {
+    color: 'red',
+    marginTop: 10,
+    textAlign: 'center',
   },
 });
 

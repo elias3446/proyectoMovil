@@ -4,6 +4,7 @@ from modelo.procesar_imagen import upload_to_gemini
 from modelo.chatbot import interactuar_con_gemini
 import google.generativeai as genai
 from dotenv import load_dotenv
+from flask_cors import CORS  # Importar CORS
 
 # Cargar variables de entorno
 load_dotenv()
@@ -31,6 +32,9 @@ model = genai.GenerativeModel(
 )
 
 app = Flask(__name__)
+
+# Habilitar CORS para todas las rutas
+CORS(app)  # Esto habilita CORS para todas las rutas
 
 # Función auxiliar para eliminar archivos temporales
 def clean_temp_file(file_path):

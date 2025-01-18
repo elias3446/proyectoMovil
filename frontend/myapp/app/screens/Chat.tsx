@@ -1,39 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 interface LoginProps {
-    setCurrentScreen: (screen: string) => void;
-  }
+  setCurrentScreen: (screen: string) => void;
+}
 
-const Chat : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
-  const [messages, setMessages] = useState([
-    { id: '1', text: 'Hola, ¿cómo estás?', sender: 'other' },
-    { id: '2', text: '¡Hola! Estoy bien, ¿y tú?', sender: 'me' },
-    // Más mensajes de ejemplo...
-  ]);
-  const [messageText, setMessageText] = useState('');
-
-  const sendMessage = () => {
-    if (messageText.trim()) {
-      setMessages([...messages, { id: Date.now().toString(), text: messageText, sender: 'me' }]);
-      setMessageText('');
-    }
-  };
-
-  const handleRecord = () => {
-    // Lógica para el micrófono, como grabar audio
-    console.log('Iniciando grabación...');
-  };
-
+const Chat: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   interface Message {
     id: string;
     text: string;
     sender: string;
   }
 
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messageText, setMessageText] = useState('');
+  
+  // Ref para controlar el desplazamiento del FlatList
+  const flatListRef = useRef<FlatList>(null);
+
+  const sendMessage = () => {
+    if (messageText.trim()) {
+      const userMessage = { id: Date.now().toString(), text: messageText, sender: 'me' };
+      setMessages((prevMessages) => {
+        const updatedMessages = [...prevMessages, userMessage];
+        // Generar respuesta automática después de cada mensaje enviado por el usuario
+        const systemResponse = {
+          id: Date.now().toString(),
+          text: getResponseMessage(messageText),
+          sender: 'other',
+        };
+        return [...updatedMessages, systemResponse];
+      });
+      setMessageText('');
+
+      // Desplazar automáticamente hacia el final después de agregar un mensaje
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
+
+  const getResponseMessage = (userInput: string) => {
+    // Respuestas automáticas básicas según el texto del usuario
+    if (userInput.toLowerCase().includes('hola')) {
+      return '¡Hola! ¿Cómo estás?';
+    }
+    if (userInput.toLowerCase().includes('bien')) {
+      return 'Me alegra saber que estás bien. ¿En qué te puedo ayudar?';
+    }
+    if (userInput.toLowerCase().includes('adiós')) {
+      return '¡Hasta pronto! Que tengas un buen día.';
+    }
+    return 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?';
+  };
+
+  const handleRecord = () => {
+    // Implement the recording functionality here
+    console.log('Recording...');
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender === 'me';
+
     return (
       <View style={[styles.messageBubble, isMyMessage ? styles.myMessage : styles.otherMessage]}>
         <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>{item.text}</Text>
@@ -45,19 +74,17 @@ const Chat : React.FC<LoginProps> = ({ setCurrentScreen }) =>{
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setCurrentScreen("CameraCapture")}>
+        <TouchableOpacity onPress={() => setCurrentScreen('CameraCapture')}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <View style={styles.avatarContainer}>
-          <Image
-            source={{ uri: 'https://via.placeholder.com/40' }}
-            style={styles.avatar}
-          />
+          <Image source={{ uri: 'https://via.placeholder.com/40' }} style={styles.avatar} />
         </View>
         <Text style={styles.contactName}>Contacto</Text>
       </View>
-      
+
       <FlatList
+        ref={flatListRef} // Asignar la referencia al FlatList
         data={messages}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
@@ -123,7 +150,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginVertical: 5,
     borderRadius: 8,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -151,7 +178,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 15,
     borderRadius: 8,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,

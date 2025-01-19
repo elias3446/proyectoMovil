@@ -1,27 +1,26 @@
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
+import { AntDesign } from '@expo/vector-icons';
+import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
+import { useRef, useState } from 'react';
+import { Button, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-interface LoginProps {
-    setCurrentScreen: (screen: string) => void;
-}
-
-const CameraCapture: React.FC<LoginProps> = ({ setCurrentScreen }) => {
+export default function Camera() {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
+  const [photo, setPhoto] = useState<any>(null);
+  const cameraRef = useRef<CameraView | null>(null);
 
   if (!permission) {
+    // Camera permissions are still loading.
     return <View />;
   }
 
   if (!permission.granted) {
+    // Camera permissions are not granted yet.
     return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>Necesitamos tu permiso para mostrar la cámara</Text>
-        <TouchableOpacity onPress={requestPermission} style={styles.permissionButton}>
-          <Text style={styles.permissionButtonText}>Conceder permiso</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <Text style={{ textAlign: 'center' }}>We need your permission to show the camera</Text>
+        <Button onPress={requestPermission} title="grant permission" />
       </View>
     );
   }
@@ -30,115 +29,64 @@ const CameraCapture: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   }
 
-  function goToChatbot() {
-    setCurrentScreen('Chat'); // Supone que 'Chat' es el nombre de la pantalla del chatbot
-  }
+  const handleTakePhoto =  async () => {
+    if (cameraRef.current) {
+        const options = {
+            quality: 1,
+            base64: true,
+            exif: false,
+        };
+        const takedPhoto = await cameraRef.current.takePictureAsync(options);
+        console.log(takedPhoto);  // Verifica los datos de la foto
+        setPhoto(takedPhoto);
+    }
+  };
+
+  const handleRetakePhoto = () => setPhoto(null);
+
+  if (photo) return <PhotoPreviewSection photo={photo} handleRetakePhoto={handleRetakePhoto} />;
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing}>
-        <View style={styles.gridOverlay}>
-          {/* Cuadrícula de guía */}
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.button} onPress={toggleCameraFacing}>
+            <AntDesign name='retweet' size={44} color='black' />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={handleTakePhoto}>
+            <AntDesign name='camera' size={44} color='black' />
+          </TouchableOpacity>
         </View>
       </CameraView>
-      <TouchableOpacity 
-        style={styles.captureButton} 
-        onPress={() => console.log('Capturar imagen')}
-      >
-        <MaterialIcons name="camera-alt" size={48} color="white" />
-      </TouchableOpacity>
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.controlButton}>
-          <MaterialIcons name="photo-library" size={32} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-          <MaterialIcons name="flip-camera-android" size={32} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.chatbotButton} onPress={goToChatbot}>
-          <MaterialIcons name="chat" size={32} color="white" />
-        </TouchableOpacity>
-      </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2b9e82',
     justifyContent: 'center',
-  },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  permissionText: {
-    textAlign: 'center',
-    marginBottom: 20,
-    fontSize: 16,
-    color: '#fff',
-  },
-  permissionButton: {
-    backgroundColor: '#4caf50',
-    padding: 10,
-    borderRadius: 5,
-  },
-  permissionButtonText: {
-    color: 'white',
-    fontSize: 16,
   },
   camera: {
     flex: 1,
   },
-  gridOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderColor: 'white',
-    borderWidth: 1,
-    opacity: 0.6,
-  },
-  captureButton: {
-    position: 'absolute',
-    top: -35, // Posicionamos el botón fuera del pie de página, hacia arriba
-    left: '50%',
-    transform: [{ translateX: -35 }], // Centrado horizontalmente
-    backgroundColor: '#f57c00',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,  // Asegura que el botón esté encima de la cámara
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#007f5f',
-    paddingVertical: 15,
+  buttonContainer: {
+    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    borderTopLeftRadius: 35, // Curva superior izquierda
-    borderTopRightRadius: 35, // Curva superior derecha
-    paddingBottom: 50, // Ajustamos el espacio para que no se solapen los botones
-  },
-  controlButton: {
     backgroundColor: 'transparent',
-    padding: 10,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
+    margin: 64,
   },
-  chatbotButton: {
-    backgroundColor: 'transparent',
-    padding: 10,
-    borderRadius: 25,
+  button: {
+    flex: 1,
+    alignSelf: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginHorizontal: 10,
+    backgroundColor: 'gray',
+    borderRadius: 10,
+  },
+  text: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
   },
 });
-
-export default CameraCapture;

@@ -63,7 +63,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   const sendImageToAPI = async (imageUri: string) => {
     try {
-      const response = await fetch('http://127.0.0.1:5000/process_image', {
+      const response = await fetch('https://chatapi-la39.onrender.com/process_image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

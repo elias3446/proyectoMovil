@@ -1,56 +1,108 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
-interface LoginProps {
+interface Message {
+  id: string;
+  text: string;
+  sender: string;
+  timestamp: number;
+  isSending?: boolean;
+}
+
+interface ChatProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
-  interface Message {
-    id: string;
-    text: string;
-    sender: string;
-    isSending?: boolean; // Estado de si el mensaje está siendo enviado
-  }
+const ChatScreen: React.FC<ChatProps> = ({ setCurrentScreen }) => {
+  const [session, setSession] = useState({
+    messages: [] as Message[],
+    history: [] as { role: string; content: string }[],
+    loading: false,
+    error: '',
+  });
 
-  const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
-  const [loading, setLoading] = useState(false);  // Estado para el loading
-  const [error, setError] = useState('');  // Estado para errores
-
-  // Ref para controlar el desplazamiento del FlatList
   const flatListRef = useRef<FlatList>(null);
+
+  const auth = getAuth();
+  const db = getFirestore();
+
+  const userId = auth.currentUser?.uid;
+  const chatDocRef = userId ? doc(db, 'chats', userId) : null;
+
+  // Cargar el chat completo desde Firestore
+  useEffect(() => {
+    if (chatDocRef) {
+      const unsubscribe = onSnapshot(chatDocRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const chatData = docSnapshot.data();
+          setSession({
+            messages: chatData.messages || [],
+            history: chatData.history || [],
+            loading: false,
+            error: '',
+          });
+        }
+      });
+
+      return () => unsubscribe();
+    }
+  }, [chatDocRef]);
+
+  const saveChatToFirestore = async (updatedSession: typeof session) => {
+    if (chatDocRef) {
+      await setDoc(chatDocRef, {
+        messages: updatedSession.messages,
+        history: updatedSession.history,
+      });
+    }
+  };
 
   const sendMessage = async () => {
     if (messageText.trim()) {
-      // Crear mensaje con estado de "enviando" para el bot
-      const userMessage = { 
-        id: `user-${Date.now()}`, 
-        text: messageText, 
-        sender: 'me'
+      const userMessage: Message = {
+        id: `user-${Date.now()}`,
+        text: messageText,
+        sender: 'me',
+        timestamp: Date.now(),
       };
 
-      const systemMessage = { 
-        id: `bot-${Date.now()}`, 
-        text: '', // Estará vacío inicialmente
+      const systemMessage: Message = {
+        id: `bot-${Date.now()}`,
+        text: '',
         sender: 'other',
-        isSending: true // El bot está enviando una respuesta
+        isSending: true,
+        timestamp: Date.now(),
       };
 
-      setMessages((prevMessages) => [...prevMessages, userMessage, systemMessage]);
-      setMessageText('');
+      // Actualizar estado local
+      const updatedSession = {
+        ...session,
+        messages: [...session.messages, userMessage, systemMessage],
+        history: [...session.history, { role: 'user', content: messageText }],
+        loading: true,
+        error: '',
+      };
+      setSession(updatedSession);
 
-      setLoading(true);
-      setError('');  // Limpiar errores si los hubiera
+      // Guardar chat actualizado en Firestore
+      await saveChatToFirestore(updatedSession);
+
+      setMessageText(''); // Limpiar el campo de texto
 
       try {
-        const response = await fetch('https://chatapi-la39.onrender.com/chat', {
+        const response = await fetch('http://127.0.0.1:5000/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ mensaje: messageText }),  // El mensaje que se va a enviar
+          body: JSON.stringify({
+            mensaje: messageText,
+            historial: updatedSession.history,
+          }),
         });
 
         if (!response.ok) {
@@ -58,35 +110,39 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         }
 
         const data = await response.json();
-        const botResponse = {
-          id: `bot-${Date.now()}`,  // Nuevo ID único para el mensaje del bot
+        const botResponse: Message = {
+          id: `bot-${Date.now()}`,
           text: data.respuesta || 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?',
           sender: 'other',
-          isSending: false // El mensaje del bot ya fue recibido
+          isSending: false,
+          timestamp: Date.now(),
         };
 
-        setMessages((prevMessages) => {
-          // Actualizamos el mensaje del bot, eliminando el estado de "enviando"
-          const updatedMessages = prevMessages.map((msg) =>
+        // Actualizar el chat con la respuesta del bot
+        const finalSession = {
+          ...updatedSession,
+          messages: updatedSession.messages.map((msg) =>
             msg.id === systemMessage.id ? { ...msg, isSending: false, text: botResponse.text } : msg
-          );
-          return [...updatedMessages];
-        });
+          ),
+          history: [...updatedSession.history, { role: 'assistant', content: botResponse.text }],
+        };
+
+        setSession(finalSession);
+        await saveChatToFirestore(finalSession);
+
       } catch (error) {
         console.error(error);
-        setError('No se pudo obtener respuesta del servidor');
+        setSession((prevSession) => ({
+          ...prevSession,
+          error: 'No se pudo obtener respuesta del servidor',
+          loading: false,
+        }));
       } finally {
-        setLoading(false);  // Desactivar el loading
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
       }
     }
-  };
-
-  const handleRecord = () => {
-    // Implementar la funcionalidad de grabación aquí
-    console.log('Recording...');
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
@@ -97,9 +153,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
           {item.isSending ? '...' : item.text}
         </Text>
-        {item.isSending && !isMyMessage ? (  // Los puntos de carga solo se muestran en el mensaje del bot
-          <Text style={styles.loadingText}>...</Text>
-        ) : null}
+        {item.isSending && !isMyMessage ? <Text style={styles.loadingText}>...</Text> : null}
       </View>
     );
   };
@@ -119,15 +173,15 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
       {/* Messages */}
       <FlatList
-        ref={flatListRef} // Asignar la referencia al FlatList
-        data={messages}
+        ref={flatListRef}
+        data={session.messages}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesContainer}
       />
 
       {/* Error Message */}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {session.error ? <Text style={styles.error}>{session.error}</Text> : null}
 
       {/* Input and Send Button */}
       <View style={styles.inputContainer}>
@@ -137,11 +191,8 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           value={messageText}
           onChangeText={setMessageText}
         />
-        <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={loading}>
+        <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={session.loading}>
           <MaterialIcons name="send" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleRecord} style={styles.micButton}>
-          <MaterialIcons name="mic" size={24} color="#00796b" />
         </TouchableOpacity>
       </View>
     </View>
@@ -215,7 +266,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#000',
-    marginTop: 5, // Ajuste de espacio para los puntos
+    marginTop: 5,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -243,14 +294,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1877f2',
     padding: 10,
     borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  micButton: {
-    marginLeft: 10,
-    backgroundColor: '#e0f2f1', // Color de fondo del micrófono
-    padding: 10,
-    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },

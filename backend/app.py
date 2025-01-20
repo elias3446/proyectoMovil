@@ -6,7 +6,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from flask_cors import CORS  # Importar CORS
 import base64
-import io
+from io import BytesIO
 from PIL import Image
 
 # Cargar variables de entorno
@@ -44,12 +44,35 @@ def clean_temp_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
 
-# Ruta para procesar imágenes
-import base64
-from io import BytesIO
-from PIL import Image
+# Función auxiliar para procesar imágenes base64
+def process_base64_image(data):
+    # Eliminar el prefijo "data:image/png;base64," o "data:image/jpeg;base64,"
+    prefix_png = "data:image/png;base64,"
+    prefix_jpeg = "data:image/jpeg;base64,"
+    if data.startswith(prefix_png):
+        data = data[len(prefix_png):]
+    elif data.startswith(prefix_jpeg):
+        data = data[len(prefix_jpeg):]
 
-# Ruta modificada para procesar imágenes en formato base64
+    # Decodificar la cadena base64
+    image_data = base64.b64decode(data)
+
+    # Crear una imagen desde los datos binarios decodificados
+    return Image.open(BytesIO(image_data))
+
+# Función auxiliar para interactuar con el modelo Gemini
+def interact_with_model(uploaded_file, message="¿Qué ves en esta imagen?", history=None):
+    # Si hay un historial de chat, incluirlo
+    if history is None:
+        history = [{"role": "user", "parts": [uploaded_file, message]}]
+    
+    # Iniciar la sesión con el historial y el mensaje
+    chat_session = model.start_chat(history=history)
+    response = chat_session.send_message(message)
+
+    return response.text
+
+# Ruta para procesar imágenes
 @app.route('/process_image', methods=['POST'])
 def process_image():
     data = request.json.get("image")
@@ -58,42 +81,24 @@ def process_image():
         return jsonify({'error': 'No se encontró imagen en base64'}), 400
 
     try:
-        # Eliminar el prefijo "data:image/png;base64," de la cadena
-        if data.startswith("data:image/png;base64,"):
-            data = data[len("data:image/png;base64,"):]
-        elif data.startswith("data:image/jpeg;base64,"):
-            data = data[len("data:image/jpeg;base64,"):]
-
-        # Decodificar la cadena base64
-        image_data = base64.b64decode(data)
-
-        # Crear una imagen desde los datos binarios decodificados
-        image = Image.open(BytesIO(image_data))
+        # Procesar la imagen
+        image = process_base64_image(data)
 
         # Guardar la imagen como un archivo temporal
         temp_file_path = os.path.join('temp', 'uploaded_image.png')
         os.makedirs('temp', exist_ok=True)
         image.save(temp_file_path)
 
-        # Procesar la imagen con Gemini (el mismo flujo que antes)
+        # Subir la imagen a Gemini
         uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
         
-        chat_session = model.start_chat(
-            history=[{
-                "role": "user",
-                "parts": [
-                    uploaded_file,
-                    "¿Que vez en esta imagen?"
-                ],
-            }]
-        )
+        # Interactuar con el modelo utilizando la función común
+        response = interact_with_model(uploaded_file)
 
-        response = chat_session.send_message("¿Que hay en la imagen?")
-        
         # Limpiar el archivo temporal
         clean_temp_file(temp_file_path)
 
-        return jsonify({'respuesta': response.text})
+        return jsonify({'respuesta': response})
 
     except Exception as e:
         return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
@@ -102,14 +107,26 @@ def process_image():
 @app.route('/chat', methods=['POST'])
 def chat():
     entrada = request.json.get("mensaje")
+    historial = request.json.get("historial")  # Historial completo del chat
+
     if not entrada:
         return jsonify({'error': 'No se proporcionó un mensaje'}), 400
 
     try:
-        respuesta = interactuar_con_gemini(model, entrada)
-        return jsonify({'respuesta': respuesta})
+        # Función auxiliar para formatear el historial
+        def format_history(historial):
+            return [{"role": msg["role"], "parts": [{"text": msg["content"]}]} for msg in historial]
+
+        # Formatear el historial
+        formatted_history = format_history(historial)
+
+        # Interactuar con el modelo utilizando la función común
+        response = interact_with_model(uploaded_file=None, message=entrada, history=formatted_history)
+
+        return jsonify({'respuesta': response})
     except Exception as e:
         return jsonify({'error': f'Error al generar respuesta: {str(e)}'}), 500
+
 
 if __name__ == "__main__":
     # Render proporciona el puerto en la variable de entorno PORT

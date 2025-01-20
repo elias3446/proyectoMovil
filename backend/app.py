@@ -5,6 +5,9 @@ from modelo.chatbot import interactuar_con_gemini
 import google.generativeai as genai
 from dotenv import load_dotenv
 from flask_cors import CORS  # Importar CORS
+import base64
+import io
+from PIL import Image
 
 # Cargar variables de entorno
 load_dotenv()
@@ -44,18 +47,22 @@ def clean_temp_file(file_path):
 # Ruta para procesar imágenes
 @app.route('/process_image', methods=['POST'])
 def process_image():
-    if 'image' not in request.files:
-        return jsonify({'error': 'No se encontró archivo de imagen'}), 400
+    data = request.json.get('image_base64')
+    if not data:
+        return jsonify({'error': 'No se proporcionó una imagen en formato base64'}), 400
 
-    image_file = request.files['image']
-    if image_file.filename == '':
-        return jsonify({'error': 'No se seleccionó un archivo de imagen'}), 400
-
-    temp_file_path = os.path.join('temp', image_file.filename)
-    os.makedirs('temp', exist_ok=True)
-    
     try:
-        image_file.save(temp_file_path)
+        image_data = base64.b64decode(data)
+        image = Image.open(io.BytesIO(image_data))
+
+        # Convertir a RGB si la imagen tiene un canal alfa (RGBA)
+        if image.mode == 'RGBA':
+            image = image.convert('RGB')
+
+        temp_file_path = os.path.join('temp', 'uploaded_image.jpg')
+        os.makedirs('temp', exist_ok=True)
+        image.save(temp_file_path, format='JPEG')
+
         uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/jpg")
         
         chat_session = model.start_chat(

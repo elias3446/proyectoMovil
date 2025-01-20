@@ -45,44 +45,58 @@ def clean_temp_file(file_path):
         os.remove(file_path)
 
 # Ruta para procesar imágenes
+import base64
+from io import BytesIO
+from PIL import Image
+
+# Ruta modificada para procesar imágenes en formato base64
 @app.route('/process_image', methods=['POST'])
 def process_image():
-    data = request.json.get('image_base64')
+    data = request.json.get("image")
+    
     if not data:
-        return jsonify({'error': 'No se proporcionó una imagen en formato base64'}), 400
+        return jsonify({'error': 'No se encontró imagen en base64'}), 400
 
     try:
+        # Eliminar el prefijo "data:image/png;base64," de la cadena
+        if data.startswith("data:image/png;base64,"):
+            data = data[len("data:image/png;base64,"):]
+        elif data.startswith("data:image/jpeg;base64,"):
+            data = data[len("data:image/jpeg;base64,"):]
+
+        # Decodificar la cadena base64
         image_data = base64.b64decode(data)
-        image = Image.open(io.BytesIO(image_data))
 
-        # Convertir a RGB si la imagen tiene un canal alfa (RGBA)
-        if image.mode == 'RGBA':
-            image = image.convert('RGB')
+        # Crear una imagen desde los datos binarios decodificados
+        image = Image.open(BytesIO(image_data))
 
-        temp_file_path = os.path.join('temp', 'uploaded_image.jpg')
+        # Guardar la imagen como un archivo temporal
+        temp_file_path = os.path.join('temp', 'uploaded_image.png')
         os.makedirs('temp', exist_ok=True)
-        image.save(temp_file_path, format='JPEG')
+        image.save(temp_file_path)
 
-        uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/jpg")
+        # Procesar la imagen con Gemini (el mismo flujo que antes)
+        uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
         
         chat_session = model.start_chat(
-            history=[
-                {
-                    "role": "user",
-                    "parts": [
-                        uploaded_file,
-                        "¿Sabes qué planta es esta? ¿Qué enfermedad tiene?",
-                    ],
-                }
-            ]
+            history=[{
+                "role": "user",
+                "parts": [
+                    uploaded_file,
+                    "¿Que vez en esta imagen?"
+                ],
+            }]
         )
 
-        response = chat_session.send_message("¿Cómo puedo cuidar esta planta?")
+        response = chat_session.send_message("¿Que hay en la imagen?")
+        
+        # Limpiar el archivo temporal
+        clean_temp_file(temp_file_path)
+
         return jsonify({'respuesta': response.text})
+
     except Exception as e:
         return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
-    finally:
-        clean_temp_file(temp_file_path)
 
 # Ruta para el chat normal
 @app.route('/chat', methods=['POST'])

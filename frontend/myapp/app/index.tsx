@@ -12,7 +12,7 @@ export default function Index() {
   const renderScreen = () => {
     switch (currentScreen) {
       case "LoginScreen":
-        return <LoginScreen setCurrentScreen={setCurrentScreen} />;
+        return <CameraCaptureScreen setCurrentScreen={setCurrentScreen} />;
       case "RegisterScreen":
         return <RegisterScreen setCurrentScreen={setCurrentScreen} />;
       case "AccountRecoveryScreen":

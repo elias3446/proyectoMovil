@@ -1,28 +1,28 @@
 import React, { useState } from "react";
 import { View, Text } from "react-native";
-import Login from "./screens/Login";
-import Register from "./screens/Register";
-import AccountRecovery from "./screens/AccountRecovery";
-import CameraCapture from "./screens/CameraCapture";
-import Chat from "./screens/Chat";
+import LoginScreen from "./screens/LoginScreen";
+import RegisterScreen from "./screens/RegisterScreen";
+import AccountRecoveryScreen from "./screens/AccountRecoveryScreen";
+import CameraCaptureScreen from "./screens/CameraCaptureScreen";
+import ChatScreen from "./screens/ChatScreen";
 
 export default function Index() {
-  const [currentScreen, setCurrentScreen] = useState("Login");
+  const [currentScreen, setCurrentScreen] = useState("LoginScreen");
 
   const renderScreen = () => {
     switch (currentScreen) {
-      case "Login":
-        return <Login setCurrentScreen={setCurrentScreen} />;
-      case "Register":
-        return <Register setCurrentScreen={setCurrentScreen} />;
-      case "AccountRecovery":
-        return <AccountRecovery setCurrentScreen={setCurrentScreen} />;
-      case "CameraCapture":
-        return <CameraCapture setCurrentScreen={setCurrentScreen} />;
-      case "Chat":
-        return <Chat setCurrentScreen={setCurrentScreen} />;
+      case "LoginScreen":
+        return <CameraCaptureScreen setCurrentScreen={setCurrentScreen} />;
+      case "RegisterScreen":
+        return <RegisterScreen setCurrentScreen={setCurrentScreen} />;
+      case "AccountRecoveryScreen":
+        return <AccountRecoveryScreen setCurrentScreen={setCurrentScreen} />;
+      case "CameraCaptureScreen":
+        return <CameraCaptureScreen setCurrentScreen={setCurrentScreen} />;
+      case "ChatScreen":
+        return <ChatScreen setCurrentScreen={setCurrentScreen} />;
       default:
-        return <Login setCurrentScreen={setCurrentScreen} />;
+        return <LoginScreen setCurrentScreen={setCurrentScreen} />;
     }
   };
 

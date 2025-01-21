@@ -50,42 +50,12 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       };
       const takedPhoto = await cameraRef.current.takePictureAsync(options);
       if (takedPhoto) {
-        sendImageToAPI(takedPhoto.uri);
         setPhoto(takedPhoto);
-        
-        // Enviar la URI a la API justo después de tomar la foto
-        
       } else {
         setErrorMessage("Error taking photo");
       }
     }
   };
-
-  const sendImageToAPI = async (imageUri: string) => {
-    try {
-      const response = await fetch('https://chatapi-la39.onrender.com/process_image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: imageUri, // Pasamos la URI de la imagen como parámetro
-        }),
-      });
-  
-      const data = await response.json(); // Suponiendo que la API devuelve un objeto
-      console.log('Image sent successfully:', data);
-  
-      // Verifica si la respuesta contiene la propiedad 'respuesta' antes de renderizarla
-      if (data.respuesta) {
-        setErrorMessage(data.respuesta); // Asumiendo que quieres mostrar la propiedad 'respuesta' de la API
-      }
-    } catch (error) {
-      console.error('Error sending image:', error);
-      setErrorMessage('Error sending image to the server');
-    }
-  };
-  
 
   const handleRetakePhoto = () => setPhoto(null);
 
@@ -93,7 +63,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     setCurrentScreen('ChatScreen');
   };
 
-  if (photo) return <PhotoPreviewSection photo={photo} handleRetakePhoto={handleRetakePhoto} />;
+  if (photo) return <PhotoPreviewSection photo={photo} handleRetakePhoto={handleRetakePhoto} setCurrentScreen={setCurrentScreen} />;;
 
   return (
     <View style={styles.container}>

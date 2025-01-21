@@ -19,7 +19,7 @@ export default function Index() {
       case "AccountRecoveryScreen":
         return <AccountRecoveryScreen setCurrentScreen={setCurrentScreen} />;
       case "CameraCaptureScreen":
-        return <ChatScreen setCurrentScreen={setCurrentScreen}/>;
+        return <CameraCaptureScreen setCurrentScreen={setCurrentScreen}/>;
       case "ChatScreen":
         return <ChatScreen setCurrentScreen={setCurrentScreen}/>;
       default:

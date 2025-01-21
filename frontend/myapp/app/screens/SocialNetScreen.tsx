@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   likeButton: { color: "#007bff" },
   commentsContainer: { marginTop: 10 },
   commentText: { fontSize: 14, marginBottom: 5 },
-  commentInput: { borderWidth: 1, borderColor: "#ccc", padding: 8, borderRadius: 5, marginBottom: 10 },
+  commentInput: { borderWidth: 1, borderColor: "#ccc", padding: 25, borderRadius: 5, marginBottom: 10 },
 });
 
 export default SocialNet;

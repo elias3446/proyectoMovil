@@ -13,24 +13,22 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     id: string;
     text: string;
     sender: string;
-    isSending?: boolean; // Estado de si el mensaje está siendo enviado
+    timestamp: any; // Para manejar la ordenación
+    isSending?: boolean;
   }
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
-  const [loading, setLoading] = useState(false);  // Estado para el loading
-  const [error, setError] = useState('');  // Estado para errores
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // Ref para controlar el desplazamiento del FlatList
   const flatListRef = useRef<FlatList>(null);
 
-  // Obtén el usuario autenticado
   const auth = getAuth();
   const user = auth.currentUser;
 
   const db = getFirestore();
 
-  // Escuchar los mensajes de Firestore para el usuario registrado
   useEffect(() => {
     if (user) {
       const userMessagesRef = collection(db, 'users', user.uid, 'messages');
@@ -43,38 +41,38 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             id: doc.id,
             text: data.text,
             sender: data.sender,
+            timestamp: data.timestamp,
             isSending: data.isSending || false,
           });
         });
         setMessages(messagesData);
       });
 
-      return () => unsubscribe(); // Cleanup
+      return () => unsubscribe();
     }
   }, [db, user]);
 
   const sendMessage = async () => {
-    if (messageText.trim() && user) {
-      // Crear mensaje del usuario
+    if (messageText.trim() && user && !loading) {
       const userMessage = { 
         id: `user-${Date.now()}`, 
         text: messageText, 
-        sender: 'me'
+        sender: 'me',
+        timestamp: new Date(), // Añadir timestamp para ordenar en Firestore
       };
 
-      // Crear mensaje del bot (con estado "enviando")
       const systemMessage = { 
         id: `bot-${Date.now()}`, 
-        text: '', // Estará vacío inicialmente
+        text: '', 
         sender: 'other',
-        isSending: true // El bot está enviando una respuesta
+        isSending: true,
+        timestamp: new Date(),
       };
 
       setMessages((prevMessages) => [...prevMessages, userMessage, systemMessage]);
       setMessageText('');
-
       setLoading(true);
-      setError('');  // Limpiar errores si los hubiera
+      setError('');
 
       const historial = messages.map(msg => ({
         role: msg.sender === 'me' ? 'user' : 'assistant',
@@ -82,7 +80,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       }));
 
       try {
-        // Guardar el mensaje del usuario en Firestore
         const userMessagesRef = collection(db, 'users', user.uid, 'messages');
         await addDoc(userMessagesRef, {
           text: messageText,
@@ -90,8 +87,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           timestamp: new Date(),
         });
 
-        // Enviar mensaje al backend para obtener la respuesta del bot
-        const response = await fetch('http://127.0.0.1:5000/chat', {  // URL de tu backend
+        const response = await fetch('http://127.0.0.1:5000/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -108,21 +104,20 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
         const data = await response.json();
         const botResponse = {
-          id: `bot-${Date.now()}`,  // Nuevo ID único para el mensaje del bot
+          id: `bot-${Date.now()}`,
           text: data.respuesta || 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?',
           sender: 'other',
-          isSending: false // El mensaje del bot ya fue recibido
+          isSending: false,
+          timestamp: new Date(),
         };
 
         setMessages((prevMessages) => {
-          // Actualizamos el mensaje del bot, eliminando el estado de "enviando"
           const updatedMessages = prevMessages.map((msg) =>
             msg.id === systemMessage.id ? { ...msg, isSending: false, text: botResponse.text } : msg
           );
           return [...updatedMessages];
         });
 
-        // Guardar el mensaje del bot en Firestore bajo el UID del usuario
         await addDoc(userMessagesRef, {
           text: botResponse.text,
           sender: 'other',
@@ -132,7 +127,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         console.error(error);
         setError('No se pudo obtener respuesta del servidor');
       } finally {
-        setLoading(false);  // Desactivar el loading
+        setLoading(false);
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
@@ -141,28 +136,23 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   };
 
   const handleRecord = () => {
-    // Implementar la funcionalidad de grabación aquí
     console.log('Recording...');
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender === 'me';
-
     return (
       <View style={[styles.messageBubble, isMyMessage ? styles.myMessage : styles.otherMessage]}>
         <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
           {item.isSending ? '...' : item.text}
         </Text>
-        {item.isSending && !isMyMessage ? (  // Los puntos de carga solo se muestran en el mensaje del bot
-          <Text style={styles.loadingText}>...</Text>
-        ) : null}
+        {item.isSending && !isMyMessage ? <Text style={styles.loadingText}>...</Text> : null}
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setCurrentScreen('CameraCaptureScreen')}>
           <Ionicons name="arrow-back" size={24} color="white" />
@@ -173,19 +163,17 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <Text style={styles.contactName}>Contacto</Text>
       </View>
 
-      {/* Messages */}
       <FlatList
-        ref={flatListRef} // Asignar la referencia al FlatList
+        ref={flatListRef}
         data={messages}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesContainer}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })} // Desplazar al último mensaje al cargar
       />
 
-      {/* Error Message */}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {/* Input and Send Button */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -271,7 +259,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#000',
-    marginTop: 5, // Ajuste de espacio para los puntos
+    marginTop: 5,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -304,7 +292,7 @@ const styles = StyleSheet.create({
   },
   micButton: {
     marginLeft: 10,
-    backgroundColor: '#e0f2f1', // Color de fondo del micrófono
+    backgroundColor: '#e0f2f1',
     padding: 10,
     borderRadius: 50,
     alignItems: 'center',

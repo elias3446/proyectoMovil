@@ -47,7 +47,56 @@ def clean_temp_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
 
-# Ruta para el chat
+# Ruta para procesar imágenes
+@app.route('/process_image', methods=['POST'])
+def process_image():
+    data = request.json.get("image")
+    
+    if not data:
+        return jsonify({'error': 'No se encontró imagen en base64'}), 400
+
+    try:
+        # Eliminar el prefijo "data:image/png;base64," de la cadena
+        if data.startswith("data:image/png;base64,"):
+            data = data[len("data:image/png;base64,"):]
+        elif data.startswith("data:image/jpeg;base64,"):
+            data = data[len("data:image/jpeg;base64,"):]
+
+        # Decodificar la cadena base64
+        image_data = base64.b64decode(data)
+
+        # Crear una imagen desde los datos binarios decodificados
+        image = Image.open(io.BytesIO(image_data))
+
+        # Guardar la imagen como un archivo temporal
+        temp_file_path = os.path.join('temp', 'uploaded_image.png')
+        os.makedirs('temp', exist_ok=True)
+        image.save(temp_file_path)
+
+        # Procesar la imagen con Gemini
+        uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
+        
+        chat_session = model.start_chat(
+            history=[{
+                "role": "user",
+                "parts": [
+                    uploaded_file,
+                    "¿Qué ves en esta imagen?"
+                ],
+            }]
+        )
+
+        response = chat_session.send_message("¿Qué hay en la imagen?")
+        
+        # Limpiar el archivo temporal
+        clean_temp_file(temp_file_path)
+
+        return jsonify({'respuesta': response.text})
+
+    except Exception as e:
+        return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
+
+# Ruta para el chat normal
 @app.route('/chat', methods=['POST'])
 def chat():
     entrada = request.json.get("mensaje")

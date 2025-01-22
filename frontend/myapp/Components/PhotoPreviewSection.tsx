@@ -2,7 +2,7 @@ import { Fontisto } from '@expo/vector-icons';
 import { CameraCapturedPicture } from 'expo-camera';
 import React, { useState, useEffect } from 'react';
 import { TouchableOpacity, SafeAreaView, Image, StyleSheet, View, Text } from 'react-native';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import NotificationBanner from "@/Components/NotificationBanner";
 
@@ -17,18 +17,14 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
     handleRetakePhoto,
     setCurrentScreen,
 }) => {
-     const [errorMessage, setErrorMessage] = useState("");
-
+    const [errorMessage, setErrorMessage] = useState("");
     const auth = getAuth();
     const db = getFirestore();
 
-
     const sendImageToAPI = async (imageUri: string) => {
         try {
-            // Formatear el historial
-            setErrorMessage(imageUri); // Limpiar mensaje de error
+            setErrorMessage(""); // Limpiar mensaje de error
 
-            // Enviar la imagen y el historial al servidor
             const response = await fetch('http://127.0.0.1:5000/process_image', {
                 method: 'POST',
                 headers: {
@@ -40,23 +36,49 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
             });
 
             const data = await response.json();
-            //setErrorMessage(data.respuesta || ''); // Mostrar mensaje de la respuesta
-
+            return data.respuesta || 'No response from server';
         } catch (error) {
             console.error('Error sending image:', error);
             setErrorMessage('Error sending image to the server');
+            throw error;
         }
     };
 
-    const handleSendPhoto = () => {
-        //sendImageToAPI(photo.uri);
-        setCurrentScreen('ChatScreen'); // Cambiar la pantalla a "chat"
+    const handleSendPhoto = async () => {
+        const user = auth.currentUser;
+
+        if (user) {
+            const userMessagesRef = collection(db, 'users', user.uid, 'messages');
+
+            const userMessage = {
+                text: photo.uri,  // Guardar la imagen en base64
+                sender: 'me',
+                timestamp: new Date(),
+            };
+
+            await addDoc(userMessagesRef, userMessage);
+
+            try {
+                const botResponseText = await sendImageToAPI(photo.uri);
+
+                const botMessage = {
+                    text: botResponseText,
+                    sender: 'other',
+                    timestamp: new Date(),
+                };
+
+                await addDoc(userMessagesRef, botMessage);
+                setCurrentScreen('ChatScreen'); // Cambiar la pantalla a "chat"
+            } catch {
+                setErrorMessage('Failed to process image');
+            }
+        }
     };
 
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.box}>
-            <NotificationBanner message={errorMessage} type="error" />
+                <NotificationBanner message={errorMessage} type="error" />
                 <Image
                     style={styles.previewContainer}
                     source={{ uri: photo.uri }}  // Usa photo.uri para mostrar la imagen

@@ -141,11 +141,22 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender === 'me';
+
+    // Check if the message is a valid base64 string (basic check for image base64)
+    const isBase64Image = /^data:image\/[a-zA-Z]+;base64,/.test(item.text);
+
     return (
       <View style={[styles.messageBubble, isMyMessage ? styles.myMessage : styles.otherMessage]}>
-        <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
-          {item.isSending ? '...' : item.text}
-        </Text>
+        {isBase64Image ? (
+          <Image
+            source={{ uri: item.text }}
+            style={styles.imageMessage}
+          />
+        ) : (
+          <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
+            {item.isSending ? '...' : item.text}
+          </Text>
+        )}
         {item.isSending && !isMyMessage ? <Text style={styles.loadingText}>...</Text> : null}
       </View>
     );
@@ -302,6 +313,11 @@ const styles = StyleSheet.create({
     color: 'red',
     marginTop: 10,
     textAlign: 'center',
+  },
+  imageMessage: {
+    width: 150,
+    height: 150,
+    borderRadius: 8,
   },
 });
 

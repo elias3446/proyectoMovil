@@ -8,38 +8,37 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
-import * as FileSystem from 'expo-file-system';  // Necesario para obtener información sobre el archivo
-import { getAuth } from "firebase/auth"; // Para obtener el UID del usuario
+import * as FileSystem from 'expo-file-system';  
+import { getAuth } from "firebase/auth"; 
 
-// Definir los props de SocialNet que incluyen 'setCurrentScreen'
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-// Definir la interfaz para los posts
 interface Post {
   id: string;
+  userId: string;
   content: string;
   imageUrl: string | null;
-  likes: string[]; // Guardar los IDs de los usuarios que han dado like
-  comments: { userId: string, text: string }[]; // Comentarios con userId y texto
+  likes: string[];
+  comments: { userId: string, text: string }[];
   createdAt: string;
 }
 
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [content, setContent] = useState<string>(""); // Contenido del nuevo post
-  const [image, setImage] = useState<string | null>(null); // Imagen del nuevo post
-  const [loading, setLoading] = useState<boolean>(false); // Estado de carga
-  const [comment, setComment] = useState<string>(""); // Contenido del nuevo comentario
+  const [users, setUsers] = useState<Map<string, { firstName: string, lastName: string }>>(new Map());
+  const [content, setContent] = useState<string>("");
+  const [image, setImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [comment, setComment] = useState<string>("");
 
   const db = getFirestore();
   const auth = getAuth();
 
-  // Fetch posts in real-time
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "posts"), (snapshot) => {
       const fetchedPosts = snapshot.docs.map((doc) => ({
@@ -52,10 +51,27 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     return () => unsubscribe();
   }, []);
 
-  // Handle image selection
+  useEffect(() => {
+    const fetchUserNames = async () => {
+      const usersMap = new Map<string, { firstName: string, lastName: string }>();
+
+      const snapshot = await getDocs(collection(db, "users"));
+      snapshot.forEach((doc) => {
+        const userData = doc.data();
+        usersMap.set(doc.id, {
+          firstName: userData.firstName || "",
+          lastName: userData.lastName || "",
+        });
+      });
+
+      setUsers(usersMap);
+    };
+
+    fetchUserNames();
+  }, []);
+
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (status !== 'granted') {
       alert('¡Permiso denegado! No puedes acceder a la galería.');
       return;
@@ -80,7 +96,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }
   };
 
-  // Upload image to Cloudinary
   const uploadImageToCloudinary = async (uri: string) => {
     const fileInfo = await FileSystem.getInfoAsync(uri);
     if (!fileInfo.exists) {
@@ -113,9 +128,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }
   };
 
-  // Handle post creation
   const handleCreatePost = async () => {
     if (!content) return;
+
+    const userId = auth.currentUser?.uid; // Obtener el UID del usuario autenticado
+    if (!userId) {
+      console.error("Usuario no autenticado");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -125,9 +145,10 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       }
 
       await addDoc(collection(db, "posts"), {
+        userId, // Almacena el UID del usuario
         content,
         imageUrl,
-        likes: [], // Array de usuarios que han dado like
+        likes: [],
         comments: [],
         createdAt: new Date().toISOString(),
       });
@@ -141,30 +162,34 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }
   };
 
-  // Handle like (one per user)
-  const handleLike = async (postId: string, currentLikes: string[]) => {
-    const userId = auth.currentUser?.uid; // Obtener el UID del usuario actual
+  const handleLike = async (postId: string, currentLikes: any) => {
+    const userId = auth.currentUser?.uid;
     if (!userId) {
       console.error("Usuario no autenticado");
       return;
     }
 
-    if (currentLikes.includes(userId)) {
-      alert("¡Ya has dado like a este post!");
+    if (!Array.isArray(currentLikes)) {
+      console.error("El campo 'likes' no es un array:", currentLikes);
       return;
     }
 
     try {
       const postRef = doc(db, "posts", postId);
-      await updateDoc(postRef, {
-        likes: [...currentLikes, userId], // Agregar el ID del usuario a la lista de likes
-      });
+      if (currentLikes.includes(userId)) {
+        await updateDoc(postRef, {
+          likes: currentLikes.filter((id: string) => id !== userId),
+        });
+      } else {
+        await updateDoc(postRef, {
+          likes: [...currentLikes, userId],
+        });
+      }
     } catch (error) {
-      console.error("Error dando like al post:", error);
+      console.error("Error actualizando el like del post:", error);
     }
   };
 
-  // Handle adding a comment
   const handleAddComment = async (postId: string) => {
     if (!comment) return;
 
@@ -177,46 +202,58 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     try {
       const postRef = doc(db, "posts", postId);
       await updateDoc(postRef, {
-        comments: [...posts.find((p) => p.id === postId)?.comments || [], { userId, text: comment }],
+        comments: [
+          ...posts.find((p) => p.id === postId)?.comments || [],
+          { userId, text: comment },
+        ],
       });
-      setComment(""); // Limpiar el campo de comentario
+      setComment(""); 
     } catch (error) {
       console.error("Error agregando comentario:", error);
     }
   };
 
-  // Render post
-  const renderPost = ({ item }: { item: Post }) => (
-    <View style={styles.post}>
-      {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.postImage} />}
-      <Text style={styles.postContent}>{item.content}</Text>
-      <View style={styles.postActions}>
-        <TouchableOpacity onPress={() => handleLike(item.id, item.likes)}>
-          <Text style={styles.likeButton}>❤ {item.likes.length}</Text>
-        </TouchableOpacity>
+  const renderPost = ({ item }: { item: Post }) => {
+    const userName = users.get(item.userId); // Obtener el nombre usando el UID
+    return (
+      <View style={styles.post}>
+        <Text style={styles.username}>
+          {userName ? `${userName.firstName} ${userName.lastName}` : "Usuario Anónimo"}
+        </Text>
+        {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.postImage} />}
+        <Text style={styles.postContent}>{item.content}</Text>
+        <View style={styles.postActions}>
+          <TouchableOpacity onPress={() => handleLike(item.id, item.likes)}>
+            <Text style={styles.likeButton}>❤ {Array.isArray(item.likes) ? item.likes.length : 0}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.commentsContainer}>
+          {item.comments.map((comment, index) => {
+            const commentUser = users.get(comment.userId); 
+            return (
+              <Text key={index} style={styles.commentText}>
+                {commentUser
+                  ? `${commentUser.firstName} ${commentUser.lastName}: ${comment.text}`
+                  : `Usuario Anónimo: ${comment.text}`}
+              </Text>
+            );
+          })}
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Añadir un comentario..."
+            value={comment}
+            onChangeText={setComment}
+          />
+          <TouchableOpacity style={styles.button} onPress={() => handleAddComment(item.id)}>
+            <Text style={styles.buttonText}>Comentar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.commentsContainer}>
-        {item.comments.map((comment, index) => (
-          <Text key={index} style={styles.commentText}>
-            {comment.text}
-          </Text>
-        ))}
-        <TextInput
-          style={styles.commentInput}
-          placeholder="Añadir un comentario..."
-          value={comment}
-          onChangeText={setComment}
-        />
-        <TouchableOpacity style={styles.button} onPress={() => handleAddComment(item.id)}>
-          <Text style={styles.buttonText}>Comentar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
-      {/* Create Post Section */}
       <View style={styles.createPostContainer}>
         <TextInput
           style={styles.input}
@@ -239,7 +276,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         </View>
       </View>
 
-      {/* Feed Section */}
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
@@ -251,23 +287,88 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9f9f9" },
-  createPostContainer: { padding: 15, backgroundColor: "#fff", marginBottom: 10 },
-  input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 5, padding: 10, marginBottom: 10 },
-  previewImage: { width: "100%", height: 200, borderRadius: 5, marginBottom: 10 },
-  buttonsContainer: { flexDirection: "row", justifyContent: "space-between" },
-  button: { padding: 10, backgroundColor: "#007bff", borderRadius: 5 },
-  buttonText: { color: "#fff", fontWeight: "bold" },
-  postButton: { backgroundColor: "#28a745" },
-  feedContainer: { padding: 15 },
-  post: { marginBottom: 20, padding: 15, backgroundColor: "#fff", borderRadius: 5 },
-  postImage: { width: "100%", height: 200, borderRadius: 5, marginBottom: 10 },
-  postContent: { fontSize: 16, marginBottom: 10 },
-  postActions: { flexDirection: "row", justifyContent: "space-between" },
-  likeButton: { color: "#007bff" },
-  commentsContainer: { marginTop: 10 },
-  commentText: { fontSize: 14, marginBottom: 5 },
-  commentInput: { borderWidth: 1, borderColor: "#ccc", padding: 25, borderRadius: 5, marginBottom: 10 },
+  container: {
+    flex: 1,
+    padding: 10,
+    backgroundColor: "#fff",
+  },
+  post: {
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    paddingBottom: 10,
+  },
+  username: {
+    fontWeight: "bold",
+  },
+  postContent: {
+    marginVertical: 10,
+  },
+  postImage: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+    marginBottom: 10,
+  },
+  likeButton: {
+    fontSize: 16,
+    color: "#f00",
+  },
+  commentText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 10,
+    marginBottom: 10,
+  },
+  button: {
+    backgroundColor: "#007BFF",
+    padding: 10,
+    borderRadius: 5,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  buttonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  feedContainer: {
+    paddingBottom: 100,
+  },
+  createPostContainer: {
+    marginBottom: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 10,
+    marginBottom: 10,
+  },
+  postButton: {
+    backgroundColor: "#28a745",
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+    marginVertical: 10,
+  },
+  postActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  commentsContainer: {
+    margin: 20,
+    padding: 15,
+    backgroundColor: 'white',
+  }
 });
 
 export default SocialNet;

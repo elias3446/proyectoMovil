@@ -58,7 +58,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         id: `user-${Date.now()}`, 
         text: messageText, 
         sender: 'me',
-        timestamp: new Date(), // Añadir timestamp para ordenar en Firestore
+        timestamp: new Date(), 
       };
 
       const systemMessage = { 
@@ -69,14 +69,19 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         timestamp: new Date(),
       };
 
+      // Actualiza los mensajes en el estado antes de enviar
       setMessages((prevMessages) => [...prevMessages, userMessage, systemMessage]);
       setMessageText('');
       setLoading(true);
       setError('');
 
+      // Construir el historial con todos los mensajes previos
       const historial = messages.map(msg => ({
         role: msg.sender === 'me' ? 'user' : 'assistant',
-        parts: [msg.text],
+        content: { 
+          title: msg.timestamp,  // Usamos el texto completo como título en lugar de solo la primera palabra
+          summary: msg.text 
+        }
       }));
 
       try {
@@ -93,8 +98,8 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            mensaje: messageText,
-            historial: [...historial, { role: 'user', parts: [messageText] }],
+            message: messageText,
+            history: [...historial, { role: 'user', content: { title: messageText, summary: messageText } }],
           }),
         });
 
@@ -105,7 +110,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         const data = await response.json();
         const botResponse = {
           id: `bot-${Date.now()}`,
-          text: data.respuesta || 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?',
+          text: data.response || 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?',
           sender: 'other',
           isSending: false,
           timestamp: new Date(),
@@ -118,6 +123,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           return [...updatedMessages];
         });
 
+        // Guardar la respuesta del asistente en Firestore
         await addDoc(userMessagesRef, {
           text: botResponse.text,
           sender: 'other',
@@ -133,10 +139,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         }, 100);
       }
     }
-  };
-
-  const handleRecord = () => {
-    console.log('Recording...');
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
@@ -180,7 +182,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesContainer}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })} // Desplazar al último mensaje al cargar
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -195,7 +197,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={loading}>
           <MaterialIcons name="send" size={24} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleRecord} style={styles.micButton}>
+        <TouchableOpacity onPress={() => {}} style={styles.micButton}>
           <MaterialIcons name="mic" size={24} color="#00796b" />
         </TouchableOpacity>
       </View>

@@ -1,7 +1,9 @@
 import { Fontisto } from '@expo/vector-icons';
 import { CameraCapturedPicture } from 'expo-camera';
 import React, { useState, useEffect } from 'react';
-import { TouchableOpacity, SafeAreaView, Image, StyleSheet, View, Text } from 'react-native';
+import { TouchableOpacity, SafeAreaView, Image, StyleSheet, View, Text, Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { getFirestore, collection, addDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import NotificationBanner from "@/Components/NotificationBanner";
@@ -21,6 +23,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
     const auth = getAuth();
     const db = getFirestore();
 
+    // Función para enviar la imagen al servidor
     const sendImageToAPI = async (imageUri: string) => {
         try {
             setErrorMessage(""); // Limpiar mensaje de error
@@ -44,33 +47,42 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         }
     };
 
+    // Función para manejar el envío de la foto
     const handleSendPhoto = async () => {
         const user = auth.currentUser;
 
         if (user) {
-            const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-
-            const userMessage = {
-                text: photo.uri,  // Guardar la imagen en base64
-                sender: 'me',
-                timestamp: new Date(),
-            };
-
-            await addDoc(userMessagesRef, userMessage);
-
             try {
-                const botResponseText = await sendImageToAPI(photo.uri);
+                let base64Image = '';
+
+                if (Platform.OS === 'web') {
+                    // En web, la URI ya está lista para usar como base64
+                    base64Image = photo.uri;
+                } else {
+                    // En móviles, necesitamos leer la imagen desde el sistema de archivos
+                    const fileInfo = await FileSystem.readAsStringAsync(photo.uri, {
+                        encoding: FileSystem.EncodingType.Base64,
+                    });
+                    base64Image = `data:image/jpeg;base64,${fileInfo}`;  // Convertimos a base64
+                }
+
+                // Envía la imagen al servidor
+                const botResponseText = await sendImageToAPI(base64Image);
+
+                // Guarda los mensajes en Firestore
+                const userMessagesRef = collection(db, 'users', user.uid, 'messages');
+                await addDoc(userMessagesRef, { text: base64Image, sender: 'me', timestamp: new Date() });
 
                 const botMessage = {
                     text: botResponseText,
                     sender: 'other',
                     timestamp: new Date(),
                 };
-
                 await addDoc(userMessagesRef, botMessage);
-                setCurrentScreen('ChatScreen'); // Cambiar la pantalla a "chat"
-            } catch {
-                setErrorMessage('Failed to process image');
+
+                setCurrentScreen('ChatScreen'); // Cambiar a la pantalla de chat
+            } catch (error) {
+                console.error('Error al procesar la imagen:', error);
             }
         }
     };

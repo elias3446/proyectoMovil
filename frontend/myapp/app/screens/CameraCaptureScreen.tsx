@@ -1,6 +1,7 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useRef, useState, useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
 import NotificationBanner from "@/Components/NotificationBanner";
@@ -13,6 +14,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [photo, setPhoto] = useState<any>(null);
+  const [zoom, setZoom] = useState(0); // Estado para el nivel de zoom
   const cameraRef = useRef<CameraView | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -63,13 +65,24 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     setCurrentScreen('ChatScreen');
   };
 
-  if (photo) return <PhotoPreviewSection photo={photo} handleRetakePhoto={handleRetakePhoto} setCurrentScreen={setCurrentScreen} />;;
+  if (photo) return <PhotoPreviewSection photo={photo} handleRetakePhoto={handleRetakePhoto} setCurrentScreen={setCurrentScreen} />;
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef} zoom={zoom}>
         <View style={styles.gridOverlay}></View>
       </CameraView>
+
+      <Slider
+        style={styles.zoomSlider}
+        minimumValue={0}
+        maximumValue={1}
+        value={zoom}
+        onValueChange={(value: number) => setZoom(value)}
+        minimumTrackTintColor="#FFFFFF"
+        maximumTrackTintColor="#888888"
+        thumbTintColor="#F57C00"
+      />
 
       <TouchableOpacity style={styles.captureButton} onPress={handleTakePhoto}>
         <AntDesign name='camera' size={44} color='white' />
@@ -132,6 +145,13 @@ const styles = StyleSheet.create({
     borderColor: 'white',
     borderWidth: 1,
     opacity: 0.6,
+  },
+  zoomSlider: {
+    position: 'absolute',
+    bottom: 120,
+    left: 20,
+    right: 20,
+    height: 40,
   },
   captureButton: {
     position: 'absolute',

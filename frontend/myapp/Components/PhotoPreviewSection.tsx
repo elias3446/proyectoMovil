@@ -23,12 +23,11 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
     const auth = getAuth();
     const db = getFirestore();
 
-    // Función para enviar la imagen al servidor
     const sendImageToAPI = async (imageUri: string) => {
         try {
             setErrorMessage(""); // Limpiar mensaje de error
-
-            const response = await fetch('http://127.0.0.1:5000/process_image', {
+    
+            const response = await fetch('https://chat-hfp7.onrender.com/process_image', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -37,7 +36,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                     image: imageUri, // Imagen en base64
                 }),
             });
-
+    
             const data = await response.json();
             return data.respuesta || 'No response from server';
         } catch (error) {
@@ -46,40 +45,63 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
             throw error;
         }
     };
-
-    // Función para manejar el envío de la foto
+    
+    // Función para dividir la cadena base64 en fragmentos
+    const chunkBase64 = (base64String: string, chunkSize: number = 1000000) => {
+        const chunks = [];
+        for (let i = 0; i < base64String.length; i += chunkSize) {
+            chunks.push(base64String.slice(i, i + chunkSize));
+        }
+        return chunks;
+    };
+    
     const handleSendPhoto = async () => {
         const user = auth.currentUser;
-
+    
         if (user) {
             try {
                 let base64Image = '';
-
+    
                 if (Platform.OS === 'web') {
                     // En web, la URI ya está lista para usar como base64
                     base64Image = photo.uri;
                 } else {
-                    // En móviles, necesitamos leer la imagen desde el sistema de archivos
-                    const fileInfo = await FileSystem.readAsStringAsync(photo.uri, {
+                    base64Image = await FileSystem.readAsStringAsync(photo.uri, {
                         encoding: FileSystem.EncodingType.Base64,
-                    });
-                    base64Image = `data:image/jpeg;base64,${fileInfo}`;  // Convertimos a base64
+                      });
+                      base64Image = `data:image/jpg;base64,${base64Image}`;
                 }
-
+    
+                // Fragmenta la imagen base64
+                const base64Chunks = chunkBase64(base64Image);
+    
                 // Envía la imagen al servidor
                 const botResponseText = await sendImageToAPI(base64Image);
-
+    
                 // Guarda los mensajes en Firestore
                 const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-                await addDoc(userMessagesRef, { text: base64Image, sender: 'me', timestamp: new Date() });
-
+                const messageDocRef = await addDoc(userMessagesRef, {
+                    sender: 'me',
+                    timestamp: new Date(),
+                });
+    
+                // Guardar los fragmentos en la subcolección 'text' de Firestore
+                const textCollectionRef = collection(messageDocRef, 'imageFragments');
+                for (const [index, chunk] of base64Chunks.entries()) {
+                    await addDoc(textCollectionRef, {
+                        fragmentIndex: index,
+                        fragment: chunk,
+                        timestamp: new Date(),
+                    });
+                }
+    
                 const botMessage = {
                     text: botResponseText,
                     sender: 'other',
                     timestamp: new Date(),
                 };
                 await addDoc(userMessagesRef, botMessage);
-
+    
                 setCurrentScreen('ChatScreen'); // Cambiar a la pantalla de chat
             } catch (error) {
                 console.error('Error al procesar la imagen:', error);

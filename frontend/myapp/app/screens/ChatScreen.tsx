@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 interface LoginProps {
@@ -33,18 +33,50 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     if (user) {
       const userMessagesRef = collection(db, 'users', user.uid, 'messages');
       const q = query(userMessagesRef, orderBy('timestamp'));
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const unsubscribe = onSnapshot(q, async (querySnapshot) => {
         const messagesData: Message[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          messagesData.push({
-            id: doc.id,
-            text: data.text,
-            sender: data.sender,
-            timestamp: data.timestamp,
-            isSending: data.isSending || false,
-          });
-        });
+
+        // Procesar los mensajes de forma secuencial
+        const processMessages = async () => {
+          for (const doc of querySnapshot.docs) {
+            const data = doc.data();
+
+            if (!data.text) {
+              // Si el mensaje no tiene texto, buscar los fragmentos
+              const fragmentsCollection = collection(doc.ref, 'imageFragments');
+              const fragmentsQuery = query(fragmentsCollection, orderBy('fragmentIndex'));
+              const fragmentsSnapshot = await getDocs(fragmentsQuery); // Usa getDocs para obtener todos los fragmentos
+
+              const fragments: string[] = [];
+              fragmentsSnapshot.forEach((fragmentDoc) => {
+                const fragmentData = fragmentDoc.data();
+                fragments.push(fragmentData.fragment);
+              });
+
+              const reconstructedImage = fragments.join(''); // Reconstruir la imagen base64
+              messagesData.push({
+                id: doc.id,
+                text: reconstructedImage,
+                sender: data.sender,
+                timestamp: data.timestamp,
+              });
+            } else {
+              // Mensaje normal
+              messagesData.push({
+                id: doc.id,
+                text: data.text,
+                sender: data.sender,
+                timestamp: data.timestamp,
+              });
+            }
+          }
+        };
+
+        await processMessages();
+
+        // Ordenar mensajes por timestamp (por si acaso)
+        messagesData.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+
         setMessages(messagesData);
       });
 
@@ -54,16 +86,16 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   const sendMessage = async () => {
     if (messageText.trim() && user && !loading) {
-      const userMessage = { 
-        id: `user-${Date.now()}`, 
-        text: messageText, 
+      const userMessage = {
+        id: `user-${Date.now()}`,
+        text: messageText,
         sender: 'me',
-        timestamp: new Date(), 
+        timestamp: new Date(),
       };
 
-      const systemMessage = { 
-        id: `bot-${Date.now()}`, 
-        text: '', 
+      const systemMessage = {
+        id: `bot-${Date.now()}`,
+        text: '',
         sender: 'other',
         isSending: true,
         timestamp: new Date(),
@@ -75,15 +107,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       setLoading(true);
       setError('');
 
-      // Construir el historial con todos los mensajes previos
-      const historial = messages.map(msg => ({
-        role: msg.sender === 'me' ? 'user' : 'assistant',
-        content: { 
-          title: msg.timestamp,  // Usamos el texto completo como título en lugar de solo la primera palabra
-          summary: msg.text 
-        }
-      }));
-
       try {
         const userMessagesRef = collection(db, 'users', user.uid, 'messages');
         await addDoc(userMessagesRef, {
@@ -92,14 +115,13 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           timestamp: new Date(),
         });
 
-        const response = await fetch('http://127.0.0.1:5000/chat', {
+        const response = await fetch('https://chat-hfp7.onrender.com/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             message: messageText,
-            history: [...historial, { role: 'user', content: { title: messageText, summary: messageText } }],
           }),
         });
 
@@ -144,16 +166,13 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender === 'me';
 
-    // Check if the message is a valid base64 string (basic check for image base64)
+    // Verificar si el texto es una imagen base64 válida
     const isBase64Image = /^data:image\/[a-zA-Z]+;base64,/.test(item.text);
 
     return (
       <View style={[styles.messageBubble, isMyMessage ? styles.myMessage : styles.otherMessage]}>
         {isBase64Image ? (
-          <Image
-            source={{ uri: item.text }}
-            style={styles.imageMessage}
-          />
+          <Image source={{ uri: item.text }} style={styles.imageMessage} />
         ) : (
           <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
             {item.isSending ? '...' : item.text}
@@ -170,10 +189,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <TouchableOpacity onPress={() => setCurrentScreen('CameraCaptureScreen')}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <View style={styles.avatarContainer}>
-          <Image source={{ uri: 'https://via.placeholder.com/40' }} style={styles.avatar} />
-        </View>
-        <Text style={styles.contactName}>Contacto</Text>
+        <Text style={styles.contactName}>Chat</Text>
       </View>
 
       <FlatList
@@ -197,9 +213,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={loading}>
           <MaterialIcons name="send" size={24} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => {}} style={styles.micButton}>
-          <MaterialIcons name="mic" size={24} color="#00796b" />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -218,20 +231,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#ccc',
-    justifyContent: 'flex-start',
-  },
-  avatarContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#00796b',
-    borderRadius: 25,
-    padding: 5,
-    marginLeft: 10,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
   },
   contactName: {
     fontSize: 18,
@@ -247,11 +246,6 @@ const styles = StyleSheet.create({
     padding: 10,
     marginVertical: 5,
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
   },
   myMessage: {
     alignSelf: 'flex-end',
@@ -280,11 +274,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 15,
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
   },
   input: {
     flex: 1,
@@ -293,33 +282,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 5,
     paddingHorizontal: 15,
-    backgroundColor: '#f9f9f9',
     marginRight: 10,
   },
   sendButton: {
     backgroundColor: '#1877f2',
     padding: 10,
     borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  micButton: {
-    marginLeft: 10,
-    backgroundColor: '#e0f2f1',
-    padding: 10,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  error: {
-    color: 'red',
-    marginTop: 10,
-    textAlign: 'center',
   },
   imageMessage: {
     width: 150,
     height: 150,
     borderRadius: 8,
+  },
+  error: {
+    color: 'red',
+    marginTop: 10,
+    textAlign: 'center',
   },
 });
 

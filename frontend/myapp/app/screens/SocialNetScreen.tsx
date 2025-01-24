@@ -35,6 +35,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [comment, setComment] = useState<string>("");
+  const [visibleComments, setVisibleComments] = useState<{ [postId: string]: boolean }>({});
+  const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
 
   const db = getFirestore();
   const auth = getAuth();
@@ -213,41 +215,74 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }
   };
 
+  const toggleCommentsVisibility = (postId: string) => {
+    setVisibleComments((prevState) => ({
+      ...prevState,
+      [postId]: !prevState[postId],
+    }));
+    if (!visibleComments[postId]) {
+      setCommentsToShow((prevState) => ({
+        ...prevState,
+        [postId]: 5, // Muestra los primeros 5 comentarios inicialmente
+      }));
+    }
+  };
+
+  const loadMoreComments = (postId: string) => {
+    setCommentsToShow((prevState) => ({
+      ...prevState,
+      [postId]: (prevState[postId] || 5) + 10, // Incrementa de 10 en 10
+    }));
+  };
+
   const renderPost = ({ item }: { item: Post }) => {
     const userName = users.get(item.userId); // Obtener el nombre usando el UID
+    const showComments = visibleComments[item.id];
+    const commentsLimit = commentsToShow[item.id] || 0;
+
     return (
       <View style={styles.post}>
         <Text style={styles.username}>
           {userName ? `${userName.firstName} ${userName.lastName}` : "Usuario Anónimo"}
-        </Text>
-        {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.postImage} />}
+        </Text>  
         <Text style={styles.postContent}>{item.content}</Text>
+        {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.postImage} />}
         <View style={styles.postActions}>
           <TouchableOpacity onPress={() => handleLike(item.id, item.likes)}>
             <Text style={styles.likeButton}>❤ {Array.isArray(item.likes) ? item.likes.length : 0}</Text>
           </TouchableOpacity>
-        </View>
-        <View style={styles.commentsContainer}>
-          {item.comments.map((comment, index) => {
-            const commentUser = users.get(comment.userId); 
-            return (
-              <Text key={index} style={styles.commentText}>
-                {commentUser
-                  ? `${commentUser.firstName} ${commentUser.lastName}: ${comment.text}`
-                  : `Usuario Anónimo: ${comment.text}`}
-              </Text>
-            );
-          })}
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Añadir un comentario..."
-            value={comment}
-            onChangeText={setComment}
-          />
-          <TouchableOpacity style={styles.button} onPress={() => handleAddComment(item.id)}>
-            <Text style={styles.buttonText}>Comentar</Text>
+          <TouchableOpacity onPress={() => toggleCommentsVisibility(item.id)}>
+            <Text style={styles.toggleCommentsButton}>{showComments ? "Ocultar comentarios" : "Mostrar comentarios"}</Text>
           </TouchableOpacity>
         </View>
+        {showComments && (
+          <View style={styles.commentsContainer}>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Añadir un comentario..."
+              value={comment}
+              onChangeText={setComment}
+            />
+            <TouchableOpacity style={styles.button} onPress={() => handleAddComment(item.id)}>
+              <Text style={styles.buttonText}>Comentar</Text>
+            </TouchableOpacity>
+            {item.comments.slice(0, commentsLimit).map((comment, index) => {
+              const commentUser = users.get(comment.userId); 
+              return (
+                <Text key={index} style={styles.commentText}>
+                  {commentUser
+                    ? `${commentUser.firstName} ${commentUser.lastName}: ${comment.text}`
+                    : `Usuario Anónimo: ${comment.text}`}
+                </Text>
+              );
+            })}
+            {commentsLimit < item.comments.length && (
+              <TouchableOpacity onPress={() => loadMoreComments(item.id)}>
+                <Text style={styles.loadMoreText}>Cargar más comentarios</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -293,15 +328,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   post: {
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    paddingBottom: 10,
+    backgroundColor: "#e5ffe6",
+    margin:10,
+    padding: 10,
   },
   username: {
     fontWeight: "bold",
+    fontFamily: "Inter_600SemiBold",
+    color: "#5cb868",
   },
   postContent: {
     marginVertical: 10,
+    fontFamily: "Inter_400Regular",
   },
   postImage: {
     width: '100%',
@@ -312,6 +350,10 @@ const styles = StyleSheet.create({
   likeButton: {
     fontSize: 16,
     color: "#f00",
+  },
+  toggleCommentsButton: {
+    fontSize: 16,
+    color: "#007BFF",
   },
   commentText: {
     fontSize: 14,
@@ -365,10 +407,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   commentsContainer: {
-    margin: 20,
+    margin: 2,
     padding: 15,
     backgroundColor: 'white',
-  }
+  },
+  loadMoreText: {
+    color: "#007BFF",
+    marginTop: 10,
+    textAlign: "center",
+  },
 });
 
 export default SocialNet;

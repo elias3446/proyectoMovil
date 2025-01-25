@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
-  StyleSheet,
+  ActivityIndicator,
 } from "react-native";
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import * as FileSystem from 'expo-file-system';  
@@ -41,18 +41,65 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [comment, setComment] = useState<string>("");
   const [visibleComments, setVisibleComments] = useState<{ [postId: string]: boolean }>({});
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const [noMoreData, setNoMoreData] = useState<boolean>(false);
 
   const db = getFirestore();
   const auth = getAuth();
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "posts"), (snapshot) => {
-      const fetchedPosts = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Post[];
+  const fetchMorePosts = () => {
+    if (loadingMore || noMoreData || !lastVisible) return;
 
-      setPosts(fetchedPosts.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+    setLoadingMore(true);
+
+    const nextQuery = query(
+      collection(db, "posts"),
+      orderBy("createdAt", "desc"),
+      startAfter(lastVisible), // Comienza después del último documento visible
+      limit(5)
+    );
+
+    const unsubscribe = onSnapshot(nextQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const morePosts = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Post[];
+
+        setPosts((prevPosts) => [...prevPosts, ...morePosts]);
+        setLastVisible(snapshot.docs[snapshot.docs.length - 1]); // Actualizar el último documento
+      } else {
+        setNoMoreData(true); // No hay más datos
+      }
+
+      setLoadingMore(false);
+    });
+
+    return unsubscribe;
+  }
+
+  useEffect(() => {
+    setNoMoreData(false); // Resetear el estado de fin de datos
+    setLastVisible(null); // Reiniciar el último documento visible
+
+    const postsQuery = query(
+      collection(db, "posts"),
+      orderBy("createdAt", "desc"),
+      limit(5) // Limite de documentos por página
+    );
+
+    const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const fetchedPosts = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Post[];
+        setPosts(fetchedPosts);
+        setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+      } else {
+        setNoMoreData(true); // no hay mas datos
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -250,7 +297,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       <View className="p-4 bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
         {/* photo and username */}
         <View className="flex flex-row items-center gap-2">
-          {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : <FontAwesome6 name="user-circle" size={26} />}
+          {image ? <Image source={{ uri: image }} className="w-full object-cover h-56" /> : <FontAwesome6 name="user-circle" size={26} />}
           <Text className="color-[#5CB868] font-extrabold text-2xl">
             {userName ? `${userName.firstName} ${userName.lastName}` : "Usuario Anónimo"}
           </Text>
@@ -318,8 +365,23 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     );
   };
 
+  const renderLoader = () => {
+    if (noMoreData) {
+      return (
+        <View className="items-center">
+          <Text>No hay más publicaciones</Text>
+        </View>
+      );
+    }
+    return (
+      <View className="items-center">
+        <ActivityIndicator size="large" color="#5CB868"></ActivityIndicator>
+      </View>
+    );
+  };
+
   return (
-    <View className="p-4">
+    <View className="p-4 flex-1">
       {/* Title */}
       <View className="py-4">
         <Text className="text-5xl font-extrabold text-[#323743]">
@@ -329,7 +391,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
       {/* Create post */}
       <View className="flex flex-row items-center rounded-full gap-2">
-        {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : <FontAwesome6 name="user-circle" size={35} />}
+        {image ? <Image source={{ uri: image }} className="w-full object-cover h-56" /> : <FontAwesome6 name="user-circle" size={35} />}
         <TextInput
           className="flex-1 px-4 rounded-full font-semibold text-xl bg-[#F3F4F6]"
           placeholder="¿Qué estás pensando?"
@@ -357,106 +419,12 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}
+        ListFooterComponent={renderLoader}
+        onEndReached={fetchMorePosts}
+        onEndReachedThreshold={0}
       />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: "#fff",
-  },
-  post: {
-    backgroundColor: "#e5ffe6",
-    margin:10,
-    padding: 10,
-  },
-  username: {
-    fontWeight: "bold",
-    fontFamily: "Inter_600SemiBold",
-    color: "#5cb868",
-  },
-  postContent: {
-    marginVertical: 10,
-    fontFamily: "Inter_400Regular",
-  },
-  postImage: {
-    width: '100%',
-    height: 200,
-    resizeMode: 'cover',
-    marginBottom: 10,
-  },
-  likeButton: {
-    fontSize: 16,
-    color: "#f00",
-  },
-  toggleCommentsButton: {
-    fontSize: 16,
-    color: "#007BFF",
-  },
-  commentText: {
-    fontSize: 14,
-    color: "#333",
-  },
-  commentInput: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 10,
-    marginBottom: 10,
-  },
-  button: {
-    backgroundColor: "#007BFF",
-    padding: 10,
-    borderRadius: 5,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-  },
-  buttonsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-  },
-  feedContainer: {
-    paddingBottom: 100,
-  },
-  createPostContainer: {
-    marginBottom: 20,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 10,
-    marginBottom: 10,
-  },
-  postButton: {
-    backgroundColor: "#28a745",
-  },
-  previewImage: {
-    width: '100%',
-    height: 200,
-    resizeMode: 'cover',
-    marginVertical: 10,
-  },
-  postActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-  },
-  commentsContainer: {
-    margin: 2,
-    padding: 15,
-    backgroundColor: 'white',
-  },
-  loadMoreText: {
-    color: "#007BFF",
-    marginTop: 10,
-    textAlign: "center",
-  },
-});
 
 export default SocialNet;

@@ -30,6 +30,8 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null); // Inicialmente null
+
 
   useEffect(() => {
     if (errorMessage || successMessage) {
@@ -70,13 +72,13 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         gender,
         pronoun: pronoun || (gender === "F" ? "Femenino" : gender === "M" ? "Masculino" : ""),
         customGender,
+        profileImage: profileImage || null, // Incluye la imagen de perfil (vacía inicialmente)
       };
 
       await setDoc(doc(db, "users", user.uid), userData);
 
       setSuccessMessage("Usuario registrado exitosamente y datos guardados en Firestore");
       setCurrentScreen("LoginScreen");
-      //setTimeout(() => setCurrentScreen("Login"), 1500); 
     } catch (error: any) {
       setErrorMessage(`Error al registrar el usuario: ${error.message}`);
       setLoading(false);

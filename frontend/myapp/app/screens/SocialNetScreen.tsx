@@ -8,11 +8,11 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faHeart } from '@fortawesome/free-solid-svg-icons';
 import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
-import axios from "axios";
-import * as FileSystem from 'expo-file-system';  
-import { getAuth } from "firebase/auth"; 
+import { getAuth } from "firebase/auth";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
@@ -34,7 +34,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [content, setContent] = useState<string>("");
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [comment, setComment] = useState<string>("");
+  const [comment, setComment] = useState<string>(""); 
   const [visibleComments, setVisibleComments] = useState<{ [postId: string]: boolean }>({});
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
 
@@ -90,42 +90,29 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       const imageUri = selectedAsset.uri;
       if (imageUri) {
         setImage(imageUri);
-      } else {
-        console.error("La imagen seleccionada no tiene URI.");
       }
-    } else {
-      console.error("No se seleccionó ninguna imagen.");
     }
   };
 
-  const uploadImageToCloudinary = async (uri: string) => {
-    const fileInfo = await FileSystem.getInfoAsync(uri);
-    if (!fileInfo.exists) {
-      console.error("El archivo no existe en la ruta proporcionada.");
-      return null;
-    }
-
-    const formData = new FormData();
-    const file = {
-      uri: fileInfo.uri,
-      name: fileInfo.uri.split('/').pop(),
-      type: "image/jpeg",
-    };
-
-    formData.append("file", file as any);
-    formData.append("upload_preset", "my_upload_preset");
-
-    const cloudinaryUrl = "https://api.cloudinary.com/v1_1/dwhl67ka5/image/upload";
+  const uploadImageToCloudinary = async (imageUri: string): Promise<string | null> => {
+    const data = new FormData();
+    data.append("file", {
+      uri: imageUri,
+      type: "image/jpeg", // Asegúrate de usar el tipo correcto según la imagen
+      name: "upload.jpg",
+    } as any);
+    data.append("upload_preset", "my_upload_preset"); // Reemplaza con tu upload_preset
+    data.append("cloud_name", "dwhl67ka5"); // Reemplaza con tu cloud_name
 
     try {
-      const response = await axios.post(cloudinaryUrl, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+      const response = await fetch("https://api.cloudinary.com/v1_1/dwhl67ka5/image/upload", {
+        method: "POST",
+        body: data,
       });
-      return response.data.secure_url;
+      const json = await response.json();
+      return json.secure_url || null;
     } catch (error) {
-      console.error("Error subiendo la imagen a Cloudinary:", error);
+      console.error("Error al subir la imagen a Cloudinary:", error);
       return null;
     }
   };
@@ -133,62 +120,45 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const handleCreatePost = async () => {
     if (!content) return;
 
-    const userId = auth.currentUser?.uid; // Obtener el UID del usuario autenticado
-    if (!userId) {
-      console.error("Usuario no autenticado");
-      return;
-    }
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
 
     setLoading(true);
-    try {
-      let imageUrl = null;
-      if (image) {
-        imageUrl = await uploadImageToCloudinary(image);
-      }
-
-      await addDoc(collection(db, "posts"), {
-        userId, // Almacena el UID del usuario
-        content,
-        imageUrl,
-        likes: [],
-        comments: [],
-        createdAt: new Date().toISOString(),
-      });
-
-      setContent("");
-      setImage(null);
-    } catch (error) {
-      console.error("Error creando el post:", error);
-    } finally {
-      setLoading(false);
+    let imageUrl = null;
+    if (image) {
+      // Subir la imagen a Cloudinary
+      imageUrl = await uploadImageToCloudinary(image);
     }
+
+    await addDoc(collection(db, "posts"), {
+      userId,
+      content,
+      imageUrl,
+      likes: [],
+      comments: [],
+      createdAt: new Date().toISOString(),
+    });
+
+    setContent("");
+    setImage(null);
+    setLoading(false);
   };
 
   const handleLike = async (postId: string, currentLikes: any) => {
     const userId = auth.currentUser?.uid;
-    if (!userId) {
-      console.error("Usuario no autenticado");
-      return;
-    }
+    if (!userId) return;
 
-    if (!Array.isArray(currentLikes)) {
-      console.error("El campo 'likes' no es un array:", currentLikes);
-      return;
-    }
+    if (!Array.isArray(currentLikes)) return;
 
-    try {
-      const postRef = doc(db, "posts", postId);
-      if (currentLikes.includes(userId)) {
-        await updateDoc(postRef, {
-          likes: currentLikes.filter((id: string) => id !== userId),
-        });
-      } else {
-        await updateDoc(postRef, {
-          likes: [...currentLikes, userId],
-        });
-      }
-    } catch (error) {
-      console.error("Error actualizando el like del post:", error);
+    const postRef = doc(db, "posts", postId);
+    if (currentLikes.includes(userId)) {
+      await updateDoc(postRef, {
+        likes: currentLikes.filter((id: string) => id !== userId),
+      });
+    } else {
+      await updateDoc(postRef, {
+        likes: [...currentLikes, userId],
+      });
     }
   };
 
@@ -196,23 +166,16 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     if (!comment) return;
 
     const userId = auth.currentUser?.uid;
-    if (!userId) {
-      console.error("Usuario no autenticado");
-      return;
-    }
+    if (!userId) return;
 
-    try {
-      const postRef = doc(db, "posts", postId);
-      await updateDoc(postRef, {
-        comments: [
-          ...posts.find((p) => p.id === postId)?.comments || [],
-          { userId, text: comment },
-        ],
-      });
-      setComment(""); 
-    } catch (error) {
-      console.error("Error agregando comentario:", error);
-    }
+    const postRef = doc(db, "posts", postId);
+    await updateDoc(postRef, {
+      comments: [
+        ...posts.find((p) => p.id === postId)?.comments || [],
+        { userId, text: comment },
+      ],
+    });
+    setComment(""); 
   };
 
   const toggleCommentsVisibility = (postId: string) => {
@@ -223,7 +186,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     if (!visibleComments[postId]) {
       setCommentsToShow((prevState) => ({
         ...prevState,
-        [postId]: 5, // Muestra los primeros 5 comentarios inicialmente
+        [postId]: 5,
       }));
     }
   };
@@ -231,12 +194,12 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const loadMoreComments = (postId: string) => {
     setCommentsToShow((prevState) => ({
       ...prevState,
-      [postId]: (prevState[postId] || 5) + 10, // Incrementa de 10 en 10
+      [postId]: (prevState[postId] || 5) + 10,
     }));
   };
 
   const renderPost = ({ item }: { item: Post }) => {
-    const userName = users.get(item.userId); // Obtener el nombre usando el UID
+    const userName = users.get(item.userId);
     const showComments = visibleComments[item.id];
     const commentsLimit = commentsToShow[item.id] || 0;
 
@@ -244,30 +207,32 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       <View style={styles.post}>
         <Text style={styles.username}>
           {userName ? `${userName.firstName} ${userName.lastName}` : "Usuario Anónimo"}
-        </Text>  
+        </Text>
         <Text style={styles.postContent}>{item.content}</Text>
         {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.postImage} />}
         <View style={styles.postActions}>
           <TouchableOpacity onPress={() => handleLike(item.id, item.likes)}>
-            <Text style={styles.likeButton}>❤ {Array.isArray(item.likes) ? item.likes.length : 0}</Text>
           </TouchableOpacity>
+          <Text style={styles.likeButton}>{Array.isArray(item.likes) ? item.likes.length : 0}</Text>
           <TouchableOpacity onPress={() => toggleCommentsVisibility(item.id)}>
             <Text style={styles.toggleCommentsButton}>{showComments ? "Ocultar comentarios" : "Mostrar comentarios"}</Text>
           </TouchableOpacity>
         </View>
         {showComments && (
           <View style={styles.commentsContainer}>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Añadir un comentario..."
-              value={comment}
-              onChangeText={setComment}
-            />
-            <TouchableOpacity style={styles.button} onPress={() => handleAddComment(item.id)}>
-              <Text style={styles.buttonText}>Comentar</Text>
-            </TouchableOpacity>
+            <View style={styles.commentInputContainer}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Añadir un comentario..."
+                value={comment}
+                onChangeText={setComment}
+              />
+              <TouchableOpacity style={styles.button} onPress={() => handleAddComment(item.id)}>
+                <Text style={styles.buttonText}>Comentar</Text>
+              </TouchableOpacity>
+            </View>
             {item.comments.slice(0, commentsLimit).map((comment, index) => {
-              const commentUser = users.get(comment.userId); 
+              const commentUser = users.get(comment.userId);
               return (
                 <Text key={index} style={styles.commentText}>
                   {commentUser
@@ -299,7 +264,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         {image && <Image source={{ uri: image }} style={styles.previewImage} />}
         <View style={styles.buttonsContainer}>
           <TouchableOpacity style={styles.button} onPress={handlePickImage}>
-            <Text style={styles.buttonText}>Seleccionar Imagen</Text>
+            <Text style={styles.buttonText}>Imagen</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, styles.postButton]}
@@ -351,6 +316,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#f00",
   },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',    
+  },
   toggleCommentsButton: {
     fontSize: 16,
     color: "#007BFF",
@@ -362,10 +331,12 @@ const styles = StyleSheet.create({
   commentInput: {
     borderWidth: 1,
     borderColor: "#ddd",
+    width: "90%",
+    marginRight: "1%",
     padding: 10,
-    marginBottom: 10,
   },
   button: {
+    width: "9%",
     backgroundColor: "#007BFF",
     padding: 10,
     borderRadius: 5,

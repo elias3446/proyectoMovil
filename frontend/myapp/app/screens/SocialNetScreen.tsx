@@ -13,6 +13,10 @@ import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import * as FileSystem from 'expo-file-system';  
 import { getAuth } from "firebase/auth"; 
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import Feather from '@expo/vector-icons/Feather';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
@@ -239,46 +243,73 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     const userName = users.get(item.userId); // Obtener el nombre usando el UID
     const showComments = visibleComments[item.id];
     const commentsLimit = commentsToShow[item.id] || 0;
+    const userId = auth.currentUser?.uid;
+    const userHasLiked = userId && Array.isArray(item.likes) && item.likes.includes(userId);
 
     return (
-      <View style={styles.post}>
-        <Text style={styles.username}>
-          {userName ? `${userName.firstName} ${userName.lastName}` : "Usuario Anónimo"}
-        </Text>  
-        <Text style={styles.postContent}>{item.content}</Text>
-        {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.postImage} />}
-        <View style={styles.postActions}>
-          <TouchableOpacity onPress={() => handleLike(item.id, item.likes)}>
-            <Text style={styles.likeButton}>❤ {Array.isArray(item.likes) ? item.likes.length : 0}</Text>
+      <View className="p-4 bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
+        {/* photo and username */}
+        <View className="flex flex-row items-center gap-2">
+          {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : <FontAwesome6 name="user-circle" size={26} />}
+          <Text className="color-[#5CB868] font-extrabold text-2xl">
+            {userName ? `${userName.firstName} ${userName.lastName}` : "Usuario Anónimo"}
+          </Text>
+        </View>
+
+        {/* post content */}
+        <Text className="text-xl">{item.content}</Text>
+
+        {/* post imaage */}
+        {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-full object-cover h-96" />}
+
+        {/* post actions */}
+        <View className="flex flex-row items-center justify-between">
+          <TouchableOpacity onPress={() => handleLike(item.id, item.likes)} className="flex flex-row items-center gap-1 w-12">
+            <FontAwesome name={userHasLiked ? "heart" : "heart-o"} size={24} color="#5CB868" />
+            <Text>{Array.isArray(item.likes) ? item.likes.length : 0}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => toggleCommentsVisibility(item.id)}>
-            <Text style={styles.toggleCommentsButton}>{showComments ? "Ocultar comentarios" : "Mostrar comentarios"}</Text>
+          <TouchableOpacity onPress={() => toggleCommentsVisibility(item.id)} className="ml-1">
+            <Text>{showComments ? "Ocultar comentarios" : "Mostrar comentarios"}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* post comments */}
         {showComments && (
-          <View style={styles.commentsContainer}>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Añadir un comentario..."
-              value={comment}
-              onChangeText={setComment}
-            />
-            <TouchableOpacity style={styles.button} onPress={() => handleAddComment(item.id)}>
-              <Text style={styles.buttonText}>Comentar</Text>
-            </TouchableOpacity>
+          <View className="flex gap-2">
+
+            {/* add comment section */}
+            <View className="flex flex-row gap-2 items-center">
+              <TextInput
+                className="flex-1 px-4 rounded-full text-xl bg-white"
+                placeholder="Añadir un comentario..."
+                value={comment}
+                onChangeText={setComment}
+                placeholderTextColor="#9095A1"
+              />
+              <Ionicons 
+                name={comment.trim() ? "paper-plane" : "paper-plane-outline"} 
+                size={24}
+                color="#5CB868"
+                onPress={() => handleAddComment(item.id)}
+                className="w-7"
+              />
+            </View>
+            
+            {/* comments list */}
             {item.comments.slice(0, commentsLimit).map((comment, index) => {
               const commentUser = users.get(comment.userId); 
               return (
-                <Text key={index} style={styles.commentText}>
+                <Text key={index} className="">
                   {commentUser
-                    ? `${commentUser.firstName} ${commentUser.lastName}: ${comment.text}`
+                    ? `${commentUser.firstName.trim()} ${commentUser.lastName.trim()}: ${comment.text}`
                     : `Usuario Anónimo: ${comment.text}`}
                 </Text>
               );
             })}
+
             {commentsLimit < item.comments.length && (
               <TouchableOpacity onPress={() => loadMoreComments(item.id)}>
-                <Text style={styles.loadMoreText}>Cargar más comentarios</Text>
+                <Text>Cargar más comentarios</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -288,34 +319,44 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.createPostContainer}>
+    <View className="p-4">
+      {/* Title */}
+      <View className="py-4">
+        <Text className="text-5xl font-extrabold text-[#323743]">
+          Mi mundo
+        </Text>
+      </View>
+
+      {/* Create post */}
+      <View className="flex flex-row items-center rounded-full gap-2">
+        {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : <FontAwesome6 name="user-circle" size={35} />}
         <TextInput
-          style={styles.input}
+          className="flex-1 px-4 rounded-full font-semibold text-xl bg-[#F3F4F6]"
           placeholder="¿Qué estás pensando?"
           value={content}
           onChangeText={setContent}
+          placeholderTextColor="#9095A1"
         />
-        {image && <Image source={{ uri: image }} style={styles.previewImage} />}
-        <View style={styles.buttonsContainer}>
-          <TouchableOpacity style={styles.button} onPress={handlePickImage}>
-            <Text style={styles.buttonText}>Seleccionar Imagen</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.postButton]}
-            onPress={handleCreatePost}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>{loading ? "Publicando..." : "Publicar"}</Text>
-          </TouchableOpacity>
-        </View>
+        <Feather name="image" size={40} onPress={handlePickImage} />
       </View>
 
+      {/* Post button */}
+      <View className="my-3">
+        <TouchableOpacity
+          className="bg-[#A5D6A7] py-3 px-4 rounded-lg"
+          onPress={handleCreatePost}
+          disabled={loading}
+        >
+          <Text className="color-[#142C15] text-center text-xl">{loading ? "Publicando..." : "Publicar"}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Posts List */}
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
-        contentContainerStyle={styles.feedContainer}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );

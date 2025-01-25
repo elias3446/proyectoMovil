@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,8 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
-  ActivityIndicator,
 } from "react-native";
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, QueryDocumentSnapshot, DocumentData, DocumentSnapshot, arrayRemove, arrayUnion } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import * as FileSystem from 'expo-file-system';  
@@ -35,6 +34,7 @@ interface Post {
 
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
   const [users, setUsers] = useState<Map<string, { firstName: string, lastName: string }>>(new Map());
   const [content, setContent] = useState<string>("");
   const [image, setImage] = useState<string | null>(null);
@@ -42,72 +42,63 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [comment, setComment] = useState<string>("");
   const [visibleComments, setVisibleComments] = useState<{ [postId: string]: boolean }>({});
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
-  const [noMoreData, setNoMoreData] = useState<boolean>(false);
 
   const db = getFirestore();
   const auth = getAuth();
 
-  const fetchMorePosts = () => {
-    // Si ya esta cargando más datos (Solicitud en curso) || ya no hay mas datos que cargar || no hay un último documento visible
-    if (loadingMore || noMoreData || !lastVisible) return;
-
-    setLoadingMore(true);
-
-    const nextQuery = query(
+  const getPaginatedPosts = (
+    afterDoc: DocumentSnapshot | undefined, 
+    limitPosts: number, 
+    callback: (newSnapshots: DocumentSnapshot[]) => void
+  ) => {
+    const queryRef = query(
       collection(db, "posts"),
       orderBy("createdAt", "desc"),
-      startAfter(lastVisible), // Comienza después del último documento visible
-      limit(5)
+      limit(limitPosts)
     );
 
-    const unsubscribe = onSnapshot(nextQuery, (snapshot) => {
-      if (!snapshot.empty) {
-        const morePosts = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Post[];
+    const paginatedQuery = afterDoc ? query(queryRef, startAfter(afterDoc)) : queryRef;
 
-        setPosts((prevPosts) => [...prevPosts, ...morePosts]);
-        setLastVisible(snapshot.docs[snapshot.docs.length - 1]); // Actualizar el último documento
-      } else {
-        setNoMoreData(true); // No hay más datos
-      }
-
-      setLoadingMore(false);
-    });
+    const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
+      const newSnapshots = snapshot.docs;
+      callback(newSnapshots);
+    })
 
     return unsubscribe;
   }
 
-  const fetchInitialPosts = () => {
-    setNoMoreData(false); // Resetear el estado de fin de datos
-    setLastVisible(null); // Reiniciar el último documento visible
+  function getLastItem<T>(arr: T[]): T | undefined {
+    return arr.slice(-1)[0];
+  }
 
-    const postsQuery = query(
-      collection(db, "posts"),
-      orderBy("createdAt", "desc"),
-      limit(5) // Limite de documentos por página
-    );
+  const fetchMorePosts = () => {
+    getPaginatedPosts(getLastItem(snapshots), 10, (newSnapshots) => {
+      setSnapshots((prevSnapshots) => {
+        // Crear un mapa para asegurar que no haya duplicados basados en el ID
+        const uniqueSnapshotsMap = new Map<string, DocumentSnapshot>();
 
-    const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
-      if (!snapshot.empty) {
-        const fetchedPosts = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Post[];
-        setPosts(fetchedPosts);
-        setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
-      } else {
-        setNoMoreData(true); // no hay mas datos
-      }
-    });
-    return unsubscribe;
+        // Agregar los snapshots anteriores
+        prevSnapshots.forEach((doc) => {
+          uniqueSnapshotsMap.set(doc.id, doc);
+        });
+
+        // Agregar los nuevos snapshots
+        newSnapshots.forEach((doc) => {
+          uniqueSnapshotsMap.set(doc.id, doc);
+        });
+
+        // Convertir el mapa de vuelta a un array
+        return Array.from(uniqueSnapshotsMap.values());
+      });
+    })
   };
 
   useEffect(() => {
-    const unsubscribe = fetchInitialPosts();
+    // Carga inicial de posts
+    const unsubscribe = getPaginatedPosts(undefined, 10, (newSnapshots) => {
+      setSnapshots(newSnapshots);
+    });
+    // Cancelar el listener en tiempo real al desmontar el componente
     return () => unsubscribe();
   }, []);
 
@@ -376,21 +367,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     );
   };
 
-  const renderLoader = () => {
-    if (noMoreData) {
-      return (
-        <View className="items-center">
-          <Text>No hay más publicaciones</Text>
-        </View>
-      );
-    }
-    return (
-      <View className="items-center">
-        <ActivityIndicator size="large" color="#5CB868"></ActivityIndicator>
-      </View>
-    );
-  };
-
   return (
     <View className="p-4 flex-1">
       {/* Title */}
@@ -426,12 +402,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
       {/* Posts List */}
       <FlatList
-        data={posts}
+        data={snapshots.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Post[]}
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}
-        ListFooterComponent={renderLoader}
-        onEndReached={fetchMorePosts}
+        onEndReached={() => fetchMorePosts()}
         onEndReachedThreshold={0}
       />
     </View>

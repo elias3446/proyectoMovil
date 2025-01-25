@@ -17,6 +17,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { timeAgo } from "../utils/utils";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
@@ -49,6 +50,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const auth = getAuth();
 
   const fetchMorePosts = () => {
+    // Si ya esta cargando más datos (Solicitud en curso) || ya no hay mas datos que cargar || no hay un último documento visible
     if (loadingMore || noMoreData || !lastVisible) return;
 
     setLoadingMore(true);
@@ -79,7 +81,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     return unsubscribe;
   }
 
-  useEffect(() => {
+  const fetchInitialPosts = () => {
     setNoMoreData(false); // Resetear el estado de fin de datos
     setLastVisible(null); // Reiniciar el último documento visible
 
@@ -101,6 +103,11 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         setNoMoreData(true); // no hay mas datos
       }
     });
+    return unsubscribe;
+  };
+
+  useEffect(() => {
+    const unsubscribe = fetchInitialPosts();
     return () => unsubscribe();
   }, []);
 
@@ -292,6 +299,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     const commentsLimit = commentsToShow[item.id] || 0;
     const userId = auth.currentUser?.uid;
     const userHasLiked = userId && Array.isArray(item.likes) && item.likes.includes(userId);
+    const createdTimeAgo = timeAgo(item.createdAt);
 
     return (
       <View className="p-4 bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
@@ -319,6 +327,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
             <Text>{showComments ? "Ocultar comentarios" : "Mostrar comentarios"}</Text>
           </TouchableOpacity>
         </View>
+        
+        {/* post time */}
+        <Text>Hace {createdTimeAgo}</Text>
 
         {/* post comments */}
         {showComments && (

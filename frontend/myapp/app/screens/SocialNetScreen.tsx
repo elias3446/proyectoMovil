@@ -7,7 +7,7 @@ import {
   FlatList,
   Image,
 } from "react-native";
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, QueryDocumentSnapshot, DocumentData, DocumentSnapshot, arrayRemove, arrayUnion } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import * as FileSystem from 'expo-file-system';  
@@ -47,27 +47,35 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const auth = getAuth();
 
   const getPaginatedPosts = (
-    afterDoc: DocumentSnapshot | undefined, 
-    limitPosts: number, 
-    callback: (newSnapshots: DocumentSnapshot[]) => void
+    afterDoc: DocumentSnapshot | undefined, // último documento cargado
+    limitPosts: number, // Límite de posts a cargar por cada página
+    callback: (newSnapshots: DocumentSnapshot[]) => void // Función de callback para manejar los nuevos documentos cargados
   ) => {
+    // Crea una consulta base para obtener los posts, ordenados por fecha de creación de manera descendente,
+    // y limitados al número especificado.
     const queryRef = query(
       collection(db, "posts"),
       orderBy("createdAt", "desc"),
       limit(limitPosts)
     );
 
+    // Si se pasa un documento de referencia (afterDoc), se agrega la cláusula 'startAfter' para paginar
+    // y continuar cargando después del último documento de la página anterior.
     const paginatedQuery = afterDoc ? query(queryRef, startAfter(afterDoc)) : queryRef;
 
+    // Se suscribe a los cambios en la consulta paginada utilizando 'onSnapshot'.
     const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
-      const newSnapshots = snapshot.docs;
-      callback(newSnapshots);
+      const newSnapshots = snapshot.docs; // Obtiene los documentos nuevos del snapshot
+      callback(newSnapshots); // Llama a la función callback pasando los nuevos documentos
     })
 
+    // Retorna la función para cancelar la suscripción cuando sea necesario.
     return unsubscribe;
   }
 
   function getLastItem<T>(arr: T[]): T | undefined {
+    // slice(-1) retorna un nuevo arreglo con el último elemento,
+    // y al acceder al índice [0] obtenemos directamente ese elemento.
     return arr.slice(-1)[0];
   }
 
@@ -241,26 +249,36 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }
   };
 
-  const handleAddComment = async (postId: string) => {
-    if (!comment) return;
-
-    const userId = auth.currentUser?.uid;
+  const handleAddComment = async (
+    postId: string,
+    newComment: string,
+    currentComments: Array<{ userId: string; text: string }>
+  ) => {
+    setComment("");
+    const userId = auth.currentUser?.uid; // Obtener el ID del usuario autenticado
     if (!userId) {
       console.error("Usuario no autenticado");
       return;
     }
-
+  
+    if (!Array.isArray(currentComments)) {
+      console.error("El campo 'comments' no es un array:", currentComments);
+      return;
+    }
+  
     try {
-      const postRef = doc(db, "posts", postId);
+      const postRef = doc(db, "posts", postId); // Referencia al documento del post
+  
+      const commentToAdd = {
+        userId,
+        text: newComment,
+      };
+  
       await updateDoc(postRef, {
-        comments: [
-          ...posts.find((p) => p.id === postId)?.comments || [],
-          { userId, text: comment },
-        ],
+        comments: [...currentComments, commentToAdd],
       });
-      setComment(""); 
     } catch (error) {
-      console.error("Error agregando comentario:", error);
+      console.error("Error al agregar el comentario al post:", error);
     }
   };
 
@@ -339,8 +357,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
                 name={comment.trim() ? "paper-plane" : "paper-plane-outline"} 
                 size={24}
                 color="#5CB868"
-                onPress={() => handleAddComment(item.id)}
+                onPress={() => handleAddComment(item.id, comment.trim(), item.comments)}
                 className="w-7"
+                disabled={comment.trim() === ""}
               />
             </View>
             
@@ -410,7 +429,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}
         onEndReached={() => fetchMorePosts()}
-        onEndReachedThreshold={0}
+        onEndReachedThreshold={0.5}
       />
     </View>
   );

@@ -35,7 +35,7 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setSuccessMessage("Inicio de sesión exitoso");
-      setCurrentScreen("CameraCaptureScreen")
+      setCurrentScreen("ProfileScreen")
       //setTimeout(() => setCurrentScreen("CameraCapture"), 150);  // Cambiar pantalla después de éxito
     } catch (error: any) {
       setErrorMessage(error.message || "Credenciales incorrectas o problema de red.");

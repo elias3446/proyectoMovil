@@ -16,7 +16,7 @@ const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
 
   // Función para determinar el color del ícono basado en la pantalla activa
   const getIconColor = (screen: string) => {
-    return currentScreen === screen ? '#007bff' : '#000'; // Azul si está activo, negro si no lo está
+    return currentScreen === screen ? '#5cb868' : '#616161'; // Verde si está activo, neutro 600 si no
   };
 
   return (
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row', 
     justifyContent: 'space-around', 
-    backgroundColor: '#f0f0f0', 
+    backgroundColor: '#FFFFFF', // Cambiado al fondo del LoginScreen
     paddingTop: 10, 
     paddingBottom: 10,
   },

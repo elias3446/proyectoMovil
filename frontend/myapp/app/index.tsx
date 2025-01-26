@@ -27,7 +27,7 @@ export default function Index() {
       case "SocialNetScreen":
         return <SocialNetScreen setCurrentScreen={setCurrentScreen} />;
         case "ProfileScreen":
-        return <ProfileScreen setCurrentScreen={setCurrentScreen}/>;
+        return <ProfileScreen setCurrentScreen={setCurrentScreen} />;
       default:
         return <LoginScreen setCurrentScreen={setCurrentScreen}/>;
     }

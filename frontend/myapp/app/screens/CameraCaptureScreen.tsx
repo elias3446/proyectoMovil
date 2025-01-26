@@ -1,10 +1,11 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
 import NotificationBanner from "@/Components/NotificationBanner";
+
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -68,7 +69,8 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   if (photo) return <PhotoPreviewSection photo={photo} handleRetakePhoto={handleRetakePhoto} setCurrentScreen={setCurrentScreen} />;
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
+      
       <CameraView style={styles.camera} facing={facing} ref={cameraRef} zoom={zoom}>
         <View style={styles.gridOverlay}></View>
       </CameraView>
@@ -106,14 +108,14 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <MaterialIcons name="chat" size={32} color="white" />
       </TouchableOpacity>
       <NotificationBanner message={errorMessage} type="error" />
-    </View>
+      </ScrollView >
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1D4E89',
+    backgroundColor: "#FFFFFFFF",
     justifyContent: 'center',
   },
   permissionContainer: {

@@ -5,10 +5,10 @@ import RegisterScreen from "./screens/RegisterScreen";
 import AccountRecoveryScreen from "./screens/AccountRecoveryScreen";
 import CameraCaptureScreen from "./screens/CameraCaptureScreen";
 import ChatScreen from "./screens/ChatScreen";
+import MyTab from "@/Components/MyTab"; // Importamos MyTab
 
 export default function Index() {
   const [currentScreen, setCurrentScreen] = useState("LoginScreen");
-  const [userId, setUserId] = useState(""); // Estado para guardar el ID del usuario
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -27,5 +27,18 @@ export default function Index() {
     }
   };
 
-  return <View style={{ flex: 1 }}>{renderScreen()}</View>;
+  // Solo mostrar MyTab si estamos en las pantallas correctas (CameraCaptureScreen y ChatScreen)
+  const shouldShowTab = ["CameraCaptureScreen", "ChatScreen"].includes(currentScreen);
+
+  return (
+    <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
+        {renderScreen()}
+      </View>
+      {/* Renderizamos MyTab solo si debe mostrarse */}
+      {shouldShowTab && <MyTab setCurrentScreen={setCurrentScreen} currentScreen={currentScreen} />}
+      {/* Renderizamos la pantalla activa */}
+  
+    </View>
+  );
 }

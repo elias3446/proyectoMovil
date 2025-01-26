@@ -35,7 +35,7 @@ interface Post {
 
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
-  const [users, setUsers] = useState<Map<string, { firstName: string, lastName: string, imageUrl: string | null }>>(new Map());
+  const [users, setUsers] = useState<Map<string, { firstName: string, lastName: string, profileImage: string | null }>>(new Map());
   const [content, setContent] = useState<string>("");
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -112,7 +112,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
   useEffect(() => {
     const fetchUserNames = async () => {
-      const usersMap = new Map<string, { firstName: string, lastName: string, imageUrl: string | null }>();
+      const usersMap = new Map<string, { firstName: string, lastName: string, profileImage: string | null }>();
 
       const snapshot = await getDocs(collection(db, "users"));
       snapshot.forEach((doc) => {
@@ -120,7 +120,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         usersMap.set(doc.id, {
           firstName: userData.firstName || "",
           lastName: userData.lastName || "",
-          imageUrl: userData.imageUrl || null,
+          profileImage: userData.profileImage || null,
         });
       });
 
@@ -315,7 +315,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       <View className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
         {/* photo and username */}
         <View className="flex flex-row items-center gap-2 px-4 pt-4">
-          {image ? <Image source={{ uri: image }} className="w-full object-cover h-56" /> : <FontAwesome6 name="user-circle" size={26} />}
+          {userName?.profileImage ? <Image source={{ uri: userName.profileImage }} className="object-cover h-8 w-8 rounded-full" /> : <FontAwesome6 name="user-circle" size={26} />}
           <Text className="color-[#5CB868] font-extrabold text-2xl">
             {userName ? `${userName.firstName.trim()} ${userName.lastName.trim()}` : "Usuario Anónimo"}
           </Text>
@@ -351,7 +351,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               const commentUser = users.get(comment.userId); 
               return (
                 <View className="flex flex-row items-center gap-2" key={index}>
-                  {commentUser?.imageUrl ? <Image source={{ uri: commentUser.imageUrl }} className="w-full object-cover h-56" /> : <FontAwesome6 name="user-circle" size={26} />}
+                  {commentUser?.profileImage ? <Image source={{ uri: commentUser.profileImage }} className="object-cover h-8 w-8 rounded-full" /> : <FontAwesome6 name="user-circle" size={27} />}
                   <View className="flex">
                     <Text>
                       {commentUser 

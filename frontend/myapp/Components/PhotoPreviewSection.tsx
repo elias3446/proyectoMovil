@@ -93,10 +93,15 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                 // Dividir la imagen en fragmentos base64
                 const base64Chunks = chunkBase64(base64Image);
 
-                // Guardar los fragmentos en Firestore
+                const receiverUID = 'receiverUID'; // UID del receptor, ajusta según tu lógica
                 const userMessagesRef = collection(db, 'users', user.uid, 'messages');
+                const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
+
+                // Crear mensaje de la imagen con fragmentos
                 const messageDocRef = await addDoc(userMessagesRef, {
+                    text: '',
                     sender: user.uid,
+                    receiver: receiverUID,
                     timestamp: new Date(),
                 });
 
@@ -112,13 +117,15 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                 // Enviar la imagen al servidor
                 const botResponseText = await sendImageToAPI(base64Image);
 
-                // Guardar respuesta del bot en Firestore
+                // Guardar respuesta del bot
                 const botMessage = {
                     text: botResponseText,
-                    sender: 'other',
+                    sender: receiverUID,
+                    receiver: user.uid,
                     timestamp: new Date(),
                 };
                 await addDoc(userMessagesRef, botMessage);
+                await addDoc(receiverMessagesRef, botMessage);
 
                 setCurrentScreen('ChatScreen'); // Cambiar a la pantalla de chat
             } catch (error) {

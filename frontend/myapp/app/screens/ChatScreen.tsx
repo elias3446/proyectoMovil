@@ -142,16 +142,33 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender === user?.uid;
+    const isBotMessage = item.sender === receiverUID;
     const isBase64Image = /^data:image\/[a-zA-Z]+;base64,/.test(item.text);
 
     return (
-      <View style={[styles.messageBubble, isMyMessage ? styles.myMessage : styles.otherMessage]}>
-        {isBase64Image ? (
-          <Image source={{ uri: item.text }} style={styles.imageMessage} />
-        ) : (
-          <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
-            {item.isSending ? '...' : item.text}
-          </Text>
+      <View style={styles.messageContainer}>
+        {isBotMessage && (
+          <Image
+            source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
+            style={styles.botProfileImage}
+          />
+        )}
+        <View style={isBotMessage ? styles.botBubble : styles.userBubble}>
+          {isBase64Image ? (
+            <Image source={{ uri: item.text }} style={styles.imageMessage} />
+          ) : (
+            <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
+              {item.isSending ? '...' : item.text}
+            </Text>
+          )}
+        </View>
+        {isMyMessage && (
+          <MaterialIcons
+            name="account-circle" // Ícono predeterminado de usuario
+            size={50} // Dimensiones del ícono
+            color="#B8E6B9" // Color del ícono del usuario
+            style={styles.userProfileImage}
+          />
         )}
       </View>
     );
@@ -192,7 +209,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: '#9CA3AF' }]}  // Neutro 400
           placeholder="Escribe un mensaje..."
           value={messageText}
           onChangeText={setMessageText}
@@ -237,27 +254,46 @@ const styles = StyleSheet.create({
   messagesContainer: {
     paddingBottom: 20,
   },
-  messageBubble: {
-    maxWidth: '70%',
-    padding: 10,
+  messageContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginVertical: 5,
-    borderRadius: 8,
   },
-  myMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#1877f2',
+  botProfileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     marginRight: 10,
   },
-  otherMessage: {
-    alignSelf: 'flex-start',
+  botBubble: {
+    padding: 10,
     backgroundColor: '#D1D5DB',
+    borderRadius: 8,
+    maxWidth: '70%',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userBubble: {
+    padding: 10,
+    backgroundColor: '#B8E6B9', // Cambié el color de fondo de usuario
+    borderRadius: 8,
+    maxWidth: '70%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  userProfileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     marginLeft: 10,
   },
   messageText: {
     fontSize: 16,
+    color: '#6B7280', // Color neutro 500
   },
   myMessageText: {
-    color: '#fff',
+    color: '#6B7280', // Color neutro 500 para el mensaje del usuario
   },
   imageMessage: {
     width: 200,
@@ -274,16 +310,19 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 50,
-    borderColor: '#ccc',
+    borderColor: '#D1D5DB',  // Gris
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: 25, // Bordes más redondeados
     paddingHorizontal: 15,
     marginRight: 10,
   },
   sendButton: {
-    backgroundColor: '#1877f2',
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: '#B8E6B9', // Color del botón de enviar
+    width: 50,
+    height: 50,
+    borderRadius: 50, // Botón redondo
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   error: {
     color: 'red',

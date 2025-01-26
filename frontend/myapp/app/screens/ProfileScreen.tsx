@@ -3,14 +3,16 @@ import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   TouchableOpacity,
   ScrollView,
   Image,
+  Modal,
+  Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   getAuth,
-  updateEmail,
+  signOut,
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -18,23 +20,20 @@ import {
 import { getFirestore, doc, updateDoc, getDoc } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import NotificationBanner from "@/Components/NotificationBanner";
+import { FontAwesome } from "@expo/vector-icons";
 
-interface ProfileProps {
-  setCurrentScreen: (screen: string) => void;
-}
-
-const ProfileScreen: React.FC<ProfileProps> = ({ setCurrentScreen }) => {
+const ProfileScreen: React.FC<{ setCurrentScreen: (screen: string) => void }> = ({ setCurrentScreen }) => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [currentPassword, setCurrentPassword] = useState(""); // Para reautenticación
+  const [currentPassword, setCurrentPassword] = useState(""); // Contraseña actual para reautenticación
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [imageLoading, setImageLoading] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState(""); // Nuevo estado para número de teléfono
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
 
   const auth = getAuth();
   const db = getFirestore();
@@ -42,17 +41,32 @@ const ProfileScreen: React.FC<ProfileProps> = ({ setCurrentScreen }) => {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (user) {
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setFirstName(data.firstName || "");
-          setLastName(data.lastName || "");
-          setEmail(data.email || "");
-          setProfileImage(data.profileImage || null);
-          setPhoneNumber(data.phoneNumber || ""); // Recuperar número de teléfono
+      try {
+        const userData = await AsyncStorage.getItem("userData");
+        if (userData) {
+          const parsedData = JSON.parse(userData);
+          setFirstName(parsedData.firstName || "");
+          setLastName(parsedData.lastName || "");
+          setEmail(parsedData.email || "");
+          setProfileImage(parsedData.profileImage || null);
+          setPhoneNumber(parsedData.phoneNumber || "");
+        } else if (user) {
+          const docRef = doc(db, "users", user.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setFirstName(data.firstName || "");
+            setLastName(data.lastName || "");
+            setEmail(data.email || "");
+            setProfileImage(data.profileImage || null);
+            setPhoneNumber(data.phoneNumber || "");
+
+            // Guardar en AsyncStorage
+            await AsyncStorage.setItem("userData", JSON.stringify(data));
+          }
         }
+      } catch (error) {
+        setErrorMessage("Error al cargar datos del usuario.");
       }
     };
 
@@ -68,8 +82,6 @@ const ProfileScreen: React.FC<ProfileProps> = ({ setCurrentScreen }) => {
     });
 
     if (!result.canceled) {
-      setImageLoading(true);
-
       try {
         const response = await fetch(result.assets[0].uri);
         const blob = await response.blob();
@@ -89,92 +101,125 @@ const ProfileScreen: React.FC<ProfileProps> = ({ setCurrentScreen }) => {
 
         const data = await cloudinaryResponse.json();
         setProfileImage(data.secure_url);
+
+        // Actualizar AsyncStorage
+        const userData = await AsyncStorage.getItem("userData");
+        if (userData) {
+          const parsedData = JSON.parse(userData);
+          parsedData.profileImage = data.secure_url;
+          await AsyncStorage.setItem("userData", JSON.stringify(parsedData));
+        }
       } catch (error) {
         setErrorMessage("Error al subir la imagen.");
-      } finally {
-        setImageLoading(false);
       }
     }
   };
 
   const handleUpdateProfile = async () => {
-    if (!user) return;
+    if (!user || !currentPassword) {
+      setErrorMessage("Debes ingresar tu contraseña actual para realizar cambios.");
+      setTimeout(() => setErrorMessage(""), 1500);
+      return;
+    }
 
     setLoading(true);
     try {
       // Reautenticación
-      if (currentPassword) {
-        const credential = EmailAuthProvider.credential(user.email!, currentPassword);
-        await reauthenticateWithCredential(user, credential);
-      } else {
-        throw new Error("Debes ingresar tu contraseña actual para realizar cambios.");
-      }
+      const credential = EmailAuthProvider.credential(user.email!, currentPassword);
+      await reauthenticateWithCredential(user, credential);
 
-      // Actualización contraseña
+      // Actualización de contraseña
       if (password) await updatePassword(user, password);
 
-      // Actualización en Firestore
+      // Actualización de Firestore
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
         firstName,
         lastName,
         email,
         profileImage: profileImage || null,
-        phoneNumber, // Guardar número de teléfono
+        phoneNumber,
       });
 
-      setSuccessMessage("Perfil actualizado exitosamente");
-      setCurrentScreen("ProfileScreen");
+      // Actualización de AsyncStorage
+      const userData = {
+        firstName,
+        lastName,
+        email,
+        profileImage: profileImage || null,
+        phoneNumber,
+      };
+      await AsyncStorage.setItem("userData", JSON.stringify(userData));
+
+      setSuccessMessage("Cambios guardados exitosamente");
+      setTimeout(() => setSuccessMessage(""), 2000); // Mensaje desaparece después de 2 segundos
     } catch (error: any) {
-      setErrorMessage(`Error al actualizar el perfil: ${error.message}`);
+      setErrorMessage('No se ha podido guardar los cambios, contraseña actual no coincide.');
+      setTimeout(() => setErrorMessage(""), 1500);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.formContainer}>
-        <Text style={styles.title}>Editar Perfil</Text>
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      await AsyncStorage.clear();
+      setSuccessMessage("Sesión cerrada correctamente");
+      setTimeout(() => {
+        setSuccessMessage("");
+        setCurrentScreen("LoginScreen"); // Cambiar la pantalla al inicio de sesión
+      }, 2000);
+    } catch (error) {
+      setErrorMessage("Error al cerrar sesión.");
+    }
+  };
+  
 
-        <TouchableOpacity onPress={handleImagePick} style={styles.imagePicker}>
+  return (
+    <ScrollView style={{ padding: 16 }}>
+      <View style={{ backgroundColor: "#fff", borderRadius: 8, padding: 16, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 6, elevation: 4 }}>
+        <Text style={{ fontSize: 20, fontWeight: "bold", textAlign: "center", marginBottom: 16 }}>Editar Perfil</Text>
+
+        <TouchableOpacity onPress={handleImagePick} style={{ alignItems: "center", marginBottom: 16 }}>
           {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+            <Image source={{ uri: profileImage }} style={{ width: 100, height: 100, borderRadius: 50 }} />
           ) : (
-            <View style={styles.profileImageFallback}>
-              <Text style={styles.profileImageFallbackText}>Sin Imagen</Text>
+            <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: "#e0e0e0", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: "#9e9e9e" }}>Sin Imagen</Text>
             </View>
           )}
         </TouchableOpacity>
 
         <TextInput
-          style={styles.input}
+          style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 8, marginBottom: 16 }}
           placeholder="Nombre"
           value={firstName}
           onChangeText={setFirstName}
         />
         <TextInput
-          style={styles.input}
+          style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 8, marginBottom: 16 }}
           placeholder="Apellido"
           value={lastName}
           onChangeText={setLastName}
         />
         <TextInput
-          style={styles.input}
+          style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 8, marginBottom: 16 }}
           placeholder="Correo Electrónico"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
         />
+        <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 8 }}>Modificar contraseña:</Text>
         <TextInput
-          style={styles.input}
+          style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 8, marginBottom: 16 }}
           placeholder="Contraseña Actual"
           value={currentPassword}
           onChangeText={setCurrentPassword}
           secureTextEntry
         />
         <TextInput
-          style={styles.input}
+          style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 8, marginBottom: 16 }}
           placeholder="Nueva Contraseña"
           value={password}
           onChangeText={setPassword}
@@ -182,80 +227,67 @@ const ProfileScreen: React.FC<ProfileProps> = ({ setCurrentScreen }) => {
         />
 
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={{ backgroundColor: "#A5D5A7", padding: 12, borderRadius: 8, alignItems: "center", marginBottom: 16 }}
           onPress={handleUpdateProfile}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>{loading ? "Guardando..." : "Guardar Cambios"}</Text>
+          <Text style={{ color: "#fff", fontWeight: "bold" }}>{loading ? "Guardando..." : "Guardar Cambios"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: "#1C1B17",
+            padding: 10,
+            borderRadius: 8,
+            alignItems: "center",
+            flexDirection: "row",
+            justifyContent: "center",
+            marginTop: 40, // Espaciado adicional hacia abajo
+            width: "50%", // Más pequeño horizontalmente
+            alignSelf: "center", // Centrar horizontalmente
+          }}
+          onPress={() => setShowSignOutModal(true)}
+        >
+
+          <FontAwesome name="sign-out" size={20} color="#fff" style={{ marginRight: 8 }} />
+          <Text style={{ color: "#fff", fontWeight: "bold" }}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
 
-      <NotificationBanner message={errorMessage} type="error" />
-      <NotificationBanner message={successMessage} type="success" />
+      {errorMessage ? <NotificationBanner message={errorMessage} type="error" /> : null}
+      {successMessage ? <NotificationBanner message={successMessage} type="success" /> : null}
+
+      <Modal
+        transparent={true}
+        visible={showSignOutModal}
+        animationType="slide"
+        onRequestClose={() => setShowSignOutModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0, 0, 0, 0.5)" }}>
+          <View style={{ width: "80%", backgroundColor: "#fff", padding: 20, borderRadius: 10 }}>
+            <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>¿Estás seguro?</Text>
+            <Text style={{ marginBottom: 20 }}>¿Deseas cerrar sesión?</Text>
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <TouchableOpacity
+                style={{ backgroundColor: "#A5D5A7", padding: 10, borderRadius: 8, flex: 1, alignItems: "center", marginRight: 10 }}
+                onPress={handleSignOut}
+              >
+                <Text style={{ color: "#fff", fontWeight: "bold" }}>Sí</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ backgroundColor: "#f44336", padding: 10, borderRadius: 8, flex: 1, alignItems: "center" }}
+                onPress={() => setShowSignOutModal(false)}
+              >
+                <Text style={{ color: "#fff", fontWeight: "bold" }}>No</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-  },
-  formContainer: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 15,
-  },
-  imagePicker: {
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  profileImageFallback: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#000", // Círculo negro
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  profileImageFallbackText: {
-    color: "#fff", // Texto blanco sobre el fondo negro
-  },
-  button: {
-    backgroundColor: "#007bff",
-    padding: 15,
-    borderRadius: 5,
-    alignItems: "center",
-  },
-  buttonDisabled: {
-    backgroundColor: "#ccc",
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-});
 
 export default ProfileScreen;

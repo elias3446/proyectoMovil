@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
@@ -13,8 +13,9 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     id: string;
     text: string;
     sender: string;
-    timestamp: any; // Para manejar la ordenación
-    isSending?: boolean;
+    receiver: string;
+    timestamp: any;
+    isSending?: boolean; // Para manejar los mensajes que se están enviando
   }
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -23,11 +24,10 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [error, setError] = useState('');
 
   const flatListRef = useRef<FlatList>(null);
-
   const auth = getAuth();
   const user = auth.currentUser;
-
   const db = getFirestore();
+  const receiverUID = 'receiverUID'; // Reemplaza con el UID del receptor.
 
   useEffect(() => {
     if (user) {
@@ -36,7 +36,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       const unsubscribe = onSnapshot(q, async (querySnapshot) => {
         const messagesData: Message[] = [];
 
-        // Procesar los mensajes de forma secuencial
         const processMessages = async () => {
           for (const doc of querySnapshot.docs) {
             const data = doc.data();
@@ -45,7 +44,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
               // Si el mensaje no tiene texto, buscar los fragmentos
               const fragmentsCollection = collection(doc.ref, 'imageFragments');
               const fragmentsQuery = query(fragmentsCollection, orderBy('fragmentIndex'));
-              const fragmentsSnapshot = await getDocs(fragmentsQuery); // Usa getDocs para obtener todos los fragmentos
+              const fragmentsSnapshot = await getDocs(fragmentsQuery);
 
               const fragments: string[] = [];
               fragmentsSnapshot.forEach((fragmentDoc) => {
@@ -58,6 +57,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
                 id: doc.id,
                 text: reconstructedImage,
                 sender: data.sender,
+                receiver: data.receiver,
                 timestamp: data.timestamp,
               });
             } else {
@@ -66,6 +66,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
                 id: doc.id,
                 text: data.text,
                 sender: data.sender,
+                receiver: data.receiver,
                 timestamp: data.timestamp,
               });
             }
@@ -74,9 +75,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
         await processMessages();
 
-        // Ordenar mensajes por timestamp (por si acaso)
         messagesData.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
-
         setMessages(messagesData);
       });
 
@@ -86,87 +85,63 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   const sendMessage = async () => {
     if (messageText.trim() && user && !loading) {
-      const userMessage = {
-        id: `user-${Date.now()}`,
+      const senderMessage = {
         text: messageText,
-        sender: 'me',
+        sender: user.uid,
+        receiver: receiverUID,
         timestamp: new Date(),
       };
 
-      const systemMessage = {
-        id: `bot-${Date.now()}`,
-        text: '',
-        sender: 'other',
-        isSending: true,
-        timestamp: new Date(),
-      };
-
-      // Actualiza los mensajes en el estado antes de enviar
-      setMessages((prevMessages) => [...prevMessages, userMessage, systemMessage]);
+      // Mostrar el mensaje del emisor en la interfaz inmediatamente
+      setMessages((prevMessages) => [...prevMessages, { ...senderMessage, id: `temp-${Date.now()}` }]);
       setMessageText('');
       setLoading(true);
       setError('');
 
       try {
         const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-        await addDoc(userMessagesRef, {
-          text: messageText,
-          sender: 'me',
-          timestamp: new Date(),
-        });
+        const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
+
+        const messageDocRef = await addDoc(userMessagesRef, senderMessage);
+
+        await addDoc(receiverMessagesRef, senderMessage);
 
         const response = await fetch('https://chat-hfp7.onrender.com/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            message: messageText,
-          }),
+          body: JSON.stringify({ message: messageText }),
         });
 
         if (!response.ok) {
-          throw new Error('Error al comunicarse con el servidor');
+          throw new Error('Error al obtener la respuesta de la API');
         }
 
-        const data = await response.json();
+        const responseData = await response.json();
+        const botResponseText = responseData?.response || 'No se obtuvo una respuesta válida.';
+
         const botResponse = {
-          id: `bot-${Date.now()}`,
-          text: data.response || 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?',
-          sender: 'other',
-          isSending: false,
+          text: botResponseText,
+          sender: receiverUID,
+          receiver: user.uid,
           timestamp: new Date(),
         };
 
-        setMessages((prevMessages) => {
-          const updatedMessages = prevMessages.map((msg) =>
-            msg.id === systemMessage.id ? { ...msg, isSending: false, text: botResponse.text } : msg
-          );
-          return [...updatedMessages];
-        });
+        await addDoc(userMessagesRef, botResponse);
+        await addDoc(receiverMessagesRef, botResponse);
 
-        // Guardar la respuesta del asistente en Firestore
-        await addDoc(userMessagesRef, {
-          text: botResponse.text,
-          sender: 'other',
-          timestamp: new Date(),
-        });
       } catch (error) {
-        console.error(error);
-        setError('No se pudo obtener respuesta del servidor');
+        console.error('Error al enviar el mensaje:', error);
+        setError('No se pudo enviar el mensaje. Inténtalo de nuevo.');
       } finally {
         setLoading(false);
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
       }
     }
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isMyMessage = item.sender === 'me';
-
-    // Verificar si el texto es una imagen base64 válida
+    const isMyMessage = item.sender === user?.uid;
     const isBase64Image = /^data:image\/[a-zA-Z]+;base64,/.test(item.text);
 
     return (
@@ -178,18 +153,30 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             {item.isSending ? '...' : item.text}
           </Text>
         )}
-        {item.isSending && !isMyMessage ? <Text style={styles.loadingText}>...</Text> : null}
       </View>
     );
   };
 
+  const scrollToBottom = () => {
+    if (flatListRef.current) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setCurrentScreen('CameraCaptureScreen')}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.contactName}>Chat</Text>
+        <Image source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')} style={styles.profileImage} />
+        <Text style={styles.contactName}>
+          <Text style={styles.dal}>DAL</Text>
+          <Text style={styles.ia}>IA</Text>
+        </Text>
       </View>
 
       <FlatList
@@ -198,7 +185,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesContainer}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={scrollToBottom}
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -221,22 +208,31 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#FFFFFF',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    backgroundColor: '#075e54',
+    backgroundColor: '#FFFFFF',
     padding: 15,
     paddingTop: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 25,
+    marginBottom: 10,
   },
   contactName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-    marginLeft: 10,
+    fontSize: 24,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  dal: {
+    color: '#9095A1',
+  },
+  ia: {
+    color: '#B8E6B9',
   },
   messagesContainer: {
     paddingBottom: 20,
@@ -254,7 +250,7 @@ const styles = StyleSheet.create({
   },
   otherMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: '#fff',
+    backgroundColor: '#D1D5DB',
     marginLeft: 10,
   },
   messageText: {
@@ -263,17 +259,17 @@ const styles = StyleSheet.create({
   myMessageText: {
     color: '#fff',
   },
-  loadingText: {
-    fontSize: 16,
-    color: '#000',
-    marginTop: 5,
+  imageMessage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginVertical: 5,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     padding: 15,
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
   },
   input: {
     flex: 1,
@@ -288,11 +284,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1877f2',
     padding: 10,
     borderRadius: 5,
-  },
-  imageMessage: {
-    width: 150,
-    height: 150,
-    borderRadius: 8,
   },
   error: {
     color: 'red',

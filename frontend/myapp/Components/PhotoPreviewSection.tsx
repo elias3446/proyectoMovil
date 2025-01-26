@@ -96,7 +96,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                 // Guardar los fragmentos en Firestore
                 const userMessagesRef = collection(db, 'users', user.uid, 'messages');
                 const messageDocRef = await addDoc(userMessagesRef, {
-                    sender: 'me',
+                    sender: user.uid,
                     timestamp: new Date(),
                 });
 

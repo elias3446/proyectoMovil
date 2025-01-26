@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { timeAgo } from "../utils/utils";
+import Fontisto from '@expo/vector-icons/Fontisto';
+import { timeAgo } from "../../utils/utils";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
@@ -33,9 +34,8 @@ interface Post {
 }
 
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
-  const [posts, setPosts] = useState<Post[]>([]);
   const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
-  const [users, setUsers] = useState<Map<string, { firstName: string, lastName: string }>>(new Map());
+  const [users, setUsers] = useState<Map<string, { firstName: string, lastName: string, imageUrl: string | null }>>(new Map());
   const [content, setContent] = useState<string>("");
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -112,7 +112,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
   useEffect(() => {
     const fetchUserNames = async () => {
-      const usersMap = new Map<string, { firstName: string, lastName: string }>();
+      const usersMap = new Map<string, { firstName: string, lastName: string, imageUrl: string | null }>();
 
       const snapshot = await getDocs(collection(db, "users"));
       snapshot.forEach((doc) => {
@@ -120,6 +120,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         usersMap.set(doc.id, {
           firstName: userData.firstName || "",
           lastName: userData.lastName || "",
+          imageUrl: userData.imageUrl || null,
         });
       });
 
@@ -311,38 +312,63 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     const createdTimeAgo = timeAgo(item.createdAt);
 
     return (
-      <View className="p-4 bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
+      <View className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
         {/* photo and username */}
-        <View className="flex flex-row items-center gap-2">
+        <View className="flex flex-row items-center gap-2 px-4 pt-4">
           {image ? <Image source={{ uri: image }} className="w-full object-cover h-56" /> : <FontAwesome6 name="user-circle" size={26} />}
           <Text className="color-[#5CB868] font-extrabold text-2xl">
-            {userName ? `${userName.firstName} ${userName.lastName}` : "Usuario Anónimo"}
+            {userName ? `${userName.firstName.trim()} ${userName.lastName.trim()}` : "Usuario Anónimo"}
           </Text>
         </View>
 
         {/* post content */}
-        <Text className="text-xl">{item.content}</Text>
+        <Text className="text-xl px-4">{item.content}</Text>
 
-        {/* post imaage */}
+        {/* post image */}
         {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-full object-cover h-96" />}
 
         {/* post actions */}
-        <View className="flex flex-row items-center justify-between">
-          <TouchableOpacity onPress={() => handleLike(item.id, item.likes)} className="flex flex-row items-center gap-1 w-12">
+        <View className="flex flex-row items-center justify-start gap-2 px-4 pt-1">
+          <TouchableOpacity onPress={() => handleLike(item.id, item.likes)} className="flex flex-row items-center gap-2 w-12">
             <FontAwesome name={userHasLiked ? "heart" : "heart-o"} size={24} color="#5CB868" />
             <Text>{Array.isArray(item.likes) ? item.likes.length : 0}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => toggleCommentsVisibility(item.id)} className="ml-1">
-            <Text>{showComments ? "Ocultar comentarios" : "Mostrar comentarios"}</Text>
+          <TouchableOpacity onPress={() => toggleCommentsVisibility(item.id)} className="flex flex-row items-center gap-2 w-12">
+            <Fontisto name="comment" size={24} color="#5CB868" />
+            <Text>{Array.isArray(item.comments) ? item.comments.length : 0}</Text>
           </TouchableOpacity>
         </View>
         
         {/* post time */}
-        <Text>Hace {createdTimeAgo}</Text>
+        <Text className="color-[#565a63] px-4 pb-4">Hace {createdTimeAgo}</Text>
 
         {/* post comments */}
         {showComments && (
-          <View className="flex gap-2">
+          <View className="flex gap-6 pb-4 px-5">
+
+            {/* comments list */}
+            {item.comments.slice(0, commentsLimit).map((comment, index) => {
+              const commentUser = users.get(comment.userId); 
+              return (
+                <View className="flex flex-row items-center gap-2" key={index}>
+                  {commentUser?.imageUrl ? <Image source={{ uri: commentUser.imageUrl }} className="w-full object-cover h-56" /> : <FontAwesome6 name="user-circle" size={26} />}
+                  <View className="flex">
+                    <Text>
+                      {commentUser 
+                        ? `${commentUser.firstName.trim()} ${commentUser.lastName.trim()}`
+                        : "Usuario Anónimo"}
+                    </Text>
+                    <Text>{comment.text}</Text>
+                  </View>
+                </View>
+              );
+            })}
+
+            {commentsLimit < item.comments.length && (
+              <TouchableOpacity onPress={() => loadMoreComments(item.id)}>
+                <Text>Cargar más comentarios</Text>
+              </TouchableOpacity>
+            )}
 
             {/* add comment section */}
             <View className="flex flex-row gap-2 items-center">
@@ -362,24 +388,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
                 disabled={comment.trim() === ""}
               />
             </View>
-            
-            {/* comments list */}
-            {item.comments.slice(0, commentsLimit).map((comment, index) => {
-              const commentUser = users.get(comment.userId); 
-              return (
-                <Text key={index} className="">
-                  {commentUser
-                    ? `${commentUser.firstName.trim()} ${commentUser.lastName.trim()}: ${comment.text}`
-                    : `Usuario Anónimo: ${comment.text}`}
-                </Text>
-              );
-            })}
-
-            {commentsLimit < item.comments.length && (
-              <TouchableOpacity onPress={() => loadMoreComments(item.id)}>
-                <Text>Cargar más comentarios</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
       </View>

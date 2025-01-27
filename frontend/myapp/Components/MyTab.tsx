@@ -38,7 +38,7 @@ const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
 
       {/* Icono del usuario */}
       <TouchableOpacity onPress={() => handleTabPress('ProfileScreen')} style={styles.tab}>
-        <Icon name="account" size={30} color={getIconColor('ProfileScreen')} />
+        <Icon name="account-circle" size={30} color={getIconColor('ProfileScreen')} />
       </TouchableOpacity>
     </View>
   );

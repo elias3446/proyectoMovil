@@ -1,5 +1,4 @@
 import { Fontisto } from '@expo/vector-icons';
-import { CameraCapturedPicture } from 'expo-camera';
 import React, { useState } from 'react';
 import { TouchableOpacity, SafeAreaView, Image, StyleSheet, View, Text, Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
@@ -9,7 +8,7 @@ import { getAuth } from 'firebase/auth';
 import NotificationBanner from "@/Components/NotificationBanner";
 
 interface LoginProps {
-    photo: CameraCapturedPicture;
+    photo: { uri: string; base64?: string }; // Ahora acepta imágenes seleccionadas con base64 opcional
     handleRetakePhoto: () => void;
     setCurrentScreen: (screen: string) => void;
 }
@@ -25,7 +24,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
 
     const sendImageToAPI = async (imageUri: string) => {
         try {
-            setErrorMessage(""); // Limpiar mensaje de error
+            setErrorMessage("");
             const response = await fetch('https://chat-hfp7.onrender.com/process_image', {
                 method: 'POST',
                 headers: {
@@ -62,9 +61,16 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                 const asset = await MediaLibrary.createAssetAsync(imageUri);
                 await MediaLibrary.createAlbumAsync("MyApp", asset, false);
                 return asset.uri;
+            } else {
+                // Lógica para guardar imagen en el navegador (solo en web)
+                const a = document.createElement('a');
+                a.href = imageUri;
+                a.download = 'photo.jpg'; // Puedes cambiar el nombre del archivo aquí
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return imageUri;
             }
-            // Web: Retorna el URI como está
-            return imageUri;
         } catch (error) {
             console.error("Error saving image locally:", error);
             setErrorMessage("Failed to save the image locally.");
@@ -76,19 +82,44 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         const user = auth.currentUser;
         if (user) {
             try {
-                let base64Image = '';
+                let base64Image = photo.base64 || ''; // Usar base64 si ya viene de la galería
 
-                if (Platform.OS === 'web') {
-                    base64Image = photo.uri; // En web, URI ya está en base64
-                } else {
+                // Verificar si la cadena base64 tiene el prefijo adecuado, si no, agregarlo
+                if (base64Image) {
+                    if (!base64Image.startsWith('data:image')) {
+                        // Detectar si la imagen es JPG o PNG y agregar el prefijo correspondiente
+                        const imageExtension = photo.uri.split('.').pop()?.toLowerCase();
+                        if (imageExtension === 'jpg' || imageExtension === 'jpeg') {
+                            base64Image = `data:image/jpeg;base64,${base64Image}`;
+                        } else if (imageExtension === 'png') {
+                            base64Image = `data:image/png;base64,${base64Image}`;
+                        } else {
+                            // Si no es JPG ni PNG, asignamos un tipo predeterminado (o puede ser manejado de otra manera)
+                            base64Image = `data:image/jpeg;base64,${base64Image}`;
+                        }
+                    }
+                }
+
+                if (!base64Image && Platform.OS !== 'web') {
                     const fileContent = await FileSystem.readAsStringAsync(photo.uri, {
                         encoding: FileSystem.EncodingType.Base64,
                     });
-                    base64Image = `data:image/jpg;base64,${fileContent}`;
+                    // Detectar extensión del archivo y agregar el prefijo adecuado
+                    const imageExtension = photo.uri.split('.').pop()?.toLowerCase();
+                    if (imageExtension === 'jpg' || imageExtension === 'jpeg') {
+                        base64Image = `data:image/jpeg;base64,${fileContent}`;
+                    } else if (imageExtension === 'png') {
+                        base64Image = `data:image/png;base64,${fileContent}`;
+                    } else {
+                        base64Image = `data:image/jpeg;base64,${fileContent}`;
+                    }
                 }
 
-                // Guardar la imagen en el dispositivo
-                await saveImageLocally(photo.uri);
+                // Evitar guardar la imagen si ya viene de la galería
+                if (!photo.base64) {
+                    // Guardar la imagen en el dispositivo solo si no es de la galería
+                    await saveImageLocally(photo.uri);
+                }
 
                 // Dividir la imagen en fragmentos base64
                 const base64Chunks = chunkBase64(base64Image);
@@ -143,7 +174,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                     <Image
                         style={styles.previewContainer}
                         source={{ uri: photo.uri }}
-                        resizeMode="contain"
+                        resizeMode="cover" // Cambié a 'cover' para que ocupe todo el espacio disponible
                     />
                 ) : (
                     <Text style={styles.errorText}>No image available</Text>
@@ -152,10 +183,10 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
 
             <View style={styles.buttonContainer}>
                 <TouchableOpacity style={styles.button} onPress={handleRetakePhoto}>
-                    <Fontisto name='trash' size={36} color='black' />
+                    <Fontisto name='trash' size={36} color='white' />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.button} onPress={handleSendPhoto}>
-                    <Fontisto name='check' size={36} color='black' />
+                    <Fontisto name='check' size={36} color='white' />
                 </TouchableOpacity>
             </View>
 
@@ -168,32 +199,34 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         position: "relative",
-        backgroundColor: "#f0f2f5",
+        backgroundColor: "#FFFFFF",
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
     },
     box: {
-        width: '95%',
-        backgroundColor: 'darkgray',
+        width: '100%',
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
         flex: 1,
-        borderRadius: 15,
+        borderRadius: 16,
+        marginBottom: 30,
     },
     previewContainer: {
         width: '100%',
-        height: '100%',
-        aspectRatio: 1,
+        height: '100%', // La imagen ocupará todo el contenedor
         borderRadius: 15,
     },
     buttonContainer: {
-        marginBottom: 20,
-        justifyContent: "center",
-        alignItems: 'center',
         flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     button: {
-        backgroundColor: 'gray',
+        backgroundColor: '#5CB868',
         borderRadius: 25,
-        padding: 10,
+        padding: 12,
         margin: 10,
         alignItems: 'center',
         justifyContent: 'center',
@@ -202,6 +235,7 @@ const styles = StyleSheet.create({
         color: 'red',
         fontSize: 16,
         textAlign: 'center',
+        marginTop: 10,
     },
 });
 

@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   logoImage: {
     width: '60%',
     aspectRatio: 1,
-    marginBottom: 10,
+    marginBottom: -30,
   },
   inputContainer: {
     width: '100%',

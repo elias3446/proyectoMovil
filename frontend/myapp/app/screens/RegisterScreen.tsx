@@ -259,6 +259,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
     backgroundColor: "#FFFFFF",
+    marginTop: -50, // Ajuste para subir todos los elementos internos
   },
   formContainer: {
     width: "100%",
@@ -347,12 +348,12 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
-  }, 
+  },
   logoImage: {
     width: '60%',
     aspectRatio: 1,
-    marginBottom: 10,
-    alignSelf: 'center',  // Asegura que la imagen se centre horizontalmente
+    marginBottom: -40,
+    alignSelf: 'center',
   },
   loginLink: {
     color: "#000",
@@ -367,5 +368,6 @@ const styles = StyleSheet.create({
     color: "#5CB868",
   },
 });
+
 
 export default RegisterScreen;

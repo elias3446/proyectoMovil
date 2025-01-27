@@ -6,8 +6,11 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
-import { auth } from "@/Config/firebaseConfig";  // Asegúrate de importar correctamente
+import { Ionicons } from "@expo/vector-icons";
+import { auth } from "@/Config/firebaseConfig";
 import { sendPasswordResetEmail } from "firebase/auth";
 import NotificationBanner from "@/Components/NotificationBanner";
 
@@ -54,65 +57,87 @@ const AccountRecoveryScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   }, [errorMessage, successMessage]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.formContainer}>
-        <Text style={styles.title}>Recupera tu cuenta</Text>
-        <Text style={styles.instruction}>
-          Ingresa tu correo electrónico para buscar tu cuenta.
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Correo electrónico"
-          value={emailOrPhone}
-          onChangeText={setEmailOrPhone}
-          keyboardType="email-address"
-          autoFocus={true}
-        />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.contenedor}>
+          <Text style={styles.title}>Recupera tu cuenta</Text>
+          <Text style={styles.instruction}>
+            Ingresa tu correo electrónico para buscar tu cuenta.
+          </Text>
 
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setCurrentScreen("LoginScreen")}>
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
-            <Text style={styles.submitButtonText}>
-              {loading ? "Cargando..." : "Buscar"}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Correo Electrónico</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="mail-outline" size={24} color="black" style={styles.icon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Ingresa tu correo"
+                placeholderTextColor="gray"
+                value={emailOrPhone}
+                onChangeText={setEmailOrPhone}
+                keyboardType="email-address"
+                autoFocus={true}
+              />
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setCurrentScreen("LoginScreen")}
+            >
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              <Text style={styles.submitButtonText}>
+                {loading ? "Cargando..." : "Buscar"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
       <NotificationBanner message={errorMessage} type="error" />
       <NotificationBanner message={successMessage} type="success" />
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#FFFFFFFF"
   },
-  formContainer: {
+  contenedor: {
+    flex: 1,
     width: "100%",
     maxWidth: 400,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 40,
+    borderRadius: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 20,
-    color: "#333",
+    marginBottom: 10,
+    color: "black",
   },
   instruction: {
     fontSize: 16,
@@ -120,41 +145,66 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
-  input: {
+  inputContainer: {
     width: "100%",
-    height: 50,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    backgroundColor: "#f9f9f9",
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: "black",
+    marginBottom: 5,
+    textAlign: "left",
+    fontWeight: "bold",
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    position: "relative",
+    width: "100%",
+  },
+  input: {
+    flex: 1,
+    height: 44,
+    paddingLeft: 40,
+    paddingRight: 16,
+    fontSize: 16,
+    color: "black",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    borderWidth: 0,
+  },
+  icon: {
+    position: "absolute",
+    left: 10,
+    zIndex: 2,
   },
   footer: {
+    width: "100%",
     marginTop: 20,
     flexDirection: "row",
     justifyContent: "space-between",
-    width: "100%",
   },
   cancelButton: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#CCCCCC",
     paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 5,
+    paddingHorizontal: 20,
+    borderRadius: 25,
   },
   cancelButtonText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
   },
   submitButton: {
-    backgroundColor: "#1877f2",
+    backgroundColor: "#5CB868",
     paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 5,
+    paddingHorizontal: 20,
+    borderRadius: 25,
   },
   submitButtonText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
   },

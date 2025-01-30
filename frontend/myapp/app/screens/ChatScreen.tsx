@@ -106,12 +106,12 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
         await addDoc(receiverMessagesRef, senderMessage);
 
-        const response = await fetch('https://chat-hfp7.onrender.com/chat', {
+        const response = await fetch('http://127.0.0.1:5000/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ message: messageText }),
+          body: JSON.stringify({ message: messageText , user: user.uid }),
         });
 
         if (!response.ok) {

@@ -3,35 +3,16 @@ import os
 from flask import Flask, request, jsonify
 import google.generativeai as genai
 from dotenv import load_dotenv
-from flask_cors import CORS  # Importar CORS
+from flask_cors import CORS
 import io
 import logging
 from PIL import Image
-from modelo.chat_functions import extract_keywords, generate_response  # Importa las funciones
-from modelo.procesar_imagen import upload_to_gemini, eliminar_prefijo_base64, clean_temp_file  # Importa la función
+from modelo.chat_functions import extract_keywords, generate_response
+from modelo.procesar_imagen import upload_to_gemini, eliminar_prefijo_base64, clean_temp_file
+from config import model  
 
 # Cargar variables de entorno
 load_dotenv()
-
-# Obtener la API Key desde variables de entorno
-api_key = os.getenv("API_KEY")
-
-# Configurar la API Key
-genai.configure(api_key=api_key)
-
-generation_config = {
-    "temperature": 2,
-    "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 8192,
-    "response_mime_type": "text/plain",
-}
-
-# Crear el modelo
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    generation_config=generation_config,
-)
 
 app = Flask(__name__)
 CORS(app)  # Habilita CORS para todas las rutas

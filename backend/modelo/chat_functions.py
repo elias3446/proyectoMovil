@@ -10,7 +10,7 @@ load_dotenv()
 
 # Inicializar Firebase solo si no ha sido inicializado previamente
 if not firebase_admin._apps:
-    cred = credentials.Certificate('proyectomovil-7612c-firebase-adminsdk-fbsvc-65bc4553be.json')
+    cred = credentials.Certificate(os.getenv('FIREBASE_CREDENTIALS_PATH'))
     firebase_admin.initialize_app(cred)
 
 # Acceder a Firestore

@@ -8,16 +8,25 @@ import logging
 # Cargar las variables de entorno
 load_dotenv()
 
+# Configuración del registro de interacciones
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Inicializar Firebase solo si no ha sido inicializado previamente
-if not firebase_admin._apps:
-    cred = credentials.Certificate(os.getenv('FIREBASE_CREDENTIALS_PATH'))
-    firebase_admin.initialize_app(cred)
+firebase_credentials_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+if not firebase_credentials_path:
+    logger.error("No se encontró la ruta de credenciales de Firebase en las variables de entorno.")
+else:
+    try:
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(firebase_credentials_path)
+            firebase_admin.initialize_app(cred)
+            logger.info("Firebase inicializado correctamente.")
+    except Exception as e:
+        logger.error(f"Error al inicializar Firebase: {e}")
 
 # Acceder a Firestore
 db = firestore.client()
-
-# Configuración del registro de interacciones
-logger = logging.getLogger(__name__)
 
 def extract_keywords(message, model):
     """Extrae palabras clave del mensaje utilizando la API de Google Generative AI."""
@@ -26,7 +35,7 @@ def extract_keywords(message, model):
     try:
         prompt = f"Extrae las palabras clave del siguiente mensaje:\n{message}\n\nPalabras clave:"
         response = model.generate_content(prompt)
-        return response.text.strip().split(", ")
+        return response.text.strip().split(", ") if response.text else ["Sin palabras clave detectadas"]
     except Exception as e:
         logger.error(f"Error al extraer palabras clave: {e}")
         return ["Error al extraer palabras clave"]
@@ -58,32 +67,24 @@ def generate_response(message, user_name, topic_keywords, model):
         Respuesta (mantente siempre en el papel de asistente de cuidado de plantas):
         """
         response = model.generate_content(prompt)
-        return response.text.strip()
+        return response.text.strip() if response.text else "No pude generar una respuesta en este momento."
     except Exception as e:
         logger.error(f"Error al generar respuesta: {e}")
         return "Lo siento, ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo."
 
-
 def get_extended_history_from_firebase(user_name):
     """Obtiene todo el historial de mensajes de un usuario desde Firebase Firestore."""
     try:
-        # Obtener el historial completo de la colección "messages" del usuario
         messages_ref = db.collection('users').document(user_name).collection('messages')
-        docs = messages_ref.order_by('timestamp').get()  # Sin límite de mensajes
+        docs = messages_ref.order_by('timestamp').get()
 
-        history = []
-        for doc in docs:
-            history.append(doc.to_dict())
-
-        return history
+        history = [doc.to_dict() for doc in docs]
+        return history if history else []
     except Exception as e:
         logger.error(f"Error al obtener historial extendido de Firebase: {e}")
         return []
 
 def build_context_from_history(history, topic_keywords):
     """Construye el contexto para el modelo basado en el historial y las palabras clave."""
-    context = ""
-    for entry in history:
-        if "text" in entry and "sender" in entry:
-            context += f"{entry['sender']}: {entry['text']}\n"
-    return context
+    context = "\n".join(f"{entry['sender']}: {entry['text']}" for entry in history if "text" in entry and "sender" in entry)
+    return context or "No hay historial disponible."

@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { View, Text } from "react-native";
+import { View } from "react-native";
 import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import AccountRecoveryScreen from "./screens/AccountRecoveryScreen";
 import CameraCaptureScreen from "./screens/CameraCaptureScreen";
 import ChatScreen from "./screens/ChatScreen";
+import MyTab from "@/Components/MyTab"; // Importamos MyTab
 
 export default function Index() {
   const [currentScreen, setCurrentScreen] = useState("LoginScreen");
@@ -12,7 +13,7 @@ export default function Index() {
   const renderScreen = () => {
     switch (currentScreen) {
       case "LoginScreen":
-        return <CameraCaptureScreen setCurrentScreen={setCurrentScreen} />;
+        return <LoginScreen setCurrentScreen={setCurrentScreen} />;
       case "RegisterScreen":
         return <RegisterScreen setCurrentScreen={setCurrentScreen} />;
       case "AccountRecoveryScreen":
@@ -26,9 +27,18 @@ export default function Index() {
     }
   };
 
+  // Solo mostrar MyTab si estamos en las pantallas correctas (CameraCaptureScreen y ChatScreen)
+  const shouldShowTab = ["CameraCaptureScreen", "ChatScreen"].includes(currentScreen);
+
   return (
     <View style={{ flex: 1 }}>
-      {renderScreen()}
+          <View style={{ flex: 1 }}>
+        {renderScreen()}
+      </View>
+      {/* Renderizamos MyTab solo si debe mostrarse */}
+      {shouldShowTab && <MyTab setCurrentScreen={setCurrentScreen} currentScreen={currentScreen} />}
+      {/* Renderizamos la pantalla activa */}
+  
     </View>
   );
 }

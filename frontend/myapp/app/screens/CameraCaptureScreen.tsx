@@ -1,10 +1,11 @@
 import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform, Image } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
-import NotificationBanner from "@/Components/NotificationBanner";
+import NotificationBanner from '@/Components/NotificationBanner';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -46,8 +47,20 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   const handleRetakePhoto = useCallback(() => setPhoto(null), []);
 
-  const handleGallery = () => {
-    console.log("Abriendo galería...");
+  const handleGallery = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        setPhoto(result.assets[0]); // Almacenar la imagen seleccionada
+      }
+    } catch (error) {
+      setErrorMessage('Error abriendo la galería');
+    }
   };
 
   const handleChat = () => setCurrentScreen('ChatScreen');
@@ -75,7 +88,15 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     );
   }
 
-  if (photo) return <PhotoPreviewSection photo={photo} handleRetakePhoto={handleRetakePhoto} setCurrentScreen={setCurrentScreen} />;
+  if (photo) {
+    return (
+      <PhotoPreviewSection
+        photo={photo}
+        handleRetakePhoto={handleRetakePhoto}
+        setCurrentScreen={setCurrentScreen}
+      />
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -101,10 +122,6 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           <TouchableOpacity onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))} style={styles.iconButton}>
             <MaterialIcons name="add-circle" size={40} color="white" />
           </TouchableOpacity>
-
-          <View style={styles.track}>
-            <View style={[styles.activeTrack, { width: `${zoom * 100}%` }]} />
-          </View>
         </View>
       )}
 

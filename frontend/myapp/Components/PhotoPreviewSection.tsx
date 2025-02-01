@@ -1,7 +1,6 @@
 import { Fontisto } from '@expo/vector-icons';
-import { CameraCapturedPicture } from 'expo-camera';
 import React, { useState } from 'react';
-import { TouchableOpacity, SafeAreaView, Image, StyleSheet, View, Text, Platform } from 'react-native';
+import { TouchableOpacity, SafeAreaView, Image, StyleSheet, View, Text, Platform, ActivityIndicator } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { getFirestore, collection, addDoc } from 'firebase/firestore';
@@ -9,7 +8,7 @@ import { getAuth } from 'firebase/auth';
 import NotificationBanner from "@/Components/NotificationBanner";
 
 interface LoginProps {
-    photo: CameraCapturedPicture;
+    photo: { uri: string; base64?: string }; // Ahora acepta imágenes seleccionadas con base64 opcional
     handleRetakePhoto: () => void;
     setCurrentScreen: (screen: string) => void;
 }
@@ -20,13 +19,14 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
     setCurrentScreen,
 }) => {
     const [errorMessage, setErrorMessage] = useState("");
+    const [isLoading, setIsLoading] = useState(false); // Estado para manejar el círculo de carga
     const auth = getAuth();
     const db = getFirestore();
 
     const sendImageToAPI = async (imageUri: string) => {
         try {
-            setErrorMessage(""); // Limpiar mensaje de error
-            const response = await fetch('https://chat-hfp7.onrender.com/process_image', {
+            setErrorMessage("");  // Reset error message
+            const response = await fetch('http://127.0.0.1:5000/process_image', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -35,6 +35,10 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
             });
 
             const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Error en la respuesta de la API');
+            }
+
             return data.respuesta || 'No response from server';
         } catch (error) {
             console.error('Error sending image:', error);
@@ -62,9 +66,15 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                 const asset = await MediaLibrary.createAssetAsync(imageUri);
                 await MediaLibrary.createAlbumAsync("MyApp", asset, false);
                 return asset.uri;
+            } else {
+                const a = document.createElement('a');
+                a.href = imageUri;
+                a.download = 'photo.jpg'; 
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return imageUri;
             }
-            // Web: Retorna el URI como está
-            return imageUri;
         } catch (error) {
             console.error("Error saving image locally:", error);
             setErrorMessage("Failed to save the image locally.");
@@ -75,29 +85,49 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
     const handleSendPhoto = async () => {
         const user = auth.currentUser;
         if (user) {
+            setIsLoading(true);
             try {
-                let base64Image = '';
+                let base64Image = photo.base64 || '';
 
-                if (Platform.OS === 'web') {
-                    base64Image = photo.uri; // En web, URI ya está en base64
-                } else {
+                if (base64Image) {
+                    if (!base64Image.startsWith('data:image')) {
+                        const imageExtension = photo.uri.split('.').pop()?.toLowerCase();
+                        if (imageExtension === 'jpg' || imageExtension === 'jpeg') {
+                            base64Image = `data:image/jpeg;base64,${base64Image}`;
+                        } else if (imageExtension === 'png') {
+                            base64Image = `data:image/png;base64,${base64Image}`;
+                        } else {
+                            base64Image = `data:image/jpeg;base64,${base64Image}`;
+                        }
+                    }
+                }
+
+                if (!base64Image && Platform.OS !== 'web') {
                     const fileContent = await FileSystem.readAsStringAsync(photo.uri, {
                         encoding: FileSystem.EncodingType.Base64,
                     });
-                    base64Image = `data:image/jpg;base64,${fileContent}`;
+                    const imageExtension = photo.uri.split('.').pop()?.toLowerCase();
+                    if (imageExtension === 'jpg' || imageExtension === 'jpeg') {
+                        base64Image = `data:image/jpeg;base64,${fileContent}`;
+                    } else if (imageExtension === 'png') {
+                        base64Image = `data:image/png;base64,${fileContent}`;
+                    } else {
+                        base64Image = `data:image/jpeg;base64,${fileContent}`;
+                    }
                 }
 
-                // Guardar la imagen en el dispositivo
-                await saveImageLocally(photo.uri);
+                setCurrentScreen('ChatScreen');
 
-                // Dividir la imagen en fragmentos base64
+                if (!photo.base64) {
+                    await saveImageLocally(photo.uri);
+                }
+
                 const base64Chunks = chunkBase64(base64Image);
 
-                const receiverUID = 'receiverUID'; // UID del receptor, ajusta según tu lógica
+                const receiverUID = 'receiverUID';
                 const userMessagesRef = collection(db, 'users', user.uid, 'messages');
                 const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
 
-                // Crear mensaje de la imagen con fragmentos
                 const messageDocRef = await addDoc(userMessagesRef, {
                     text: '',
                     sender: user.uid,
@@ -114,10 +144,8 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                     });
                 }
 
-                // Enviar la imagen al servidor
                 const botResponseText = await sendImageToAPI(base64Image);
 
-                // Guardar respuesta del bot
                 const botMessage = {
                     text: botResponseText,
                     sender: receiverUID,
@@ -127,10 +155,11 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                 await addDoc(userMessagesRef, botMessage);
                 await addDoc(receiverMessagesRef, botMessage);
 
-                setCurrentScreen('ChatScreen'); // Cambiar a la pantalla de chat
             } catch (error) {
                 console.error('Error al procesar la imagen:', error);
                 setErrorMessage('Failed to send photo.');
+            } finally {
+                setIsLoading(false);
             }
         }
     };
@@ -143,7 +172,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
                     <Image
                         style={styles.previewContainer}
                         source={{ uri: photo.uri }}
-                        resizeMode="contain"
+                        resizeMode="cover"
                     />
                 ) : (
                     <Text style={styles.errorText}>No image available</Text>
@@ -152,12 +181,16 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
 
             <View style={styles.buttonContainer}>
                 <TouchableOpacity style={styles.button} onPress={handleRetakePhoto}>
-                    <Fontisto name='trash' size={36} color='black' />
+                    <Fontisto name='trash' size={36} color='white' />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={handleSendPhoto}>
-                    <Fontisto name='check' size={36} color='black' />
+                <TouchableOpacity style={styles.button} onPress={handleSendPhoto} disabled={isLoading}>
+                    <Fontisto name='check' size={36} color='white' />
                 </TouchableOpacity>
             </View>
+
+            {isLoading && (
+                <ActivityIndicator size="large" color="#5CB868" style={styles.loadingIndicator} />
+            )}
 
             {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
         </SafeAreaView>
@@ -168,32 +201,34 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         position: "relative",
-        backgroundColor: "#f0f2f5",
+        backgroundColor: "#FFFFFF",
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
     },
     box: {
-        width: '95%',
-        backgroundColor: 'darkgray',
+        width: '100%',
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
         flex: 1,
-        borderRadius: 15,
+        borderRadius: 16,
+        marginBottom: 30,
     },
     previewContainer: {
         width: '100%',
         height: '100%',
-        aspectRatio: 1,
         borderRadius: 15,
     },
     buttonContainer: {
-        marginBottom: 20,
-        justifyContent: "center",
-        alignItems: 'center',
         flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     button: {
-        backgroundColor: 'gray',
+        backgroundColor: '#5CB868',
         borderRadius: 25,
-        padding: 10,
+        padding: 12,
         margin: 10,
         alignItems: 'center',
         justifyContent: 'center',
@@ -202,6 +237,13 @@ const styles = StyleSheet.create({
         color: 'red',
         fontSize: 16,
         textAlign: 'center',
+        marginTop: 10,
+    },
+    loadingIndicator: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: [{ translateX: -25 }, { translateY: -25 }],
     },
 });
 

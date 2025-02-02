@@ -26,7 +26,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
     const sendImageToAPI = async (imageUri: string) => {
         try {
             setErrorMessage("");  // Reset error message
-            const response = await fetch('https://proyectomovil-dten.onrender.com/process_image', {
+            const response = await fetch('https://proyectomovil-qh8q.onrender.com/process_image', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

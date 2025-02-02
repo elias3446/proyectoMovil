@@ -43,25 +43,24 @@ def process_image():
         temp_file_path = os.path.join('temp', 'uploaded_image.png')
         os.makedirs('temp', exist_ok=True)
         image.save(temp_file_path)
-
+        
         # Procesar la imagen con Gemini
         uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
         
+        # Iniciar una conversación con el modelo enfocada en el análisis de plantas
         chat_session = model.start_chat(
-            history=[{
-                "role": "user",
-                "parts": [
-                    uploaded_file,
-                    "¿Qué ves en esta imagen?"
-                ],
-            }]
-        )
-
-        response = chat_session.send_message("¿Qué hay en la imagen?")
-
+             history=[{
+                  "role": "user",
+                  "parts": [
+                       uploaded_file,
+                       "Analiza esta imagen y proporciona información únicamente sobre el estado de las plantas, su salud o posibles cuidados necesarios."
+                       ],
+                       }]
+                       )
+        response = chat_session.send_message("Describe la imagen, pero solo en términos del estado y cuidado de las plantas que aparecen en ella.")
         # Limpiar el archivo temporal solo si se procesó correctamente
         clean_temp_file(temp_file_path)  # Usar la función importada
-
+        
         return jsonify({'respuesta': response.text})
 
     except Exception as e:

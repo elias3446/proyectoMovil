@@ -47,9 +47,6 @@ def process_image():
         # Procesar la imagen con Gemini
         uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
         
-        # Procesar la imagen con Gemini
-        uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
-        
         # Iniciar una conversación con el modelo enfocada en el análisis detallado de plantas
         chat_session = model.start_chat(
             history=[{

@@ -174,17 +174,12 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     );
   };
 
-  const scrollToBottom = () => {
-    if (flatListRef.current) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  };
-
+  // Función para desplazarse solo cuando el mensaje se haya enviado o recibido
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (messages.length > 0) {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [messages]);  // Este efecto se ejecutará solo cuando los mensajes cambien.
 
   return (
     <View style={styles.container}>
@@ -202,7 +197,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesContainer}
-        onContentSizeChange={scrollToBottom}
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

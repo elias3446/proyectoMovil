@@ -47,18 +47,34 @@ def process_image():
         # Procesar la imagen con Gemini
         uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
         
-        # Iniciar una conversación con el modelo enfocada en el análisis de plantas
+        # Procesar la imagen con Gemini
+        uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
+        
+        # Iniciar una conversación con el modelo enfocada en el análisis detallado de plantas
         chat_session = model.start_chat(
-             history=[{
-                  "role": "user",
-                  "parts": [
-                       uploaded_file,
-                       "Analiza esta imagen y proporciona información únicamente sobre el estado de las plantas, su salud o posibles cuidados necesarios."
-                       ],
-                       }]
-                       )
-        response = chat_session.send_message("Describe la imagen, pero solo en términos del estado y cuidado de las plantas que aparecen en ella.")
+            history=[{
+                "role": "user",
+                "parts": [
+                    uploaded_file,
+                    "Analiza esta imagen y proporciona información detallada sobre las plantas. Me gustaría saber lo siguiente:\n"
+                    "1. El tipo de planta que aparece.\n"
+                    "2. La frecuencia de riego actual recomendada.\n"
+                    "3. El tipo de tierra que parece ser más adecuado.\n"
+                    "4. La cantidad de luz solar que recibe la planta.\n"
+                    "5. Cualquier otro dato relevante que pueda ayudarme a cuidar mejor estas plantas."
+                    ],
+                    }]
+                    )
+        
+        response = chat_session.send_message(
+            "Describe la imagen con la información sobre el tipo de plantas, su frecuencia de riego, tipo de tierra, cantidad de luz solar y cualquier otro detalle relevante para el cuidado. Si no es una planta, por favor indícalo y recuerda que solo puedes detectar plantas."
+            )
+        
+        # Respuesta para el caso en que no haya plantas en la imagen
+        if "no hay plantas" in response.text.lower() or "no puedo identificar" in response.text.lower():
+            return "Lo siento, parece que la imagen no contiene plantas. Solo puedo ayudarte a identificar y cuidar plantas."
         # Limpiar el archivo temporal solo si se procesó correctamente
+        
         clean_temp_file(temp_file_path)  # Usar la función importada
         
         return jsonify({'respuesta': response.text})

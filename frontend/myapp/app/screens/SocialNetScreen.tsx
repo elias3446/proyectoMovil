@@ -272,7 +272,27 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       [postId]: (prevState[postId] || 5) + 10,
     }));
   };
-
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  useEffect(() => {
+    const fetchUserProfileImage = async () => {
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+  
+      try {
+        const userDoc = await getDocs(query(collection(db, "users")));
+        userDoc.forEach((doc) => {
+          if (doc.id === userId) {
+            setProfileImage(doc.data().profileImage || null);
+          }
+        });
+      } catch (error) {
+        console.error("Error al obtener la imagen de perfil:", error);
+      }
+    };
+  
+    fetchUserProfileImage();
+  }, []);
+  
   const renderPost = ({ item }: { item: Post }) => {
     const userName = users.get(item.userId);
     const showComments = visibleComments[item.id];
@@ -295,7 +315,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         <Text className="text-xl px-4">{item.content}</Text>
 
         {/* post image */}
-        {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-full object-cover h-96" />}
+        {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-auto rounded-lg mx-2 object-cover h-96" />}
 
         {/* post actions */}
         <View className="flex flex-row items-center justify-start gap-2 px-4 pt-1">
@@ -375,16 +395,22 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
       {/* Create post */}
       <View className="flex flex-row items-center rounded-full gap-2">
-        {image ? <Image source={{ uri: image }} className="w-full object-cover h-56" /> : <FontAwesome6 name="user-circle" size={35} />}
-        <TextInput
-          className="flex-1 px-4 rounded-full font-semibold text-xl bg-[#F3F4F6]"
-          placeholder="¿Qué estás pensando?"
-          value={content}
-          onChangeText={setContent}
-          placeholderTextColor="#9095A1"
-        />
-        <Feather name="image" size={40} onPress={handlePickImage} />
-      </View>
+  {profileImage ? (
+    <Image source={{ uri: profileImage }} className="object-cover h-10 w-10 rounded-full" />
+  ) : (
+    <FontAwesome6 name="user-circle" size={40} />
+  )}
+  <TextInput
+className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
+    placeholder="¿Qué estás pensando?"
+    value={content}
+    onChangeText={setContent}
+    multiline
+    placeholderTextColor="#9095A1"
+  />
+  <Feather name="image" size={40} onPress={handlePickImage} />
+</View>
+
 
       {/* Post button */}
       <View className="my-3">

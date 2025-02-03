@@ -6,6 +6,7 @@ import AccountRecoveryScreen from "./screens/AccountRecoveryScreen";
 import CameraCaptureScreen from "./screens/CameraCaptureScreen";
 import ChatScreen from "./screens/ChatScreen";
 import MyTab from "@/Components/MyTab"; // Importamos MyTab
+import "../global.css"
 
 export default function Index() {
   const [currentScreen, setCurrentScreen] = useState("LoginScreen");

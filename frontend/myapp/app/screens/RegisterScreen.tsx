@@ -97,34 +97,37 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View style={[styles.formContainer, { maxWidth: width > 400 ? 400 : width - 40 }]}>
-         <Image
-                    source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
-                    style={styles.logoImage}
-                    resizeMode="contain"
-                  />
-        <Text style={styles.title}>Crea una cuenta</Text>
+      <View className={`w-full p-5 bg-white rounded-xl relative ${width > 400 ? 'max-w-[25rem]' : 'max-w-[calc(100%-40px)]'}`}>
+        {/* Logo */}
+        <Image
+          source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
+          className="w-3/5 aspect-[1] -mb-10 self-center"
+          resizeMode="contain"
+        />
+        <Text className="font-bold text-2xl text-center mb-5">Crea una cuenta</Text>
 
-        <View style={styles.row}>
+        {/* firstname & lastname */}
+        <View className="flex-row justify-between mb-3">
           <TextInput
-            style={[styles.input, styles.inputHalf, { color: firstName ? '#000' : '#9CA3AF' }]}
+            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${firstName ? 'text-back' : 'text-[#9CA3AF]'}`}
             placeholder="Nombre"
             value={firstName}
             onChangeText={setFirstName}
           />
           <TextInput
-            style={[styles.input, styles.inputHalf, { color: lastName ? '#000' : '#9CA3AF' }]}
+            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${lastName ? 'text-back' : 'text-[#9CA3AF]'}`}
             placeholder="Apellido"
             value={lastName}
             onChangeText={setLastName}
           />
         </View>
 
-        <Text style={styles.label}>Fecha de nacimiento</Text>
-        <View style={styles.row}>
+        {/* birthdate */}
+        <Text className="text-base text-black mb-2 font-bold">Fecha de nacimiento</Text>
+        <View className="flex-row justify-between mb-3">
           <Picker
             selectedValue={birthDay}
-            style={[styles.picker, { borderWidth: 0 }]}
+            style={[styles.picker, { borderWidth: 0, width: "33.33%" }]}
             onValueChange={(itemValue) => setBirthDay(itemValue)}
           >
             {[...Array(31).keys()].map((day) => (
@@ -133,7 +136,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </Picker>
           <Picker
             selectedValue={birthMonth}
-            style={[styles.picker, { borderWidth: 0 }]}
+            style={[styles.picker, { borderWidth: 0, width: "33.33%" }]}
             onValueChange={(itemValue) => setBirthMonth(itemValue)}
           >
             {["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].map(
@@ -144,7 +147,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </Picker>
           <Picker
             selectedValue={birthYear}
-            style={[styles.picker, { borderWidth: 0 }]}
+            style={[styles.picker, { borderWidth: 0, width: "33.33%" }]}
             onValueChange={(itemValue) => setBirthYear(itemValue)}
           >
             {[...Array(100).keys()]
@@ -155,10 +158,11 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </Picker>
         </View>
 
-        <Text style={styles.label}>Género</Text>
+        {/* Gender */}
+        <Text className="text-base text-black mb-2 font-bold">Género</Text>
         <Picker
           selectedValue={gender}
-          style={[styles.picker, { borderWidth: 0 }]}
+          style={[styles.picker, { borderWidth: 0, width: "100%" }]}
           onValueChange={(itemValue) => {
             setGender(itemValue);
             if (itemValue !== "O") setPronoun(""); // Clear pronoun if not 'Personalizado'
@@ -172,7 +176,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
         {gender === "O" && (
           <>
-            <Text style={styles.label}>Selecciona tu pronombre</Text>
+            <Text className="text-base text-black mb-2 font-bold">Selecciona tu pronombre</Text>
             <Picker
               selectedValue={pronoun}
               style={[styles.picker, { borderWidth: 0 }]}
@@ -183,11 +187,11 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
               <Picker.Item label='Masculino: "Salúdalo por su cumpleaños"' value="Masculino" />
               <Picker.Item label='Neutro: "Salúdalo(a) por su cumpleaños"' value="Neutro" />
             </Picker>
-            <Text style={styles.note}>Tu pronombre será visible para todos.</Text>
+            <Text className="text-xs text-[#666] mb-3">Tu pronombre será visible para todos.</Text>
 
-            <Text style={styles.label}>Género (opcional)</Text>
+            <Text className="text-base text-black mb-2 font-bold">Género (opcional)</Text>
             <TextInput
-              style={[styles.input, { color: customGender ? '#000' : '#9CA3AF' }]}
+              className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${customGender ? 'text-back' : 'text-[#9CA3AF]'}`}
               placeholder="Escribe tu género"
               value={customGender}
               onChangeText={setCustomGender}
@@ -195,53 +199,58 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </>
         )}
 
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={[styles.input, { color: password ? '#000' : '#9CA3AF', paddingRight: 45 }]}  // Aumenta el paddingRight
-            placeholder="Contraseña nueva"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-          />
-          <View style={styles.eyeIconContainer}>  {/* Contenedor centrado */}
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="gray" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
+        {/* email */}
         <TextInput
-          style={[styles.input, { color: email ? '#000' : '#9CA3AF' }]}
+          className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${email ? 'text-back' : 'text-[#9CA3AF]'}`}
           placeholder="Correo electrónico"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
         />
 
-        <View style={styles.checkboxContainer}>
+        {/* password */}
+        <View className="relative">
+          <TextInput
+            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${password ? 'text-back' : 'text-[#9CA3AF]'}`}
+            placeholder="Contraseña nueva"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+
+          {/* Contenedor centrado */}
+          <View className="absolute z-20 right-4 top-3">
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="gray" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* terms & conditions */}
+        <View className="flex-row items-center mb-3">
           <Checkbox
             value={acceptTerms}
             onValueChange={setAcceptTerms}
-            style={styles.checkbox}
+            className="mr-2"
           />
           <TouchableOpacity onPress={() => {}}>
-            <Text style={styles.acceptText}>
+            <Text className="text-base text-black">
               Acepto los{" "}
-              <Text style={styles.linkText} onPress={() => {}}>
+              <Text className="text-[#5CB868]" onPress={() => {}}>
                 Términos & Condiciones
               </Text>
             </Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.button, styles.registerButton]} onPress={handleRegister} disabled={loading}>
-          <Text style={styles.registerButtonText}>{loading ? "Cargando..." : "Registrar"}</Text>
+        <TouchableOpacity className="items-center my-3 p-4 rounded-xl bg-[#5CB868]" onPress={handleRegister} disabled={loading}>
+          <Text className="text-white font-bold text-lg">{loading ? "Cargando..." : "Registrar"}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => setCurrentScreen("LoginScreen")}>
-          <Text style={styles.loginLink}>
-            <Text style={styles.loginText}>¿Ya tienes cuenta?</Text>
-            <Text style={styles.signInText}> Iniciar sesión</Text>
+          <Text className="text-black text-center mt-3 text-base">
+            <Text className="text-black">¿Ya tienes cuenta?</Text>
+            <Text className="text-[#5CB868]"> Iniciar sesión</Text>
           </Text>
         </TouchableOpacity>
       </View>
@@ -261,111 +270,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     marginTop: -50, // Ajuste para subir todos los elementos internos
   },
-  formContainer: {
-    width: "100%",
-    padding: 20,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    position: "relative",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  input: {
-    width: "100%",
-    height: 50,
-    paddingHorizontal: 15,
-    marginBottom: 12,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    fontSize: 16,
-  },
-  inputHalf: {
-    width: "48%",
-  },
-  passwordContainer: {
-    position: "relative",
-  },
-  eyeIconContainer: {
-    position: 'absolute',
-    right: 15,
-    top: 10,
-    zIndex: 2,
-  },
   picker: {
-    width: "100%",
     height: 50,
     paddingHorizontal: 15,
     marginBottom: 12,
     backgroundColor: "#F3F4F6",
-    borderRadius: 12,
     color: "#000",
-  },
-  label: {
-    fontSize: 14,
-    color: "black",
-    marginBottom: 6,
-    fontWeight: "bold",
-  },
-  note: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 12,
-  },
-  checkboxContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  checkbox: {
-    marginRight: 8,
-  },
-  acceptText: {
-    fontSize: 14,
-    color: "black",
-  },
-  linkText: {
-    color: "#5CB868",
-  },
-  button: {
-    padding: 15,
-    borderRadius: 25,
-    alignItems: "center",
-    marginVertical: 12,
-  },
-  registerButton: {
-    backgroundColor: "#5CB868",
-  },
-  registerButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  logoImage: {
-    width: '60%',
-    aspectRatio: 1,
-    marginBottom: -40,
-    alignSelf: 'center',
-  },
-  loginLink: {
-    color: "#000",
-    textAlign: "center",
-    fontSize: 14,
-    marginTop: 10,
-  },
-  loginText: {
-    color: "#000",
-  },
-  signInText: {
-    color: "#5CB868",
   },
 });
 

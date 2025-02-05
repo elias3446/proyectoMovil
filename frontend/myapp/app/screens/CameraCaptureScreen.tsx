@@ -79,10 +79,10 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   if (!permission.granted) {
     return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>Necesitamos tu permiso para mostrar la cámara</Text>
-        <TouchableOpacity onPress={requestPermission} style={styles.permissionButton}>
-          <Text style={styles.permissionButtonText}>Conceder permiso</Text>
+      <View className='flex-1 justify-center items-center p-5'>
+        <Text className='text-black mb-5 text-lg text-center'>Necesitamos tu permiso para mostrar la cámara</Text>
+        <TouchableOpacity className='bg-[#4CAF50] p-3 rounded-lg' onPress={requestPermission}>
+          <Text className='text-white text-lg'>Conceder permiso</Text>
         </TouchableOpacity>
       </View>
     );
@@ -105,8 +105,8 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       </CameraView>
 
       {Platform.OS !== 'web' && (
-        <View style={styles.sliderContainer}>
-          <TouchableOpacity onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))} style={styles.iconButton}>
+        <View className='absolute bottom-32 left-0 right-0 flex-row justify-center items-center'>
+          <TouchableOpacity className='px-0' onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))}>
             <MaterialIcons name="remove-circle" size={40} color="white" />
           </TouchableOpacity>
 
@@ -119,31 +119,31 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             thumbTintColor="#FFFFFF"
           />
 
-          <TouchableOpacity onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))} style={styles.iconButton}>
+          <TouchableOpacity className='px-0' onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))}>
             <MaterialIcons name="add-circle" size={40} color="white" />
           </TouchableOpacity>
         </View>
       )}
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.captureButtonWrapper} onPress={handleTakePhoto}>
-          <View style={styles.captureButtonRing}>
-            <View style={styles.captureButtonCircle} />
+      <View className="absolute bottom-0 left-0 right-0 bg-white h-[7.5rem] flex-row justify-center items-center z-[2]" style={{ paddingHorizontal: width * 0.05 }}>
+        <TouchableOpacity className='-bottom-[1] z-[1]' onPress={handleTakePhoto}>
+          <View className='p-2 bg-transparent border-[#A5D6A7] border-8 rounded-full justify-center items-center'>
+            <View className='bg-[#5CB868] rounded-full w-16 h-16 justify-center items-center' />
           </View>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.galleryButtonContainer} onPress={handleGallery}>
+      <TouchableOpacity className='absolute bottom-7 right-7 z-[3]' onPress={handleGallery}>
         <MaterialIcons name="photo-library" size={50} color="black" />
       </TouchableOpacity>
 
       {Platform.OS !== 'web' && (
-        <View style={styles.rightButtonsContainer}>
-          <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
+        <View className='absolute top-3 right-3 flex-row justify-start items-center z-[3]'>
+          <TouchableOpacity className='bg-transparent p-1 mr-0 justify-center items-center rounded-xl' onPress={toggleFlash}>
             <MaterialIcons name={flash === 'off' ? 'flash-off' : 'flash-auto'} size={50} color="white" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
+          <TouchableOpacity className='bg-transparent p-1 mr-0 justify-center items-center rounded-xl' onPress={toggleCameraFacing}>
             <MaterialIcons name="flip-camera-android" size={50} color="white" />
           </TouchableOpacity>
         </View>
@@ -160,27 +160,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFFFF",
     justifyContent: 'center',
   },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  permissionText: {
-    textAlign: 'center',
-    marginBottom: 20,
-    fontSize: 16,
-    color: '#fff',
-  },
-  permissionButton: {
-    backgroundColor: '#4CAF50',
-    padding: 12,
-    borderRadius: 6,
-  },
-  permissionButtonText: {
-    color: 'white',
-    fontSize: 16,
-  },
   camera: {
     flex: 1,
     zIndex: -1,
@@ -191,99 +170,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     opacity: 0.6,
   },
-  sliderContainer: {
-    position: 'absolute',
-    bottom: 130,  // Ajuste estático
-    left: 0,
-    right: 0,
-    justifyContent: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconButton: {
-    paddingHorizontal: 0,
-  },
   slider: {
     width: '57%',
     height: 22,
-  },
-  track: {
-    position: 'absolute',
-    top: 15,
-    width: '50%',
-    height: 10,
-    backgroundColor: '#EFF8F0FF',
-    overflow: 'hidden',
-    zIndex: -1,
-    borderRadius: 4,
-  },
-  activeTrack: {
-    position: 'absolute',
-    left: 0,
-    height: 100,
-    backgroundColor: '#A5D6A7FF',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    height: 100,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: width * 0.05,
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    borderWidth: 1,
-    borderColor: 'white',
-    zIndex: 2,
-  },
-  captureButtonWrapper: {
-    position: 'absolute',
-    bottom: -1,
-    zIndex: 1,
-  },
-  captureButtonRing: {
-    backgroundColor: 'transparent',
-    borderColor: '#A5D6A7',
-    borderWidth: 8,
-    borderRadius: 55,
-    padding: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  captureButtonCircle: {
-    backgroundColor: '#5CB868',
-    borderRadius: 45,
-    width: 65,
-    height: 65,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  galleryButtonContainer: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,  // Ajuste estático
-    zIndex: 3,
-  },
-  rightButtonsContainer: {
-    position: 'absolute',
-    top: 10,
-    right: 10,  // Ajuste estático
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    zIndex: 3,
-  },
-  controlButton: {
-    backgroundColor: 'transparent',
-    padding: 5,
-    marginRight: 0,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 

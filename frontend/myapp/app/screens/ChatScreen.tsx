@@ -146,18 +146,18 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     const isBase64Image = /^data:image\/[a-zA-Z]+;base64,/.test(item.text);
 
     return (
-      <View style={styles.messageContainer}>
+      <View className='flex-row items-start my-1'>
         {isBotMessage && (
           <Image
             source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
-            style={styles.botProfileImage}
+            className='w-12 h-12 mx-3 rounded-full'
           />
         )}
-        <View style={isBotMessage ? styles.botBubble : styles.userBubble}>
+        <View className={`p-3 rounded-xl max-w-[70%] flex-row items-center ${isBotMessage ? 'bg-[#D1D5DB]' : 'bg-[#B8E6B9] ml-auto'}`}>
           {isBase64Image ? (
-            <Image source={{ uri: item.text }} style={styles.imageMessage} />
+            <Image className='w-52 h-52 mx-1 rounded-xl' source={{ uri: item.text }} />
           ) : (
-            <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
+            <Text className={`text-lg text-[#6B7280]`}>
               {item.isSending ? '...' : item.text}
             </Text>
           )}
@@ -165,9 +165,9 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         {isMyMessage && (
           <MaterialIcons
             name="account-circle" // Ícono predeterminado de usuario
-            size={50} // Dimensiones del ícono
+            size={48} // Dimensiones del ícono
             color="#B8E6B9" // Color del ícono del usuario
-            style={styles.userProfileImage}
+            className='w-16 h-16 mx-1 rounded-full'
           />
         )}
       </View>
@@ -187,12 +187,12 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   }, [messages]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Image source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')} style={styles.profileImage} />
-        <Text style={styles.contactName}>
-          <Text style={styles.dal}>DAL</Text>
-          <Text style={styles.ia}>IA</Text>
+    <View className='flex-1 bg-white'>
+      <View className='flex-col items-center bg-white p-4 pt-5'>
+        <Image className='w-28 h-28 mb-2 rounded-full' source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')} />
+        <Text className='text-3xl font-bold text-center'>
+          <Text className='text-[#9095A1]'>DAL</Text>
+          <Text className='text-[#B8E6B9]'>IA</Text>
         </Text>
       </View>
 
@@ -201,134 +201,25 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         data={messages}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messagesContainer}
+        contentContainerStyle={{ paddingBottom: 20 }}
         onContentSizeChange={scrollToBottom}
       />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text className='text-red-500 mt-3 text-center'>{error}</Text> : null}
 
-      <View style={styles.inputContainer}>
+      <View className='flex-row items-center p-4 bg-white'>
         <TextInput
-          style={[styles.input, { color: '#9CA3AF' }]}  // Neutro 400
+          className='flex-1 h-14 border border-[#D1D5DB] rounded-full px-4 mr-2 text-[#9CA3AF]'
           placeholder="Escribe un mensaje..."
           value={messageText}
           onChangeText={setMessageText}
         />
-        <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={loading}>
+        <TouchableOpacity className={`w-14 h-14 rounded-full justify-center items-center ${loading ? 'bg-[#B8E6B9]' : 'bg-[#5CB868]'}`} onPress={sendMessage} disabled={loading}>
           <MaterialIcons name="send" size={24} color="white" />
         </TouchableOpacity>
       </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 15,
-    paddingTop: 20,
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 25,
-    marginBottom: 10,
-  },
-  contactName: {
-    fontSize: 24,
-    fontWeight: '400',
-    textAlign: 'center',
-  },
-  dal: {
-    color: '#9095A1',
-  },
-  ia: {
-    color: '#B8E6B9',
-  },
-  messagesContainer: {
-    paddingBottom: 20,
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginVertical: 5,
-  },
-  botProfileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 10,
-  },
-  botBubble: {
-    padding: 10,
-    backgroundColor: '#D1D5DB',
-    borderRadius: 8,
-    maxWidth: '70%',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userBubble: {
-    padding: 10,
-    backgroundColor: '#B8E6B9', // Cambié el color de fondo de usuario
-    borderRadius: 8,
-    maxWidth: '70%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 'auto',
-  },
-  userProfileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginLeft: 10,
-  },
-  messageText: {
-    fontSize: 16,
-    color: '#6B7280', // Color neutro 500
-  },
-  myMessageText: {
-    color: '#6B7280', // Color neutro 500 para el mensaje del usuario
-  },
-  imageMessage: {
-    width: 200,
-    height: 200,
-    borderRadius: 8,
-    marginVertical: 5,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#FFFFFF',
-  },
-  input: {
-    flex: 1,
-    height: 50,
-    borderColor: '#D1D5DB',  // Gris
-    borderWidth: 1,
-    borderRadius: 25, // Bordes más redondeados
-    paddingHorizontal: 15,
-    marginRight: 10,
-  },
-  sendButton: {
-    backgroundColor: '#B8E6B9', // Color del botón de enviar
-    width: 50,
-    height: 50,
-    borderRadius: 50, // Botón redondo
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  error: {
-    color: 'red',
-    marginTop: 10,
-    textAlign: 'center',
-  },
-});
 
 export default ChatScreen;

@@ -20,42 +20,28 @@ const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
   };
 
   return (
-    <View style={styles.tabContainer}>
+    <View className='flex-row justify-around bg-white py-3'>
       {/* Icono de la cámara */}
-      <TouchableOpacity onPress={() => handleTabPress('CameraCaptureScreen')} style={styles.tab}>
+      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('CameraCaptureScreen')}>
         <Icon name="camera" size={30} color={getIconColor('CameraCaptureScreen')} />
       </TouchableOpacity>
 
       {/* Icono del bot */}
-      <TouchableOpacity onPress={() => handleTabPress('ChatScreen')} style={styles.tab}>
+      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('ChatScreen')}>
         <Icon name="robot" size={30} color={getIconColor('ChatScreen')} />
       </TouchableOpacity>
 
       {/* Icono del mundo */}
-      <TouchableOpacity onPress={() => handleTabPress('WorldScreen')} style={styles.tab}>
+      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('WorldScreen')}>
         <Icon name="earth" size={30} color={getIconColor('WorldScreen')} />
       </TouchableOpacity>
 
       {/* Icono del usuario */}
-      <TouchableOpacity onPress={() => handleTabPress('ProfileScreen')} style={styles.tab}>
+      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('ProfileScreen')}>
         <Icon name="account-circle" size={30} color={getIconColor('ProfileScreen')} />
       </TouchableOpacity>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  tabContainer: {
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    backgroundColor: '#FFFFFF', // Cambiado al fondo del LoginScreen
-    paddingTop: 10, 
-    paddingBottom: 10,
-  },
-  tab: {
-    alignItems: 'center', // Centra los íconos
-    padding: 10,
-  },
-});
 
 export default MyTab;

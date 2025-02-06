@@ -60,7 +60,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       return;
     }
     if (!isPasswordStrong(password)) {
-      setErrorMessage("La contraseña debe tener al menos 8 caracteres, una letra mayúscula, una letra minúscula, un número y un carácter especial.");
+      setErrorMessage("Requerimientos: La contraseña debe tener al menos 8 caracteres, mínimo una letra mayúscula, una letra minúscula, un número y un carácter especial.");
       return;
     }
 

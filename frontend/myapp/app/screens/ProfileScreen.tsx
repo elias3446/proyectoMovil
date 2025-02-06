@@ -122,11 +122,6 @@ const ProfileScreen: React.FC<{ setCurrentScreen: (screen: string) => void }> = 
   };
   
   const handleUpdateProfile = async () => {
-    const isPasswordStrong = (password: string): boolean => {
-      const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-      return regex.test(password);
-    };    
-
     if (!user || !currentPassword) {
       setErrorMessage("Debes ingresar tu contraseña actual para realizar cambios.");
       setTimeout(() => setErrorMessage(""), 1500);

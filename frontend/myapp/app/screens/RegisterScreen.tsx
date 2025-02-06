@@ -44,6 +44,11 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     }
   }, [errorMessage, successMessage]);
 
+  const isPasswordStrong = (password: string) => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return passwordRegex.test(password);
+  };
+
   const handleRegister = async () => {
     if (!email || !password || !firstName || !lastName || !birthDay || !birthMonth || !birthYear || !gender) {
       setErrorMessage("Todos los campos son obligatorios, excepto 'Género (opcional)' en caso de 'Personalizado'.");
@@ -52,6 +57,10 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
     if (gender === "O" && !pronoun) {
       setErrorMessage("Por favor, selecciona un pronombre para el género personalizado.");
+      return;
+    }
+    if (!isPasswordStrong(password)) {
+      setErrorMessage("La contraseña debe tener al menos 8 caracteres, una letra mayúscula, una letra minúscula, un número y un carácter especial.");
       return;
     }
 

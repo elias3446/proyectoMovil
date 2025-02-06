@@ -84,14 +84,14 @@ const ProfileScreen: React.FC<{ setCurrentScreen: (screen: string) => void }> = 
       aspect: [1, 1],
       quality: 1,
     });
-
     if (!result.canceled) {
       try {
-        const response = await fetch(result.assets[0].uri);
-        const blob = await response.blob();
-
         const formData = new FormData();
-        formData.append("file", blob, "profile.jpg");
+        formData.append("file", {
+          uri: result.assets[0].uri,
+          type: "image/jpeg",
+          name: "profile.jpg",
+        } as any);
         formData.append("upload_preset", "my_upload_preset2");
         formData.append("folder", "profile_images");
 
@@ -114,6 +114,7 @@ const ProfileScreen: React.FC<{ setCurrentScreen: (screen: string) => void }> = 
           await AsyncStorage.setItem("userData", JSON.stringify(parsedData));
         }
       } catch (error) {
+        console.log(error);
         setErrorMessage("Error al subir la imagen.");
       }
     }

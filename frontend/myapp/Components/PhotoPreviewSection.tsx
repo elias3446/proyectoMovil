@@ -91,7 +91,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         throw new Error(data.error?.message || "Error al subir la imagen");
       }
 
-      sendImageToAPI(data.secure_url); // Enviar imagen a la API
+      setCurrentScreen("ChatScreen"); // Cambiar a la pantalla de chat
 
       return data.secure_url;
     } catch (error) {
@@ -111,6 +111,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
 
         const receiverUID = "receiverUID"; // Cambia esto con el ID del receptor real
         const userMessagesRef = collection(db, "users", user.uid, "messages");
+        const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
 
         await addDoc(userMessagesRef, {
           text: imageUrl,
@@ -119,11 +120,22 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
           timestamp: new Date(),
         });
 
+        const botResponseText = await sendImageToAPI(imageUrl);
+
+        const botMessage = {
+            text: botResponseText,
+            sender: receiverUID,
+            receiver: user.uid,
+            timestamp: new Date(),
+        };
+        await addDoc(userMessagesRef, botMessage);
+        await addDoc(receiverMessagesRef, botMessage);
+
       } catch (error) {
         console.error("Error al enviar la imagen:", error);
         setErrorMessage("No se pudo enviar la imagen.");
       } finally {
-        setCurrentScreen("ChatScreen");
+        
         setIsLoading(false);
       }
     }

@@ -8,6 +8,8 @@ import ChatScreen from "./screens/ChatScreen";
 import MyTab from "@/Components/MyTab"; // Importamos MyTab
 import registerNNPushToken from 'native-notify'; // for push notifications
 import "../global.css"
+import SocialNet from "./screens/SocialNetScreen";
+import ProfileScreen from "./screens/ProfileScreen";
 
 export default function Index() {
   registerNNPushToken(27248, 'g7bm81eIUEY0Mmtod4FmYb'); // Native Notify appId & appToken
@@ -25,13 +27,17 @@ export default function Index() {
         return <CameraCaptureScreen setCurrentScreen={setCurrentScreen} />;
       case "ChatScreen":
         return <ChatScreen setCurrentScreen={setCurrentScreen} />;
+      case "SocialNetScreen":
+        return <SocialNet setCurrentScreen={setCurrentScreen} />;
+      case "ProfileScreen":
+        return <ProfileScreen setCurrentScreen={setCurrentScreen} />;
       default:
         return <LoginScreen setCurrentScreen={setCurrentScreen} />;
     }
   };
 
   // Solo mostrar MyTab si estamos en las pantallas correctas (CameraCaptureScreen y ChatScreen)
-  const shouldShowTab = ["CameraCaptureScreen", "ChatScreen"].includes(currentScreen);
+  const shouldShowTab = ["CameraCaptureScreen", "ChatScreen", "SocialNetScreen", "ProfileScreen"].includes(currentScreen);
 
   return (
     <View style={{ flex: 1 }}>

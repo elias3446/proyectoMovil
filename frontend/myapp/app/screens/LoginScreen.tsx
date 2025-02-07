@@ -34,9 +34,9 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       setSuccessMessage('Inicio de sesión exitoso');
-      registerIndieID(email, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
+      registerIndieID(userCredential.user.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
       setCurrentScreen('CameraCaptureScreen');
     } catch (error: any) {
       setErrorMessage(error.message || 'Credenciales incorrectas o problema de red.');

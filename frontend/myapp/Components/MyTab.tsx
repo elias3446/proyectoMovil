@@ -32,8 +32,8 @@ const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
       </TouchableOpacity>
 
       {/* Icono del mundo */}
-      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('WorldScreen')}>
-        <Icon name="earth" size={30} color={getIconColor('WorldScreen')} />
+      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('SocialNetScreen')}>
+        <Icon name="earth" size={30} color={getIconColor('SocialNetScreen')} />
       </TouchableOpacity>
 
       {/* Icono del usuario */}

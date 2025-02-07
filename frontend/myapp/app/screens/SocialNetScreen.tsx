@@ -7,7 +7,7 @@ import {
   FlatList,
   Image,
 } from "react-native";
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot, getDoc } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import * as FileSystem from 'expo-file-system';  
@@ -202,6 +202,33 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     setLoading(false);
   };
 
+  const getPostById = async (postId: string) => {
+    try {
+      const postRef = doc(db, "posts", postId); // Referencia al documento
+      const postSnap = await getDoc(postRef); // Obtener el documento
+  
+      if (postSnap.exists()) {
+        const data = postSnap.data(); // Retorna los datos del post
+        const post: Post = {
+          id: postSnap.id, // El ID del documento
+          userId: data.userId,
+          content: data.content,
+          imageUrl: data.imageUrl || null,
+          likes: data.likes || [],
+          comments: data.comments || [],
+          createdAt: data.createdAt || "",
+        };
+        return post;
+      } else {
+        console.log("No existe un post con ese ID.");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error obteniendo el post:", error);
+      throw error;
+    }
+  };
+
   const handleLike = async (postId: string, currentLikes: any) => {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
@@ -214,6 +241,22 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         likes: currentLikes.filter((id: string) => id !== userId),
       });
     } else {
+      getPostById(postId)
+        .then((post) => {
+          if (post) {
+            const user = users.get(userId);
+            axios.post(`https://app.nativenotify.com/api/indie/notification`, {
+              subID: post.userId,
+              appId: 27248,
+              appToken: 'g7bm81eIUEY0Mmtod4FmYb',
+              title: 'Nuevo like!',
+              message: `${user?.firstName.trim()} ha dado like a tu publicación.`
+            });
+          } else {
+            console.log("Post no encontrado.");
+          }
+        })
+        .catch((error) => console.error("Error:", error));
       await updateDoc(postRef, {
         likes: [...currentLikes, userId],
       });

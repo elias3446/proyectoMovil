@@ -8,7 +8,7 @@ import logging
 from PIL import Image
 import requests
 from modelo.chat_functions import extract_keywords, generate_response
-from modelo.procesar_imagen import upload_to_gemini, eliminar_prefijo_base64, clean_temp_file
+from modelo.procesar_imagen import upload_to_gemini, clean_temp_file
 from config import model  
 
 # Cargar variables de entorno

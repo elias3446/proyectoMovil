@@ -7,10 +7,9 @@ import {
   FlatList,
   Image,
 } from "react-native";
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot, getDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
-import * as FileSystem from 'expo-file-system';  
 import { getAuth } from "firebase/auth"; 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -42,10 +41,29 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [comment, setComment] = useState<string>(""); 
   const [visibleComments, setVisibleComments] = useState<{ [postId: string]: boolean }>({});
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const db = getFirestore();
   const auth = getAuth();
 
+  /**
+   * Obtiene los posts de manera paginada desde la colección "posts" en Firestore.
+   * 
+   * Este método realiza una consulta paginada para cargar los posts en bloques (páginas),
+   * ordenados por la fecha de creación de manera descendente. Al pasar un documento de referencia 
+   * (afterDoc), la consulta se ajustará para cargar los posts después del último documento de 
+   * la página anterior, permitiendo la paginación. 
+   * 
+   * @param afterDoc - (Opcional) El último documento cargado en la página anterior. Si se pasa, 
+   *                  la consulta cargará los posts después de este documento (paginación). 
+   *                  Si no se pasa, la consulta cargará la primera página de posts.
+   * @param limitPosts - El número máximo de posts a cargar por cada consulta (página).
+   * @param callback - Una función de callback que se ejecutará cada vez que se obtengan nuevos 
+   *                  documentos. Recibirá un arreglo de los nuevos `DocumentSnapshot`s cargados.
+   * @returns Un callback para cancelar la suscripción (`unsubscribe`) a los cambios de la consulta. 
+   *                  Este callback debe llamarse cuando ya no se necesiten más actualizaciones de los 
+   *                  posts o cuando se desee detener la consulta paginada.
+   */
   const getPaginatedPosts = (
     afterDoc: DocumentSnapshot | undefined, // último documento cargado
     limitPosts: number, // Límite de posts a cargar por cada página
@@ -73,12 +91,30 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     return unsubscribe;
   }
 
+  /**
+   * Obtiene el último elemento de un arreglo.
+   * 
+   * Este método toma un arreglo de tipo genérico y devuelve el último elemento del mismo.
+   * Si el arreglo está vacío, devuelve `undefined`.
+   * 
+   * @param arr - Un arreglo de elementos de cualquier tipo genérico.
+   * @returns El último elemento del arreglo o `undefined` si el arreglo está vacío.
+   */
   function getLastItem<T>(arr: T[]): T | undefined {
     // slice(-1) retorna un nuevo arreglo con el último elemento,
     // y al acceder al índice [0] obtenemos directamente ese elemento.
     return arr.slice(-1)[0];
   }
 
+  /**
+   * Carga más publicaciones (posts) de manera paginada y las agrega al estado existente.
+   * 
+   * Este método usa la función `getPaginatedPosts` para cargar más publicaciones desde Firestore 
+   * basándose en el último post cargado. Los nuevos posts se añaden al estado, asegurando que no 
+   * haya duplicados, utilizando un mapa para garantizar la unicidad.
+   * 
+   * @returns No retorna un valor, pero actualiza el estado `snapshots` con los nuevos posts.
+   */
   const fetchMorePosts = () => {
     getPaginatedPosts(getLastItem(snapshots), 10, (newSnapshots) => {
       setSnapshots((prevSnapshots) => {
@@ -101,35 +137,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     })
   };
 
-  useEffect(() => {
-    // Carga inicial de posts
-    const unsubscribe = getPaginatedPosts(undefined, 10, (newSnapshots) => {
-      setSnapshots(newSnapshots);
-    });
-    // Cancelar el listener en tiempo real al desmontar el componente
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const fetchUserNames = async () => {
-      const usersMap = new Map<string, { firstName: string, lastName: string, profileImage: string | null }>();
-
-      const snapshot = await getDocs(collection(db, "users"));
-      snapshot.forEach((doc) => {
-        const userData = doc.data();
-        usersMap.set(doc.id, {
-          firstName: userData.firstName || "",
-          lastName: userData.lastName || "",
-          profileImage: userData.profileImage || null,
-        });
-      });
-
-      setUsers(usersMap);
-    };
-
-    fetchUserNames();
-  }, []);
-
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -140,6 +147,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
+      aspect: [1, 1],
       quality: 1,
     });
 
@@ -352,25 +360,44 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       [postId]: (prevState[postId] || 5) + 10,
     }));
   };
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+
   useEffect(() => {
-    const fetchUserProfileImage = async () => {
+    // Carga inicial de posts
+    const unsubscribe = getPaginatedPosts(undefined, 10, (newSnapshots) => {
+      setSnapshots(newSnapshots);
+    });
+    // Cancelar el listener en tiempo real al desmontar el componente
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserNames = async () => {
+      const usersMap = new Map<string, { firstName: string, lastName: string, profileImage: string | null }>();
       const userId = auth.currentUser?.uid;
-      if (!userId) return;
-  
+
       try {
-        const userDoc = await getDocs(query(collection(db, "users")));
-        userDoc.forEach((doc) => {
+        const snapshot = await getDocs(collection(db, "users"));
+        snapshot.forEach((doc) => {
+          const userData = doc.data();
+          usersMap.set(doc.id, {
+            firstName: userData.firstName || "",
+            lastName: userData.lastName || "",
+            profileImage: userData.profileImage || null,
+          });
+  
+          // Verificar si el usuario es el usuario autenticado
           if (doc.id === userId) {
-            setProfileImage(doc.data().profileImage || null);
+            setProfileImage(userData.profileImage || null); // Asignar la imagen de perfil
           }
         });
+  
+        setUsers(usersMap);
       } catch (error) {
-        console.error("Error al obtener la imagen de perfil:", error);
+        console.error("Error al obtener los datos de los usuarios:", error);
       }
     };
-  
-    fetchUserProfileImage();
+
+    fetchUserNames();
   }, []);
   
   const renderPost = ({ item }: { item: Post }) => {
@@ -475,22 +502,21 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
       {/* Create post */}
       <View className="flex flex-row items-center rounded-full gap-2">
-  {profileImage ? (
-    <Image source={{ uri: profileImage }} className="object-cover h-10 w-10 rounded-full" />
-  ) : (
-    <FontAwesome6 name="user-circle" size={40} />
-  )}
-  <TextInput
-className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
-    placeholder="¿Qué estás pensando?"
-    value={content}
-    onChangeText={setContent}
-    multiline
-    placeholderTextColor="#9095A1"
-  />
-  <Feather name="image" size={40} onPress={handlePickImage} />
-</View>
-
+        {profileImage ? (
+          <Image source={{ uri: profileImage }} className="object-cover h-10 w-10 rounded-full" />
+        ) : (
+          <FontAwesome6 name="user-circle" size={40} />
+        )}
+        <TextInput
+          className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
+          placeholder="¿Qué estás pensando?"
+          value={content}
+          onChangeText={setContent}
+          multiline
+          placeholderTextColor="#9095A1"
+        />
+        <Feather name="image" size={40} onPress={handlePickImage} />
+      </View>
 
       {/* Post button */}
       <View className="my-3">
@@ -499,7 +525,7 @@ className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
           onPress={handleCreatePost}
           disabled={loading}
         >
-          <Text className="color-[#142C15] text-center text-xl">{loading ? "Publicando..." : "Publicar"}</Text>
+          <Text className="text-[#142C15] text-center text-xl">{loading ? "Publicando..." : "Publicar"}</Text>
         </TouchableOpacity>
       </View>
 

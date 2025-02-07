@@ -257,11 +257,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         />
 
         <TouchableOpacity
-          className="bg-green-300 p-3 rounded-lg items-center mb-4"
+          className="bg-[#A5D6A7] p-3 rounded-lg items-center mb-4"
           onPress={handleSaveChanges}
           disabled={loading}
         >
-          <Text className="text-white font-bold">{loading ? "Guardando..." : "Guardar Cambios"}</Text>
+          <Text className="text-[#142C15] font-bold">{loading ? "Guardando..." : "Guardar Cambios"}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

@@ -6,6 +6,11 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Platform,
+  Keyboard,
+  ScrollView,
 } from "react-native";
 import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
@@ -409,7 +414,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     const createdTimeAgo = timeAgo(item.createdAt);
 
     return (
-      <View className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
+      <ScrollView className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
         {/* photo and username */}
         <View className="flex flex-row items-center gap-2 px-4 pt-4">
           {userName?.profileImage ? <Image source={{ uri: userName.profileImage }} className="object-cover h-8 w-8 rounded-full" /> : <FontAwesome6 name="user-circle" size={26} />}
@@ -419,13 +424,13 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         </View>
 
         {/* post content */}
-        <Text className="text-xl px-4">{item.content}</Text>
+        <Text className="text-xl px-4 py-2">{item.content}</Text>
 
         {/* post image */}
         {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-auto rounded-lg mx-2 object-cover h-96" />}
 
         {/* post actions */}
-        <View className="flex flex-row items-center justify-start gap-2 px-4 pt-1">
+        <View className="flex flex-row items-center justify-start gap-2 px-4 pt-3 pb-2">
           <TouchableOpacity onPress={() => handleLike(item.id, item.likes)} className="flex flex-row items-center gap-2 w-12">
             <FontAwesome name={userHasLiked ? "heart" : "heart-o"} size={24} color="#5CB868" />
             <Text>{Array.isArray(item.likes) ? item.likes.length : 0}</Text>
@@ -441,7 +446,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
         {/* post comments */}
         {showComments && (
-          <View className="flex gap-6 pb-4 px-5">
+          <View className="flex gap-4 pb-4 px-5">
 
             {/* comments list */}
             {item.comments.slice(0, commentsLimit).map((comment, index) => {
@@ -487,7 +492,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
             </View>
           </View>
         )}
-      </View>
+      </ScrollView>
     );
   };
 

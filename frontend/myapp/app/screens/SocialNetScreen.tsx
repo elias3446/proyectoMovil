@@ -8,11 +8,9 @@ import {
   Image,
   ScrollView,
   Pressable,
-  Alert,
 } from "react-native";
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot } from "firebase/firestore";
+import { DocumentSnapshot } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
-import axios from "axios";
 import { getAuth } from "firebase/auth"; 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -21,24 +19,19 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Fontisto from '@expo/vector-icons/Fontisto';
 import { timeAgo } from "../../utils/utils";
 import CustomModal from "@/Components/MyModal";
+import { addPost, getAllUsers, getPaginatedPosts, getProfileImageById, updatePost } from "@/api/firebaseService";
+import { Post } from "@/types/Post";
+import { sendNotificationMessage } from "@/api/notificationService";
+import { UserData } from "@/types/User";
+import { uploadImageToCloudinary } from "@/api/cloudinaryService";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-interface Post {
-  id: string;
-  userId: string;
-  content: string;
-  imageUrl: string | null;
-  likes: string[];
-  comments: { userId: string, text: string }[];
-  createdAt: string;
-}
-
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
-  const [users, setUsers] = useState<Map<string, { firstName: string, lastName: string, profileImage: string | null }>>(new Map());
+  const [users, setUsers] = useState<Map<string, UserData>>(new Map());
   const [content, setContent] = useState<string>("");
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -47,54 +40,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const POST_LIMIT = 10;
 
-  const db = getFirestore();
   const auth = getAuth();
-
-  /**
-   * Obtiene los posts de manera paginada desde la colección "posts" en Firestore.
-   * 
-   * Este método realiza una consulta paginada para cargar los posts en bloques (páginas),
-   * ordenados por la fecha de creación de manera descendente. Al pasar un documento de referencia 
-   * (afterDoc), la consulta se ajustará para cargar los posts después del último documento de 
-   * la página anterior, permitiendo la paginación. 
-   * 
-   * @param afterDoc - (Opcional) El último documento cargado en la página anterior. Si se pasa, 
-   *                  la consulta cargará los posts después de este documento (paginación). 
-   *                  Si no se pasa, la consulta cargará la primera página de posts.
-   * @param limitPosts - El número máximo de posts a cargar por cada consulta (página).
-   * @param callback - Una función de callback que se ejecutará cada vez que se obtengan nuevos 
-   *                  documentos. Recibirá un arreglo de los nuevos `DocumentSnapshot`s cargados.
-   * @returns Un callback para cancelar la suscripción (`unsubscribe`) a los cambios de la consulta. 
-   *                  Este callback debe llamarse cuando ya no se necesiten más actualizaciones de los 
-   *                  posts o cuando se desee detener la consulta paginada.
-   */
-  const getPaginatedPosts = (
-    afterDoc: DocumentSnapshot | undefined, // último documento cargado
-    limitPosts: number, // Límite de posts a cargar por cada página
-    callback: (newSnapshots: DocumentSnapshot[]) => void // Función de callback para manejar los nuevos documentos cargados
-  ) => {
-    // Crea una consulta base para obtener los posts, ordenados por fecha de creación de manera descendente,
-    // y limitados al número especificado.
-    const queryRef = query(
-      collection(db, "posts"),
-      orderBy("createdAt", "desc"),
-      limit(limitPosts)
-    );
-
-    // Si se pasa un documento de referencia (afterDoc), se agrega la cláusula 'startAfter' para paginar
-    // y continuar cargando después del último documento de la página anterior.
-    const paginatedQuery = afterDoc ? query(queryRef, startAfter(afterDoc)) : queryRef;
-
-    // Se suscribe a los cambios en la consulta paginada utilizando 'onSnapshot'.
-    const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
-      const newSnapshots = snapshot.docs; // Obtiene los documentos nuevos del snapshot
-      callback(newSnapshots); // Llama a la función callback pasando los nuevos documentos
-    })
-
-    // Retorna la función para cancelar la suscripción cuando sea necesario.
-    return unsubscribe;
-  }
 
   /**
    * Obtiene el último elemento de un arreglo.
@@ -121,7 +69,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
    * @returns No retorna un valor, pero actualiza el estado `snapshots` con los nuevos posts.
    */
   const fetchMorePosts = () => {
-    getPaginatedPosts(getLastItem(snapshots), 10, (newSnapshots) => {
+    getPaginatedPosts(getLastItem(snapshots), POST_LIMIT, (newSnapshots) => {
       setSnapshots((prevSnapshots) => {
         // Crear un mapa para asegurar que no haya duplicados basados en el ID
         const uniqueSnapshotsMap = new Map<string, DocumentSnapshot>();
@@ -166,29 +114,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }
   };
 
-  const uploadImageToCloudinary = async (imageUri: string): Promise<string | null> => {
-    const data = new FormData();
-    data.append("file", {
-      uri: imageUri,
-      type: "image/jpeg", // Asegúrate de usar el tipo correcto según la imagen
-      name: "upload.jpg",
-    } as any);
-    data.append("upload_preset", "my_upload_preset"); // Reemplaza con tu upload_preset
-    data.append("cloud_name", "dwhl67ka5"); // Reemplaza con tu cloud_name
-
-    try {
-      const response = await fetch("https://api.cloudinary.com/v1_1/dwhl67ka5/image/upload", {
-        method: "POST",
-        body: data,
-      });
-      const json = await response.json();
-      return json.secure_url || null;
-    } catch (error) {
-      console.error("Error al subir la imagen a Cloudinary:", error);
-      return null;
-    }
-  };
-
+  //Maneja la creación de un nuevo post, subiendo la imagen (si existe) a Cloudinary y guardando el post en la base de datos.
   const handleCreatePost = async () => {
     if (!content) return;
 
@@ -202,14 +128,16 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       imageUrl = await uploadImageToCloudinary(image);
     }
 
-    await addDoc(collection(db, "posts"), {
-      userId,
-      content,
-      imageUrl,
-      likes: [],
-      comments: [],
-      createdAt: new Date().toISOString(),
-    });
+    await addPost(
+      {
+        userId,
+        content,
+        imageUrl,
+        likes: [],
+        comments: [],
+        createdAt: new Date().toISOString(),
+      }
+    );
 
     setContent("");
     setImage(null);
@@ -224,17 +152,11 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
    * @param title - El título de la notificación.
    * @param message - El mensaje de la notificación.
    */
-  const sendPostNotification = (post: Post[], userId: string, title: string, message: string) => {
+  const sendPostNotification = async (post: Post[], userId: string, title: string, message: string) => {
     const user = users.get(userId);
     const postContent = post[0].content;
     // Enviando	notificación al dueño del post
-    axios.post(`https://app.nativenotify.com/api/indie/notification`, {
-      subID: post[0].userId,
-      appId: 27248,
-      appToken: 'g7bm81eIUEY0Mmtod4FmYb',
-      title: title,
-      message: `${user?.firstName.trim()} ${message} ${postContent}`
-    });
+    await sendNotificationMessage(post[0].userId, title, `${user?.firstName.trim()} ${message} ${postContent}`);
   }
 
   /**
@@ -246,42 +168,36 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
    *                       Es utilizado para verificar si el usuario ya ha dado like al post.
    * 
    * @returns {void} - No retorna ningún valor. Realiza una actualización en la base de datos de Firestore.
-   * 
-   * @throws - Lanza un error si hay problemas al realizar la actualización en Firestore o al enviar la notificación.
    */
   const handleLike = async (postId: string, currentLikes: any) => {
-    try {
-      const userId = auth.currentUser?.uid;
-      if (!userId) return;
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
 
-      if (!Array.isArray(currentLikes)) return;
+    if (!Array.isArray(currentLikes)) return;
 
-      const postRef = doc(db, "posts", postId);
-      if (currentLikes.includes(userId)) {
-        await updateDoc(postRef, {
-          likes: currentLikes.filter((id: string) => id !== userId),
-        });
-      } else {
-        // Se busca el post al que se dió like
-        const post = snapshots
-          .filter((doc) => doc.id === postId)
-          .map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Post[];
+    
+    if (currentLikes.includes(userId)) {
+      await updatePost(postId, {
+        likes: currentLikes.filter((id: string) => id !== userId),
+      })
+    } else {
+      // Se busca el post al que se dió like
+      const post = snapshots
+        .filter((doc) => doc.id === postId)
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Post[];
+      
+      await updatePost(postId, {
+        likes: [...currentLikes, userId],
+      })
 
-        await updateDoc(postRef, {
-          likes: [...currentLikes, userId],
-        });
-
-        // Si el post fue encontrado & el dueño del post no es el usuario que da like
-        if (post.length > 0 && post[0].userId !== userId) {
-          // Se envia una notificación
-          sendPostNotification(post, userId, "Nuevo like!", "ha dado like a tu publicación: ");
-        }
+      // Si el post fue encontrado & el dueño del post no es el usuario que da like
+      if (post.length > 0 && post[0].userId !== userId) {
+        // Se envia una notificación
+        await sendPostNotification(post, userId, "Nuevo like!", "ha dado like a tu publicación:");
       }
-    } catch (error) {
-      console.error("Error al manejar el like:", error);
     }
   };
 
@@ -318,8 +234,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }
   
     try {
-      const postRef = doc(db, "posts", postId); // Referencia al documento del post
-  
       const commentToAdd = {
         userId,
         text: newComment,
@@ -333,77 +247,72 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         ...doc.data(),
       })) as Post[];
 
-      await updateDoc(postRef, {
+      await updatePost(postId, {
         comments: [...currentComments, commentToAdd],
       });
 
       // Si el post fue encontrado & el dueño del post no es el usuario que da like
       if (post.length > 0 && post[0].userId !== userId) {
         // Se envia una notificación
-        sendPostNotification(post, userId, "Nuevo Comentario!", "ha comentado tu publicación: ");
+        sendPostNotification(post, userId, "Nuevo Comentario!", "ha comentado tu publicación:");
       }
     } catch (error) {
       console.error("Error al agregar el comentario al post:", error);
     }
   };
 
+  // Alterna la visibilidad de los comentarios de un post específico
   const toggleCommentsVisibility = (postId: string) => {
     setVisibleComments((prevState) => ({
       ...prevState,
-      [postId]: !prevState[postId],
+      [postId]: !prevState[postId], // Alterna la visibilidad del post seleccionado
     }));
+    // Si los comentarios del post aún no son visibles, se inicializa el número de comentarios a mostrar en 5
     if (!visibleComments[postId]) {
       setCommentsToShow((prevState) => ({
         ...prevState,
-        [postId]: 5,
+        [postId]: 5, // Establece el número inicial de comentarios a mostrar para este post
       }));
     }
   };
 
+  // Cargar más comentarios de un post específico
   const loadMoreComments = (postId: string) => {
     setCommentsToShow((prevState) => ({
       ...prevState,
-      [postId]: (prevState[postId] || 5) + 10,
+      [postId]: (prevState[postId] || 5) + 10, // Aumenta en 10 la cantidad de comentarios visibles, por defecto empieza en 5
     }));
   };
 
   useEffect(() => {
     // Carga inicial de posts
-    const unsubscribe = getPaginatedPosts(undefined, 10, (newSnapshots) => {
+    const unsubscribe = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
       setSnapshots(newSnapshots);
     });
     // Cancelar el listener en tiempo real al desmontar el componente
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   useEffect(() => {
-    const fetchUserNames = async () => {
-      const usersMap = new Map<string, { firstName: string, lastName: string, profileImage: string | null }>();
-      const userId = auth.currentUser?.uid;
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
 
-      try {
-        const snapshot = await getDocs(collection(db, "users"));
-        snapshot.forEach((doc) => {
-          const userData = doc.data();
-          usersMap.set(doc.id, {
-            firstName: userData.firstName || "",
-            lastName: userData.lastName || "",
-            profileImage: userData.profileImage || null,
-          });
-  
-          // Verificar si el usuario es el usuario autenticado
-          if (doc.id === userId) {
-            setProfileImage(userData.profileImage || null); // Asignar la imagen de perfil
-          }
-        });
-  
-        setUsers(usersMap);
-      } catch (error) {
-        console.error("Error al obtener los datos de los usuarios:", error);
-      }
+    const fetchUserData = async () => {
+      const usersMap = await getAllUsers();
+      setUsers(usersMap);
     };
 
-    fetchUserNames();
+    const fetchUserProfileImage = async () => {
+      const imageUrl = await getProfileImageById(userId);
+      setProfileImage(imageUrl);
+    };
+
+    fetchUserData();
+    fetchUserProfileImage();
   }, []);
   
   const renderPost = ({ item }: { item: Post }) => {

@@ -1,4 +1,3 @@
-import base64
 import os
 from flask import Flask, request, jsonify
 import google.generativeai as genai
@@ -7,6 +6,7 @@ from flask_cors import CORS
 import io
 import logging
 from PIL import Image
+import requests
 from modelo.chat_functions import extract_keywords, generate_response
 from modelo.procesar_imagen import upload_to_gemini, eliminar_prefijo_base64, clean_temp_file
 from config import model  
@@ -24,26 +24,25 @@ logger = logging.getLogger(__name__)
 # Ruta para procesar imágenes
 @app.route('/process_image', methods=['POST'])
 def process_image():
-    data = request.json.get("image")
+    image_url = request.json.get("image_url")
     
-    if not data:
-        return jsonify({'error': 'No se encontró imagen en base64'}), 400
+    if not image_url:
+        return jsonify({'error': 'No se encontró URL de imagen'}), 400
 
     try:
-        # Eliminar el prefijo Base64 de la cadena
-        data = eliminar_prefijo_base64(data)  # Usar la función importada
-
-        # Decodificar la cadena base64
-        image_data = base64.b64decode(data)
-
-        # Crear una imagen desde los datos binarios decodificados
-        image = Image.open(io.BytesIO(image_data))
+        # Descargar la imagen desde la URL
+        response = requests.get(image_url)
+        if response.status_code != 200:
+            return jsonify({'error': 'No se pudo descargar la imagen'}), 400
+        
+        # Crear una imagen desde los datos descargados
+        image = Image.open(io.BytesIO(response.content))
 
         # Guardar la imagen como un archivo temporal
         temp_file_path = os.path.join('temp', 'uploaded_image.png')
         os.makedirs('temp', exist_ok=True)
         image.save(temp_file_path)
-        
+
         # Procesar la imagen con Gemini
         uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
         
@@ -59,19 +58,19 @@ def process_image():
                     "3. El tipo de tierra que parece ser más adecuado.\n"
                     "4. La cantidad de luz solar que recibe la planta.\n"
                     "5. Cualquier otro dato relevante que pueda ayudarme a cuidar mejor estas plantas."
-                    ],
-                    }]
-                    )
+                ],
+            }]
+        )
         
         response = chat_session.send_message(
             "Describe la imagen con la información sobre el tipo de plantas, su frecuencia de riego, tipo de tierra, cantidad de luz solar y cualquier otro detalle relevante para el cuidado. Si no es una planta, por favor indícalo y recuerda que solo puedes detectar plantas."
-            )
-        
+        )
+
         # Respuesta para el caso en que no haya plantas en la imagen
         if "no hay plantas" in response.text.lower() or "no puedo identificar" in response.text.lower():
-            return "Lo siento, parece que la imagen no contiene plantas. Solo puedo ayudarte a identificar y cuidar plantas."
-        # Limpiar el archivo temporal solo si se procesó correctamente
-        
+            return jsonify({'respuesta': "Lo siento, parece que la imagen no contiene plantas. Solo puedo ayudarte a identificar y cuidar plantas."})
+
+        # Limpiar el archivo temporal después del procesamiento
         clean_temp_file(temp_file_path)  # Usar la función importada
         
         return jsonify({'respuesta': response.text})

@@ -5,7 +5,12 @@ import RegisterScreen from "./screens/RegisterScreen";
 import AccountRecoveryScreen from "./screens/AccountRecoveryScreen";
 import CameraCaptureScreen from "./screens/CameraCaptureScreen";
 import ChatScreen from "./screens/ChatScreen";
+
+import SocialNetScreen from "./screens/SocialNetScreen";
+import ProfileScreen from "./screens/ProfileScreen";
+import "../global.css";
 import MyTab from "@/Components/MyTab"; // Importamos MyTab
+
 
 export default function Index() {
   const [currentScreen, setCurrentScreen] = useState("LoginScreen");
@@ -21,7 +26,13 @@ export default function Index() {
       case "CameraCaptureScreen":
         return <CameraCaptureScreen setCurrentScreen={setCurrentScreen} />;
       case "ChatScreen":
-        return <ChatScreen setCurrentScreen={setCurrentScreen} />;
+
+        return <ChatScreen setCurrentScreen={setCurrentScreen}/>;
+      case "SocialNetScreen":
+        return <SocialNetScreen setCurrentScreen={setCurrentScreen} />;
+        case "ProfileScreen":
+          return <ProfileScreen setCurrentScreen={setCurrentScreen}/>;
+
       default:
         return <LoginScreen setCurrentScreen={setCurrentScreen} />;
     }

@@ -508,9 +508,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       {/* Create post */}
       <View className="flex flex-row items-center rounded-full gap-2">
         {profileImage ? (
-          <Image source={{ uri: profileImage }} className="object-cover h-10 w-10 rounded-full" />
+          <Image source={{ uri: profileImage }} className="object-cover h-11 w-11 rounded-full" />
         ) : (
-          <FontAwesome6 name="user-circle" size={40} />
+          <FontAwesome6 name="user-circle" size={38} />
         )}
         <TextInput
           className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"

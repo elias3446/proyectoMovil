@@ -202,64 +202,71 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     setLoading(false);
   };
 
-  const getPostById = async (postId: string) => {
+  /**
+   * Envia una notificación al dueño del post cuando se realiza una acción como dar like.
+   * 
+   * @param post - El post sobre el cual se realiza la acción (ej. dar like).
+   * @param userId - El ID del usuario que realiza la acción.
+   * @param title - El título de la notificación.
+   * @param message - El mensaje de la notificación.
+   */
+  const sendNotification = (post: Post[], userId: string, title: string, message: string) => {
+    const user = users.get(userId);
+    const postContent = post[0].content;
+    // Enviando	notificación al dueño del post
+    axios.post(`https://app.nativenotify.com/api/indie/notification`, {
+      subID: post[0].userId,
+      appId: 27248,
+      appToken: 'g7bm81eIUEY0Mmtod4FmYb',
+      title: title,
+      message: `${user?.firstName.trim()} ${message} ${postContent}`
+    });
+  }
+
+  /**
+   * Maneja la acción de dar o quitar un "like" a un post. Si el usuario ya ha dado like, se elimina su like, de lo contrario, se añade.
+   * Además, si el usuario no es el dueño del post, se envía una notificación al dueño del post notificándole sobre el "like".
+   * 
+   * @param postId - El ID del post al que se le da o se le quita el like.
+   * @param currentLikes - Un arreglo de IDs de usuarios que han dado like al post. 
+   *                       Es utilizado para verificar si el usuario ya ha dado like al post.
+   * 
+   * @returns - No retorna ningún valor. Realiza una actualización en la base de datos de Firestore.
+   * 
+   * @throws - Lanza un error si hay problemas al realizar la actualización en Firestore o al enviar la notificación.
+   */
+  const handleLike = async (postId: string, currentLikes: any) => {
     try {
-      const postRef = doc(db, "posts", postId); // Referencia al documento
-      const postSnap = await getDoc(postRef); // Obtener el documento
-  
-      if (postSnap.exists()) {
-        const data = postSnap.data(); // Retorna los datos del post
-        const post: Post = {
-          id: postSnap.id, // El ID del documento
-          userId: data.userId,
-          content: data.content,
-          imageUrl: data.imageUrl || null,
-          likes: data.likes || [],
-          comments: data.comments || [],
-          createdAt: data.createdAt || "",
-        };
-        return post;
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+
+      if (!Array.isArray(currentLikes)) return;
+
+      const postRef = doc(db, "posts", postId);
+      if (currentLikes.includes(userId)) {
+        await updateDoc(postRef, {
+          likes: currentLikes.filter((id: string) => id !== userId),
+        });
       } else {
-        console.log("No existe un post con ese ID.");
-        return null;
+        // Se busca el post al que se dió like
+        const post = snapshots
+          .filter((doc) => doc.id === postId)
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Post[];
+
+        // Si el post fue encontrado & el dueño del post no es el usuario que da like
+        if (post.length > 0 && post[0].userId !== userId) {
+          // Se envia una notificación
+          sendNotification(post, userId, "Nuevo like!", "ha dado like a tu publicación: ");
+        }
+        await updateDoc(postRef, {
+          likes: [...currentLikes, userId],
+        });
       }
     } catch (error) {
-      console.error("Error obteniendo el post:", error);
-      throw error;
-    }
-  };
-
-  const handleLike = async (postId: string, currentLikes: any) => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) return;
-
-    if (!Array.isArray(currentLikes)) return;
-
-    const postRef = doc(db, "posts", postId);
-    if (currentLikes.includes(userId)) {
-      await updateDoc(postRef, {
-        likes: currentLikes.filter((id: string) => id !== userId),
-      });
-    } else {
-      getPostById(postId)
-        .then((post) => {
-          if (post) {
-            const user = users.get(userId);
-            axios.post(`https://app.nativenotify.com/api/indie/notification`, {
-              subID: post.userId,
-              appId: 27248,
-              appToken: 'g7bm81eIUEY0Mmtod4FmYb',
-              title: 'Nuevo like!',
-              message: `${user?.firstName.trim()} ha dado like a tu publicación.`
-            });
-          } else {
-            console.log("Post no encontrado.");
-          }
-        })
-        .catch((error) => console.error("Error:", error));
-      await updateDoc(postRef, {
-        likes: [...currentLikes, userId],
-      });
+      console.error("Error al manejar el like:", error);
     }
   };
 

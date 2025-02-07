@@ -32,6 +32,30 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
   const auth = getAuth();
   const db = getFirestore();
 
+  const sendImageToAPI = async (imageUri: string) => {
+    try {
+        setErrorMessage("");  // Reset error message
+        const response = await fetch('https://proyectomovil-qh8q.onrender.com/process_image', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ image_url: imageUri }), // Imagen en base64
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Error en la respuesta de la API');
+        }
+
+        return data.respuesta || 'No response from server';
+    } catch (error) {
+        console.error('Error sending image:', error);
+        setErrorMessage('Error sending image to the server');
+        throw error;
+    }
+};
+
   // Subir imagen a Cloudinary
   const uploadImageToCloudinary = async (photo: { uri: string }) => {
     try {
@@ -67,6 +91,8 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         throw new Error(data.error?.message || "Error al subir la imagen");
       }
 
+      sendImageToAPI(data.secure_url); // Enviar imagen a la API
+
       return data.secure_url;
     } catch (error) {
       console.error("Error subiendo la imagen:", error);
@@ -83,8 +109,6 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
       try {
         const imageUrl = await uploadImageToCloudinary(photo);
 
-        setCurrentScreen("ChatScreen");
-
         const receiverUID = "receiverUID"; // Cambia esto con el ID del receptor real
         const userMessagesRef = collection(db, "users", user.uid, "messages");
 
@@ -99,6 +123,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         console.error("Error al enviar la imagen:", error);
         setErrorMessage("No se pudo enviar la imagen.");
       } finally {
+        setCurrentScreen("ChatScreen");
         setIsLoading(false);
       }
     }

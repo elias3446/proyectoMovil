@@ -210,7 +210,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
    * @param title - El título de la notificación.
    * @param message - El mensaje de la notificación.
    */
-  const sendNotification = (post: Post[], userId: string, title: string, message: string) => {
+  const sendPostNotification = (post: Post[], userId: string, title: string, message: string) => {
     const user = users.get(userId);
     const postContent = post[0].content;
     // Enviando	notificación al dueño del post
@@ -231,7 +231,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
    * @param currentLikes - Un arreglo de IDs de usuarios que han dado like al post. 
    *                       Es utilizado para verificar si el usuario ya ha dado like al post.
    * 
-   * @returns - No retorna ningún valor. Realiza una actualización en la base de datos de Firestore.
+   * @returns {void} - No retorna ningún valor. Realiza una actualización en la base de datos de Firestore.
    * 
    * @throws - Lanza un error si hay problemas al realizar la actualización en Firestore o al enviar la notificación.
    */
@@ -256,20 +256,36 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
             ...doc.data(),
           })) as Post[];
 
-        // Si el post fue encontrado & el dueño del post no es el usuario que da like
-        if (post.length > 0 && post[0].userId !== userId) {
-          // Se envia una notificación
-          sendNotification(post, userId, "Nuevo like!", "ha dado like a tu publicación: ");
-        }
         await updateDoc(postRef, {
           likes: [...currentLikes, userId],
         });
+
+        // Si el post fue encontrado & el dueño del post no es el usuario que da like
+        if (post.length > 0 && post[0].userId !== userId) {
+          // Se envia una notificación
+          sendPostNotification(post, userId, "Nuevo like!", "ha dado like a tu publicación: ");
+        }
       }
     } catch (error) {
       console.error("Error al manejar el like:", error);
     }
   };
 
+  /**
+   * Maneja el proceso de agregar un comentario a un post específico.
+   * 
+   * Verifica si el usuario está autenticado, valida que los comentarios sean un arreglo,
+   * y luego agrega el nuevo comentario al post. Si el dueño del post no es el usuario que comenta,
+   * se envía una notificación al dueño del post.
+   * 
+   * @param postId - El ID del post al que se va a agregar el comentario.
+   * @param newComment - El texto del nuevo comentario que se va a agregar.
+   * @param currentComments - El arreglo actual de comentarios en el post.
+   * 
+   * @returns {void} - No retorna nada. Si ocurre algún error, se muestra en la consola.
+   * 
+   * @throws - Lanza un error si hay problemas al realizar la actualización en Firestore o al enviar la notificación.
+   */
   const handleAddComment = async (
     postId: string,
     newComment: string,
@@ -294,10 +310,24 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         userId,
         text: newComment,
       };
-  
+
+      // Se busca el post al que se comentó
+      const post = snapshots
+      .filter((doc) => doc.id === postId)
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Post[];
+
       await updateDoc(postRef, {
         comments: [...currentComments, commentToAdd],
       });
+
+      // Si el post fue encontrado & el dueño del post no es el usuario que da like
+      if (post.length > 0 && post[0].userId !== userId) {
+        // Se envia una notificación
+        sendPostNotification(post, userId, "Nuevo Comentario!", "ha comentado tu publicación: ");
+      }
     } catch (error) {
       console.error("Error al agregar el comentario al post:", error);
     }

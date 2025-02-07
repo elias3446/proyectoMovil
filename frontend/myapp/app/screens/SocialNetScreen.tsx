@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,9 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
-  KeyboardAvoidingView,
-  TouchableWithoutFeedback,
-  Platform,
-  Keyboard,
   ScrollView,
+  Pressable,
+  Alert,
 } from "react-native";
 import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
@@ -22,6 +20,7 @@ import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Fontisto from '@expo/vector-icons/Fontisto';
 import { timeAgo } from "../../utils/utils";
+import CustomModal from "@/Components/MyModal";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
@@ -47,6 +46,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [visibleComments, setVisibleComments] = useState<{ [postId: string]: boolean }>({});
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
 
   const db = getFirestore();
   const auth = getAuth();
@@ -160,6 +160,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       const selectedAsset = result.assets[0];
       const imageUri = selectedAsset.uri;
       if (imageUri) {
+        console.log(imageUri)
         setImage(imageUri);
       }
     }
@@ -427,7 +428,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         <Text className="text-xl px-4 py-2">{item.content}</Text>
 
         {/* post image */}
-        {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-auto rounded-lg mx-2 object-cover h-96" />}
+        {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-auto aspect-square rounded-lg mx-2 object-cover" />}
 
         {/* post actions */}
         <View className="flex flex-row items-center justify-start gap-2 px-4 pt-3 pb-2">
@@ -520,7 +521,26 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           multiline
           placeholderTextColor="#9095A1"
         />
-        <Feather name="image" size={40} onPress={handlePickImage} />
+        {image ? (
+          <Pressable onPress={() => setModalVisible(true)}>
+            <Image source={{ uri: image }} className="w-11 h-11 rounded-lg" />
+          </Pressable>
+        ) : <Feather name="image" size={40} onPress={handlePickImage} />}
+
+        {/* Modal para mostrar la imagen seleccionada */}
+        <CustomModal visible={modalVisible} onClose={() => setModalVisible(false)} width="w-3/4" height="h-[41%]">
+          {image ? (
+            <>
+              <Image source={{ uri: image }} className="w-full aspect-square rounded-lg" />
+              <TouchableOpacity className="flex-row gap-2 items-center mt-4 px-4 py-2 bg-[#A5D6A7] rounded-lg" onPress={handlePickImage}>
+                <Feather name="image" size={20} color="#142C15" />
+                <Text className="text-[#142C15] font-bold">Elegir otra imagen</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text className="text-gray-500">No hay imagen seleccionada</Text>
+          )}
+        </CustomModal>
       </View>
 
       {/* Post button */}

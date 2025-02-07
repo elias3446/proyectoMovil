@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "757740855440",
+    "firebase_url": "https://proyectomovil-7612c-default-rtdb.firebaseio.com",
+    "project_id": "proyectomovil-7612c",
+    "storage_bucket": "proyectomovil-7612c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:757740855440:android:5d14fffbb8ff136efdf815",
+        "android_client_info": {
+          "package_name": "com.uce.dalia"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "757740855440-7it7d5iq46t3c1nqgm9k11rjboqr5amm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWCanrSS01H-Wqn-FoJIvGrV7GIk2Pd5g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "757740855440-7it7d5iq46t3c1nqgm9k11rjboqr5amm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

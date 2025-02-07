@@ -6,9 +6,11 @@ import AccountRecoveryScreen from "./screens/AccountRecoveryScreen";
 import CameraCaptureScreen from "./screens/CameraCaptureScreen";
 import ChatScreen from "./screens/ChatScreen";
 import MyTab from "@/Components/MyTab"; // Importamos MyTab
+import registerNNPushToken from 'native-notify'; // for push notifications
 import "../global.css"
 
 export default function Index() {
+  registerNNPushToken(27248, 'g7bm81eIUEY0Mmtod4FmYb'); // Native Notify appId & appToken
   const [currentScreen, setCurrentScreen] = useState("LoginScreen");
 
   const renderScreen = () => {

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { auth } from '@/Config/firebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import NotificationBanner from '@/Components/NotificationBanner';
+import { registerIndieID } from 'native-notify';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -35,6 +36,7 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setSuccessMessage('Inicio de sesión exitoso');
+      registerIndieID(email, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
       setCurrentScreen('CameraCaptureScreen');
     } catch (error: any) {
       setErrorMessage(error.message || 'Credenciales incorrectas o problema de red.');

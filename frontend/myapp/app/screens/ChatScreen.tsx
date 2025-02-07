@@ -40,28 +40,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           for (const doc of querySnapshot.docs) {
             const data = doc.data();
 
-            if (!data.text) {
-              // Si el mensaje no tiene texto, buscar los fragmentos
-              const fragmentsCollection = collection(doc.ref, 'imageFragments');
-              const fragmentsQuery = query(fragmentsCollection, orderBy('fragmentIndex'));
-              const fragmentsSnapshot = await getDocs(fragmentsQuery);
-
-              const fragments: string[] = [];
-              fragmentsSnapshot.forEach((fragmentDoc) => {
-                const fragmentData = fragmentDoc.data();
-                fragments.push(fragmentData.fragment);
-              });
-
-              const reconstructedImage = fragments.join(''); // Reconstruir la imagen base64
-              messagesData.push({
-                id: doc.id,
-                text: reconstructedImage,
-                sender: data.sender,
-                receiver: data.receiver,
-                timestamp: data.timestamp,
-              });
-            } else {
-              // Mensaje normal
               messagesData.push({
                 id: doc.id,
                 text: data.text,
@@ -69,7 +47,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
                 receiver: data.receiver,
                 timestamp: data.timestamp,
               });
-            }
+            
           }
         };
 
@@ -143,7 +121,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender === user?.uid;
     const isBotMessage = item.sender === receiverUID;
-    const isBase64Image = /^data:image\/[a-zA-Z]+;base64,/.test(item.text);
+    const isCloudinaryImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.text); // Verifica si la URL tiene una extensión de imagen
 
     return (
       <View style={styles.messageContainer}>
@@ -154,10 +132,10 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           />
         )}
         <View style={isBotMessage ? styles.botBubble : styles.userBubble}>
-          {isBase64Image ? (
-            <Image source={{ uri: item.text }} style={styles.imageMessage} />
-          ) : (
-            <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
+        {isCloudinaryImage && item.text.startsWith('http') ? (
+          <Image source={{ uri: item.text }} style={styles.imageMessage} />
+        ) : (
+             <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
               {item.isSending ? '...' : item.text}
             </Text>
           )}

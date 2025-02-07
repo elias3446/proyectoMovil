@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
-import axios from "axios";
 import * as FileSystem from 'expo-file-system';  
 import { getAuth } from "firebase/auth"; 
 import FontAwesome from '@expo/vector-icons/FontAwesome';

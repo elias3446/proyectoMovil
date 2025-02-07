@@ -26,20 +26,18 @@ export default function Index() {
       case "CameraCaptureScreen":
         return <CameraCaptureScreen setCurrentScreen={setCurrentScreen} />;
       case "ChatScreen":
-
         return <ChatScreen setCurrentScreen={setCurrentScreen}/>;
       case "SocialNetScreen":
         return <SocialNetScreen setCurrentScreen={setCurrentScreen} />;
         case "ProfileScreen":
           return <ProfileScreen setCurrentScreen={setCurrentScreen}/>;
-
       default:
         return <LoginScreen setCurrentScreen={setCurrentScreen} />;
     }
   };
 
   // Solo mostrar MyTab si estamos en las pantallas correctas (CameraCaptureScreen y ChatScreen)
-  const shouldShowTab = ["CameraCaptureScreen", "ChatScreen"].includes(currentScreen);
+  const shouldShowTab = ["CameraCaptureScreen", "ChatScreen","SocialNetScreen","ProfileScreen"].includes(currentScreen);
 
   return (
     <View style={{ flex: 1 }}>

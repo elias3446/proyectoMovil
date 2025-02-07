@@ -1,18 +1,24 @@
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform, Image } from 'react-native';
+import Slider from '@react-native-community/slider';
+import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
-import NotificationBanner from "@/Components/NotificationBanner";
+import NotificationBanner from '@/Components/NotificationBanner';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+const { width, height } = Dimensions.get('window');
+
 const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [photo, setPhoto] = useState<any>(null);
+  const [zoom, setZoom] = useState(0);
+  const [flash, setFlash] = useState<FlashMode>('off');
   const cameraRef = useRef<CameraView | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -21,6 +27,51 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       requestPermission();
     }
   }, [permission]);
+
+  const handleTakePhoto = useCallback(async () => {
+    if (cameraRef.current) {
+      const options = {
+        quality: 1,
+        base64: true,
+        exif: true,
+        flash,
+      };
+      const takenPhoto = await cameraRef.current.takePictureAsync(options);
+      if (takenPhoto) {
+        setPhoto(takenPhoto);
+      } else {
+        setErrorMessage("Error tomando la foto");
+      }
+    }
+  }, [flash]);
+
+  const handleRetakePhoto = useCallback(() => setPhoto(null), []);
+
+  const handleGallery = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        setPhoto(result.assets[0]); // Almacenar la imagen seleccionada
+      }
+    } catch (error) {
+      setErrorMessage('Error abriendo la galería');
+    }
+  };
+
+  const handleChat = () => setCurrentScreen('ChatScreen');
+
+  const toggleCameraFacing = useCallback(() => {
+    setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
+  }, []);
+
+  const toggleFlash = useCallback(() => {
+    setFlash((prev) => (prev === 'off' ? 'auto' : 'off'));
+  }, []);
 
   if (!permission) {
     return <View />;
@@ -37,70 +88,76 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     );
   }
 
-  function toggleCameraFacing() {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
+  if (photo) {
+    return (
+      <PhotoPreviewSection
+        photo={photo}
+        handleRetakePhoto={handleRetakePhoto}
+        setCurrentScreen={setCurrentScreen}
+      />
+    );
   }
 
-  const handleTakePhoto = async () => {
-    if (cameraRef.current) {
-      const options = {
-        quality: 1,
-        base64: true,
-        exif: true,
-      };
-      const takedPhoto = await cameraRef.current.takePictureAsync(options);
-      if (takedPhoto) {
-        setPhoto(takedPhoto);
-      } else {
-        setErrorMessage("Error taking photo");
-      }
-    }
-  };
-
-  const handleRetakePhoto = () => setPhoto(null);
-
-  const handleChat = () => {
-    setCurrentScreen('ChatScreen');
-  };
-
-  if (photo) return <PhotoPreviewSection photo={photo} handleRetakePhoto={handleRetakePhoto} setCurrentScreen={setCurrentScreen} />;;
-
   return (
-    <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-        <View style={styles.gridOverlay}></View>
+    <ScrollView contentContainerStyle={styles.container}>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef} zoom={zoom} flash={flash}>
+        <View style={styles.gridOverlay} />
       </CameraView>
 
-      <TouchableOpacity style={styles.captureButton} onPress={handleTakePhoto}>
-        <AntDesign name='camera' size={44} color='white' />
-      </TouchableOpacity>
+      {Platform.OS !== 'web' && (
+        <View style={styles.sliderContainer}>
+          <TouchableOpacity onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))} style={styles.iconButton}>
+            <MaterialIcons name="remove-circle" size={40} color="white" />
+          </TouchableOpacity>
+
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={1}
+            value={zoom}
+            onValueChange={setZoom}
+            thumbTintColor="#FFFFFF"
+          />
+
+          <TouchableOpacity onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))} style={styles.iconButton}>
+            <MaterialIcons name="add-circle" size={40} color="white" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.footer}>
-        <View style={styles.sideButtonContainer}>
-          <TouchableOpacity style={styles.controlButton}>
-            <MaterialIcons name="photo-library" size={32} color="white" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.sideButtonContainer}>
-          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
-            <MaterialIcons name="flip-camera-android" size={32} color="white" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.captureButtonWrapper} onPress={handleTakePhoto}>
+          <View style={styles.captureButtonRing}>
+            <View style={styles.captureButtonCircle} />
+          </View>
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.chatButton} onPress={handleChat}>
-        <MaterialIcons name="chat" size={32} color="white" />
+      <TouchableOpacity style={styles.galleryButtonContainer} onPress={handleGallery}>
+        <MaterialIcons name="photo-library" size={50} color="black" />
       </TouchableOpacity>
+
+      {Platform.OS !== 'web' && (
+        <View style={styles.rightButtonsContainer}>
+          <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
+            <MaterialIcons name={flash === 'off' ? 'flash-off' : 'flash-auto'} size={50} color="white" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
+            <MaterialIcons name="flip-camera-android" size={50} color="white" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <NotificationBanner message={errorMessage} type="error" />
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1D4E89',
+    backgroundColor: "#FFFFFFFF",
     justifyContent: 'center',
   },
   permissionContainer: {
@@ -126,6 +183,7 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+    zIndex: -1,
   },
   gridOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -133,60 +191,99 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     opacity: 0.6,
   },
-  captureButton: {
+  sliderContainer: {
     position: 'absolute',
-    bottom: 40,
-    left: '50%',
-    transform: [{ translateX: -35 }],
-    backgroundColor: '#F57C00',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    bottom: 130,  // Ajuste estático
+    left: 0,
+    right: 0,
     justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 1,
+  },
+  iconButton: {
+    paddingHorizontal: 0,
+  },
+  slider: {
+    width: '57%',
+    height: 22,
+  },
+  track: {
+    position: 'absolute',
+    top: 15,
+    width: '50%',
+    height: 10,
+    backgroundColor: '#EFF8F0FF',
+    overflow: 'hidden',
+    zIndex: -1,
+    borderRadius: 4,
+  },
+  activeTrack: {
+    position: 'absolute',
+    left: 0,
+    height: 100,
+    backgroundColor: '#A5D6A7FF',
   },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#007F5F',
-    height: 80,
+    backgroundColor: '#FFFFFF',
+    height: 100,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 25,
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    paddingHorizontal: width * 0.05,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderWidth: 1,
+    borderColor: 'white',
+    zIndex: 2,
   },
-  sideButtonContainer: {
+  captureButtonWrapper: {
+    position: 'absolute',
+    bottom: -1,
+    zIndex: 1,
+  },
+  captureButtonRing: {
+    backgroundColor: 'transparent',
+    borderColor: '#A5D6A7',
+    borderWidth: 8,
+    borderRadius: 55,
+    padding: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  captureButtonCircle: {
+    backgroundColor: '#5CB868',
+    borderRadius: 45,
+    width: 65,
+    height: 65,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  galleryButtonContainer: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,  // Ajuste estático
+    zIndex: 3,
+  },
+  rightButtonsContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 10,  // Ajuste estático
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    width: '30%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    zIndex: 3,
   },
   controlButton: {
     backgroundColor: 'transparent',
-    padding: 10,
+    padding: 5,
+    marginRight: 0,
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  chatButton: {
-    position: 'absolute',
-    bottom: 40,
-    right: 20,
-    backgroundColor: '#007F5F',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
   },
 });
 

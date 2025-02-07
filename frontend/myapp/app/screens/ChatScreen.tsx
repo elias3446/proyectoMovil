@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { MaterialIcons } from '@expo/vector-icons';
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 interface LoginProps {
@@ -13,8 +13,9 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     id: string;
     text: string;
     sender: string;
-    timestamp: any; // Para manejar la ordenación
-    isSending?: boolean;
+    receiver: string;
+    timestamp: any;
+    isSending?: boolean; // Para manejar los mensajes que se están enviando
   }
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -23,28 +24,58 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [error, setError] = useState('');
 
   const flatListRef = useRef<FlatList>(null);
-
   const auth = getAuth();
   const user = auth.currentUser;
-
   const db = getFirestore();
+  const receiverUID = 'receiverUID'; // Reemplaza con el UID del receptor.
 
   useEffect(() => {
     if (user) {
       const userMessagesRef = collection(db, 'users', user.uid, 'messages');
       const q = query(userMessagesRef, orderBy('timestamp'));
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const unsubscribe = onSnapshot(q, async (querySnapshot) => {
         const messagesData: Message[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          messagesData.push({
-            id: doc.id,
-            text: data.text,
-            sender: data.sender,
-            timestamp: data.timestamp,
-            isSending: data.isSending || false,
-          });
-        });
+
+        const processMessages = async () => {
+          for (const doc of querySnapshot.docs) {
+            const data = doc.data();
+
+            if (!data.text) {
+              // Si el mensaje no tiene texto, buscar los fragmentos
+              const fragmentsCollection = collection(doc.ref, 'imageFragments');
+              const fragmentsQuery = query(fragmentsCollection, orderBy('fragmentIndex'));
+              const fragmentsSnapshot = await getDocs(fragmentsQuery);
+
+              const fragments: string[] = [];
+              fragmentsSnapshot.forEach((fragmentDoc) => {
+                const fragmentData = fragmentDoc.data();
+                fragments.push(fragmentData.fragment);
+              });
+
+              const reconstructedImage = fragments.join(''); // Reconstruir la imagen base64
+              messagesData.push({
+                id: doc.id,
+                text: reconstructedImage,
+                sender: data.sender,
+                receiver: data.receiver,
+                timestamp: data.timestamp,
+              });
+            } else {
+              // Mensaje normal
+              messagesData.push({
+                id: doc.id,
+                text: data.text,
+                sender: data.sender,
+                receiver: data.receiver,
+                timestamp: data.timestamp,
+              });
+            }
+          }
+        };
+
+        await processMessages();
+
+        messagesData.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
         setMessages(messagesData);
       });
 
@@ -54,113 +85,110 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   const sendMessage = async () => {
     if (messageText.trim() && user && !loading) {
-      const userMessage = { 
-        id: `user-${Date.now()}`, 
-        text: messageText, 
-        sender: 'me',
-        timestamp: new Date(), // Añadir timestamp para ordenar en Firestore
-      };
-
-      const systemMessage = { 
-        id: `bot-${Date.now()}`, 
-        text: '', 
-        sender: 'other',
-        isSending: true,
+      const senderMessage = {
+        text: messageText,
+        sender: user.uid,
+        receiver: receiverUID,
         timestamp: new Date(),
       };
 
-      setMessages((prevMessages) => [...prevMessages, userMessage, systemMessage]);
+      // Mostrar el mensaje del emisor en la interfaz inmediatamente
+      setMessages((prevMessages) => [...prevMessages, { ...senderMessage, id: `temp-${Date.now()}` }]);
       setMessageText('');
       setLoading(true);
       setError('');
 
-      const historial = messages.map(msg => ({
-        role: msg.sender === 'me' ? 'user' : 'assistant',
-        parts: [msg.text],
-      }));
-
       try {
         const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-        await addDoc(userMessagesRef, {
-          text: messageText,
-          sender: 'me',
-          timestamp: new Date(),
-        });
+        const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
 
-        const response = await fetch('http://127.0.0.1:5000/chat', {
+        const messageDocRef = await addDoc(userMessagesRef, senderMessage);
+
+        await addDoc(receiverMessagesRef, senderMessage);
+
+        const response = await fetch('https://proyectomovil-qh8q.onrender.com/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            mensaje: messageText,
-            historial: [...historial, { role: 'user', parts: [messageText] }],
-          }),
+          body: JSON.stringify({ message: messageText , user: user.uid }),
         });
 
         if (!response.ok) {
-          throw new Error('Error al comunicarse con el servidor');
+          throw new Error('Error al obtener la respuesta de la API');
         }
 
-        const data = await response.json();
+        const responseData = await response.json();
+        const botResponseText = responseData?.response || 'No se obtuvo una respuesta válida.';
+
         const botResponse = {
-          id: `bot-${Date.now()}`,
-          text: data.respuesta || 'Lo siento, no entendí eso. ¿Puedes decirlo de otra manera?',
-          sender: 'other',
-          isSending: false,
+          text: botResponseText,
+          sender: receiverUID,
+          receiver: user.uid,
           timestamp: new Date(),
         };
 
-        setMessages((prevMessages) => {
-          const updatedMessages = prevMessages.map((msg) =>
-            msg.id === systemMessage.id ? { ...msg, isSending: false, text: botResponse.text } : msg
-          );
-          return [...updatedMessages];
-        });
+        await addDoc(userMessagesRef, botResponse);
+        await addDoc(receiverMessagesRef, botResponse);
 
-        await addDoc(userMessagesRef, {
-          text: botResponse.text,
-          sender: 'other',
-          timestamp: new Date(),
-        });
       } catch (error) {
-        console.error(error);
-        setError('No se pudo obtener respuesta del servidor');
+        console.error('Error al enviar el mensaje:', error);
+        setError('No se pudo enviar el mensaje. Inténtalo de nuevo.');
       } finally {
         setLoading(false);
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
       }
     }
   };
 
-  const handleRecord = () => {
-    console.log('Recording...');
-  };
-
   const renderMessage = ({ item }: { item: Message }) => {
-    const isMyMessage = item.sender === 'me';
+    const isMyMessage = item.sender === user?.uid;
+    const isBotMessage = item.sender === receiverUID;
+    const isBase64Image = /^data:image\/[a-zA-Z]+;base64,/.test(item.text);
+
     return (
-      <View style={[styles.messageBubble, isMyMessage ? styles.myMessage : styles.otherMessage]}>
-        <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
-          {item.isSending ? '...' : item.text}
-        </Text>
-        {item.isSending && !isMyMessage ? <Text style={styles.loadingText}>...</Text> : null}
+      <View style={styles.messageContainer}>
+        {isBotMessage && (
+          <Image
+            source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
+            style={styles.botProfileImage}
+          />
+        )}
+        <View style={isBotMessage ? styles.botBubble : styles.userBubble}>
+          {isBase64Image ? (
+            <Image source={{ uri: item.text }} style={styles.imageMessage} />
+          ) : (
+            <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
+              {item.isSending ? '...' : item.text}
+            </Text>
+          )}
+        </View>
+        {isMyMessage && (
+          <MaterialIcons
+            name="account-circle" // Ícono predeterminado de usuario
+            size={50} // Dimensiones del ícono
+            color="#B8E6B9" // Color del ícono del usuario
+            style={styles.userProfileImage}
+          />
+        )}
       </View>
     );
   };
 
+  // Función para desplazarse solo cuando el mensaje se haya enviado o recibido
+  useEffect(() => {
+    if (messages.length > 0) {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [messages]);  // Este efecto se ejecutará solo cuando los mensajes cambien.
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setCurrentScreen('CameraCaptureScreen')}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <View style={styles.avatarContainer}>
-          <Image source={{ uri: 'https://via.placeholder.com/40' }} style={styles.avatar} />
-        </View>
-        <Text style={styles.contactName}>Contacto</Text>
+        <Image source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')} style={styles.profileImage} />
+        <Text style={styles.contactName}>
+          <Text style={styles.dal}>DAL</Text>
+          <Text style={styles.ia}>IA</Text>
+        </Text>
       </View>
 
       <FlatList
@@ -169,23 +197,19 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesContainer}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })} // Desplazar al último mensaje al cargar
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: '#9CA3AF' }]}  // Neutro 400
           placeholder="Escribe un mensaje..."
           value={messageText}
           onChangeText={setMessageText}
         />
         <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={loading}>
           <MaterialIcons name="send" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleRecord} style={styles.micButton}>
-          <MaterialIcons name="mic" size={24} color="#00796b" />
         </TouchableOpacity>
       </View>
     </View>
@@ -195,108 +219,104 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#FFFFFF',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    backgroundColor: '#075e54',
+    backgroundColor: '#FFFFFF',
     padding: 15,
     paddingTop: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-    justifyContent: 'flex-start',
   },
-  avatarContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#00796b',
+  profileImage: {
+    width: 100,
+    height: 100,
     borderRadius: 25,
-    padding: 5,
-    marginLeft: 10,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    marginBottom: 10,
   },
   contactName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-    marginLeft: 10,
+    fontSize: 24,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  dal: {
+    color: '#9095A1',
+  },
+  ia: {
+    color: '#B8E6B9',
   },
   messagesContainer: {
     paddingBottom: 20,
   },
-  messageBubble: {
-    maxWidth: '70%',
-    padding: 10,
+  messageContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginVertical: 5,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
   },
-  myMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#1877f2',
+  botProfileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     marginRight: 10,
   },
-  otherMessage: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#fff',
+  botBubble: {
+    padding: 10,
+    backgroundColor: '#D1D5DB',
+    borderRadius: 8,
+    maxWidth: '70%',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userBubble: {
+    padding: 10,
+    backgroundColor: '#B8E6B9', // Cambié el color de fondo de usuario
+    borderRadius: 8,
+    maxWidth: '70%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  userProfileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     marginLeft: 10,
   },
   messageText: {
     fontSize: 16,
+    color: '#6B7280', // Color neutro 500
   },
   myMessageText: {
-    color: '#fff',
+    color: '#6B7280', // Color neutro 500 para el mensaje del usuario
   },
-  loadingText: {
-    fontSize: 16,
-    color: '#000',
-    marginTop: 5,
+  imageMessage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginVertical: 5,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     padding: 15,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    backgroundColor: '#FFFFFF',
   },
   input: {
     flex: 1,
     height: 50,
-    borderColor: '#ccc',
+    borderColor: '#D1D5DB',  // Gris
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: 25, // Bordes más redondeados
     paddingHorizontal: 15,
-    backgroundColor: '#f9f9f9',
     marginRight: 10,
   },
   sendButton: {
-    backgroundColor: '#1877f2',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
+    backgroundColor: '#B8E6B9', // Color del botón de enviar
+    width: 50,
+    height: 50,
+    borderRadius: 50, // Botón redondo
     justifyContent: 'center',
-  },
-  micButton: {
-    marginLeft: 10,
-    backgroundColor: '#e0f2f1',
-    padding: 10,
-    borderRadius: 50,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   error: {
     color: 'red',

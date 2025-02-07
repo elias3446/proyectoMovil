@@ -6,11 +6,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Dimensions,
+  Image,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import NotificationBanner from "@/Components/NotificationBanner";
+import Checkbox from 'expo-checkbox';
+import { Ionicons } from '@expo/vector-icons';  // Importamos los iconos
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -23,14 +27,21 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [password, setPassword] = useState("");
   const [birthDay, setBirthDay] = useState("1");
   const [birthMonth, setBirthMonth] = useState("1");
-  const [birthYear, setBirthYear] = useState("2025");
+  const [birthYear, setBirthYear] = useState((new Date()).getFullYear().toString());
   const [gender, setGender] = useState("");
   const [pronoun, setPronoun] = useState("");
   const [customGender, setCustomGender] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
   const [profileImage, setProfileImage] = useState<string | null>(null); // Inicialmente null
+
+
+  const [showPassword, setShowPassword] = useState(false);  // Estado para mostrar/ocultar la contraseña
+
+  const { width } = Dimensions.get("window");
 
 
   useEffect(() => {
@@ -46,12 +57,17 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   const handleRegister = async () => {
     if (!email || !password || !firstName || !lastName || !birthDay || !birthMonth || !birthYear || !gender) {
-      setErrorMessage("Todos los campos son obligatorios, excepto 'Género (opcional)' en caso de 'Personalizado'.");
+      setErrorMessage("Todos los campos son obligatorios.");
       return;
     }
 
     if (gender === "O" && !pronoun) {
       setErrorMessage("Por favor, selecciona un pronombre para el género personalizado.");
+      return;
+    }
+
+    if (!acceptTerms) {
+      setErrorMessage("Debes aceptar los Términos y Condiciones.");
       return;
     }
 
@@ -77,44 +93,33 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
       await setDoc(doc(db, "users", user.uid), userData);
 
-      setSuccessMessage("Usuario registrado exitosamente y datos guardados en Firestore");
+      setSuccessMessage("Usuario registrado exitosamente.");
       setCurrentScreen("LoginScreen");
     } catch (error: any) {
-      setErrorMessage(`Error al registrar el usuario: ${error.message}`);
+      setErrorMessage(`Error al registrar: ${error.message}`);
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.formContainer}>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={[styles.formContainer, { maxWidth: width > 400 ? 400 : width - 40 }]}>
+         <Image
+                    source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
         <Text style={styles.title}>Crea una cuenta</Text>
-        <Text style={styles.subtitle}>Es rápido y fácil.</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Correo electrónico"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
 
         <View style={styles.row}>
           <TextInput
-            style={[styles.input, styles.inputHalf]}
+            style={[styles.input, styles.inputHalf, { color: firstName ? '#000' : '#9CA3AF' }]}
             placeholder="Nombre"
             value={firstName}
             onChangeText={setFirstName}
           />
           <TextInput
-            style={[styles.input, styles.inputHalf]}
+            style={[styles.input, styles.inputHalf, { color: lastName ? '#000' : '#9CA3AF' }]}
             placeholder="Apellido"
             value={lastName}
             onChangeText={setLastName}
@@ -125,7 +130,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <View style={styles.row}>
           <Picker
             selectedValue={birthDay}
-            style={[styles.picker, styles.inputThird]}
+            style={[styles.picker, { borderWidth: 0 }]}
             onValueChange={(itemValue) => setBirthDay(itemValue)}
           >
             {[...Array(31).keys()].map((day) => (
@@ -134,7 +139,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </Picker>
           <Picker
             selectedValue={birthMonth}
-            style={[styles.picker, styles.inputThird]}
+            style={[styles.picker, { borderWidth: 0 }]}
             onValueChange={(itemValue) => setBirthMonth(itemValue)}
           >
             {["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].map(
@@ -145,7 +150,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </Picker>
           <Picker
             selectedValue={birthYear}
-            style={[styles.picker, styles.inputThird]}
+            style={[styles.picker, { borderWidth: 0 }]}
             onValueChange={(itemValue) => setBirthYear(itemValue)}
           >
             {[...Array(100).keys()]
@@ -159,10 +164,10 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <Text style={styles.label}>Género</Text>
         <Picker
           selectedValue={gender}
-          style={styles.picker}
+          style={[styles.picker, { borderWidth: 0 }]}
           onValueChange={(itemValue) => {
             setGender(itemValue);
-            if (itemValue !== "O") setPronoun("");
+            if (itemValue !== "O") setPronoun(""); // Clear pronoun if not 'Personalizado'
           }}
         >
           <Picker.Item label="Selecciona tu género" value="" />
@@ -176,7 +181,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             <Text style={styles.label}>Selecciona tu pronombre</Text>
             <Picker
               selectedValue={pronoun}
-              style={styles.picker}
+              style={[styles.picker, { borderWidth: 0 }]}
               onValueChange={(itemValue) => setPronoun(itemValue)}
             >
               <Picker.Item label="Selecciona tu pronombre" value="" />
@@ -188,7 +193,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
             <Text style={styles.label}>Género (opcional)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: customGender ? '#000' : '#9CA3AF' }]}
               placeholder="Escribe tu género"
               value={customGender}
               onChangeText={setCustomGender}
@@ -196,14 +201,55 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </>
         )}
 
-        <View style={[styles.row, styles.buttonRow]}>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setCurrentScreen("LoginScreen")}>
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.registerButton]} onPress={handleRegister} disabled={loading}> 
-            <Text style={styles.registerButtonText}>{loading ? "Cargando..." : "Registrar"}</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={[styles.input, { color: password ? '#000' : '#9CA3AF', paddingRight: 45 }]}  // Aumenta el paddingRight
+            placeholder="Contraseña nueva"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <View style={styles.eyeIconContainer}>  {/* Contenedor centrado */}
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="gray" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <TextInput
+          style={[styles.input, { color: email ? '#000' : '#9CA3AF' }]}
+          placeholder="Correo electrónico"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
+
+        <View style={styles.checkboxContainer}>
+          <Checkbox
+            value={acceptTerms}
+            onValueChange={setAcceptTerms}
+            style={styles.checkbox}
+          />
+          <TouchableOpacity onPress={() => {}}>
+            <Text style={styles.acceptText}>
+              Acepto los{" "}
+              <Text style={styles.linkText} onPress={() => {}}>
+                Términos & Condiciones
+              </Text>
+            </Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={[styles.button, styles.registerButton]} onPress={handleRegister} disabled={loading}>
+          <Text style={styles.registerButtonText}>{loading ? "Cargando..." : "Registrar"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => setCurrentScreen("LoginScreen")}>
+          <Text style={styles.loginLink}>
+            <Text style={styles.loginText}>¿Ya tienes cuenta?</Text>
+            <Text style={styles.signInText}> Iniciar sesión</Text>
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <NotificationBanner message={errorMessage} type="error" />
@@ -213,104 +259,121 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#f0f2f5",
+    backgroundColor: "#FFFFFF",
+    marginTop: -50, // Ajuste para subir todos los elementos internos
   },
   formContainer: {
     width: "100%",
-    maxWidth: 400,
-    backgroundColor: "#fff",
-    borderRadius: 8,
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    position: "relative",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: "center",
-    color: "#666",
-    marginBottom: 6,
+    marginBottom: 20,
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  buttonRow: {
-    marginTop: 12,
+    marginBottom: 12,
   },
   input: {
     width: "100%",
     height: 50,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 5,
     paddingHorizontal: 15,
-    marginBottom: 6,
-    backgroundColor: "#f9f9f9",
+    marginBottom: 12,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    fontSize: 16,
   },
   inputHalf: {
     width: "48%",
   },
-  inputThird: {
-    width: "32%",
+  passwordContainer: {
+    position: "relative",
+  },
+  eyeIconContainer: {
+    position: 'absolute',
+    right: 15,
+    top: 10,
+    zIndex: 2,
   },
   picker: {
     width: "100%",
     height: 50,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 5,
     paddingHorizontal: 15,
-    marginBottom: 6,
-    backgroundColor: "#f9f9f9",
+    marginBottom: 12,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    color: "#000",
   },
   label: {
     fontSize: 14,
-    color: "#333",
+    color: "black",
     marginBottom: 6,
+    fontWeight: "bold",
   },
   note: {
     fontSize: 12,
     color: "#666",
-    marginBottom: 6,
+    marginBottom: 12,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  checkbox: {
+    marginRight: 8,
+  },
+  acceptText: {
+    fontSize: 14,
+    color: "black",
+  },
+  linkText: {
+    color: "#5CB868",
   },
   button: {
-    flex: 1,
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 25,
     alignItems: "center",
-    marginHorizontal: 3,
+    marginVertical: 12,
   },
   registerButton: {
-    backgroundColor: "#1877f2",
-  },
-  cancelButton: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#5CB868",
   },
   registerButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
   },
-  cancelButtonText: {
-    color: "#333",
-    fontSize: 16,
-    fontWeight: "bold",
+  logoImage: {
+    width: '60%',
+    aspectRatio: 1,
+    marginBottom: -40,
+    alignSelf: 'center',
+  },
+  loginLink: {
+    color: "#000",
+    textAlign: "center",
+    fontSize: 14,
+    marginTop: 10,
+  },
+  loginText: {
+    color: "#000",
+  },
+  signInText: {
+    color: "#5CB868",
   },
 });
+
 
 export default RegisterScreen;

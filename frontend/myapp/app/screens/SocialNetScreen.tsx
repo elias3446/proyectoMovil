@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,11 +7,11 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  ScrollView,
+  Pressable,
 } from "react-native";
-import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, getDocs, query, limit, startAfter, orderBy, DocumentSnapshot } from "firebase/firestore";
+import { DocumentSnapshot } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
-import axios from "axios";
-import * as FileSystem from 'expo-file-system';  
 import { getAuth } from "firebase/auth"; 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -18,69 +19,58 @@ import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Fontisto from '@expo/vector-icons/Fontisto';
 import { timeAgo } from "../../utils/utils";
+import CustomModal from "@/Components/MyModal";
+import { addPost, getAllUsers, getPaginatedPosts, getProfileImageById, updatePost } from "@/api/firebaseService";
+import { Post } from "@/types/Post";
+import { sendNotificationMessage } from "@/api/notificationService";
+import { UserData } from "@/types/User";
+import { uploadImageToCloudinary } from "@/api/cloudinaryService";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-interface Post {
-  id: string;
-  userId: string;
-  content: string;
-  imageUrl: string | null;
-  likes: string[];
-  comments: { userId: string, text: string }[];
-  createdAt: string;
-}
-
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
-  const [users, setUsers] = useState<Map<string, { firstName: string, lastName: string, profileImage: string | null }>>(new Map());
+  const [users, setUsers] = useState<Map<string, UserData>>(new Map());
   const [content, setContent] = useState<string>("");
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [comment, setComment] = useState<string>(""); 
   const [visibleComments, setVisibleComments] = useState<{ [postId: string]: boolean }>({});
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const POST_LIMIT = 10;
 
-  const db = getFirestore();
   const auth = getAuth();
 
-  const getPaginatedPosts = (
-    afterDoc: DocumentSnapshot | undefined, // último documento cargado
-    limitPosts: number, // Límite de posts a cargar por cada página
-    callback: (newSnapshots: DocumentSnapshot[]) => void // Función de callback para manejar los nuevos documentos cargados
-  ) => {
-    // Crea una consulta base para obtener los posts, ordenados por fecha de creación de manera descendente,
-    // y limitados al número especificado.
-    const queryRef = query(
-      collection(db, "posts"),
-      orderBy("createdAt", "desc"),
-      limit(limitPosts)
-    );
-
-    // Si se pasa un documento de referencia (afterDoc), se agrega la cláusula 'startAfter' para paginar
-    // y continuar cargando después del último documento de la página anterior.
-    const paginatedQuery = afterDoc ? query(queryRef, startAfter(afterDoc)) : queryRef;
-
-    // Se suscribe a los cambios en la consulta paginada utilizando 'onSnapshot'.
-    const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
-      const newSnapshots = snapshot.docs; // Obtiene los documentos nuevos del snapshot
-      callback(newSnapshots); // Llama a la función callback pasando los nuevos documentos
-    })
-
-    // Retorna la función para cancelar la suscripción cuando sea necesario.
-    return unsubscribe;
-  }
-
+  /**
+   * Obtiene el último elemento de un arreglo.
+   * 
+   * Este método toma un arreglo de tipo genérico y devuelve el último elemento del mismo.
+   * Si el arreglo está vacío, devuelve `undefined`.
+   * 
+   * @param arr - Un arreglo de elementos de cualquier tipo genérico.
+   * @returns El último elemento del arreglo o `undefined` si el arreglo está vacío.
+   */
   function getLastItem<T>(arr: T[]): T | undefined {
     // slice(-1) retorna un nuevo arreglo con el último elemento,
     // y al acceder al índice [0] obtenemos directamente ese elemento.
     return arr.slice(-1)[0];
   }
 
+  /**
+   * Carga más publicaciones (posts) de manera paginada y las agrega al estado existente.
+   * 
+   * Este método usa la función `getPaginatedPosts` para cargar más publicaciones desde Firestore 
+   * basándose en el último post cargado. Los nuevos posts se añaden al estado, asegurando que no 
+   * haya duplicados, utilizando un mapa para garantizar la unicidad.
+   * 
+   * @returns No retorna un valor, pero actualiza el estado `snapshots` con los nuevos posts.
+   */
   const fetchMorePosts = () => {
-    getPaginatedPosts(getLastItem(snapshots), 10, (newSnapshots) => {
+    getPaginatedPosts(getLastItem(snapshots), POST_LIMIT, (newSnapshots) => {
       setSnapshots((prevSnapshots) => {
         // Crear un mapa para asegurar que no haya duplicados basados en el ID
         const uniqueSnapshotsMap = new Map<string, DocumentSnapshot>();
@@ -101,35 +91,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     })
   };
 
-  useEffect(() => {
-    // Carga inicial de posts
-    const unsubscribe = getPaginatedPosts(undefined, 10, (newSnapshots) => {
-      setSnapshots(newSnapshots);
-    });
-    // Cancelar el listener en tiempo real al desmontar el componente
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const fetchUserNames = async () => {
-      const usersMap = new Map<string, { firstName: string, lastName: string, profileImage: string | null }>();
-
-      const snapshot = await getDocs(collection(db, "users"));
-      snapshot.forEach((doc) => {
-        const userData = doc.data();
-        usersMap.set(doc.id, {
-          firstName: userData.firstName || "",
-          lastName: userData.lastName || "",
-          profileImage: userData.profileImage || null,
-        });
-      });
-
-      setUsers(usersMap);
-    };
-
-    fetchUserNames();
-  }, []);
-
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -140,6 +101,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
+      aspect: [1, 1],
       quality: 1,
     });
 
@@ -147,34 +109,13 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       const selectedAsset = result.assets[0];
       const imageUri = selectedAsset.uri;
       if (imageUri) {
+        console.log(imageUri)
         setImage(imageUri);
       }
     }
   };
 
-  const uploadImageToCloudinary = async (imageUri: string): Promise<string | null> => {
-    const data = new FormData();
-    data.append("file", {
-      uri: imageUri,
-      type: "image/jpeg", // Asegúrate de usar el tipo correcto según la imagen
-      name: "upload.jpg",
-    } as any);
-    data.append("upload_preset", "my_upload_preset"); // Reemplaza con tu upload_preset
-    data.append("cloud_name", "dwhl67ka5"); // Reemplaza con tu cloud_name
-
-    try {
-      const response = await fetch("https://api.cloudinary.com/v1_1/dwhl67ka5/image/upload", {
-        method: "POST",
-        body: data,
-      });
-      const json = await response.json();
-      return json.secure_url || null;
-    } catch (error) {
-      console.error("Error al subir la imagen a Cloudinary:", error);
-      return null;
-    }
-  };
-
+  //Maneja la creación de un nuevo post, subiendo la imagen (si existe) a Cloudinary y guardando el post en la base de datos.
   const handleCreatePost = async () => {
     if (!content) return;
 
@@ -188,38 +129,93 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       imageUrl = await uploadImageToCloudinary(image);
     }
 
-    await addDoc(collection(db, "posts"), {
-      userId,
-      content,
-      imageUrl,
-      likes: [],
-      comments: [],
-      createdAt: new Date().toISOString(),
-    });
+    await addPost(
+      {
+        userId,
+        content,
+        imageUrl,
+        likes: [],
+        comments: [],
+        createdAt: new Date().toISOString(),
+      }
+    );
 
     setContent("");
     setImage(null);
     setLoading(false);
   };
 
+  /**
+   * Envia una notificación al dueño del post cuando se realiza una acción como dar like.
+   * 
+   * @param post - El post sobre el cual se realiza la acción (ej. dar like).
+   * @param userId - El ID del usuario que realiza la acción.
+   * @param title - El título de la notificación.
+   * @param message - El mensaje de la notificación.
+   */
+  const sendPostNotification = async (post: Post[], userId: string, title: string, message: string) => {
+    const user = users.get(userId);
+    const postContent = post[0].content;
+    // Enviando	notificación al dueño del post
+    await sendNotificationMessage(post[0].userId, title, `${user?.firstName.trim()} ${message} ${postContent}`);
+  }
+
+  /**
+   * Maneja la acción de dar o quitar un "like" a un post. Si el usuario ya ha dado like, se elimina su like, de lo contrario, se añade.
+   * Además, si el usuario no es el dueño del post, se envía una notificación al dueño del post notificándole sobre el "like".
+   * 
+   * @param postId - El ID del post al que se le da o se le quita el like.
+   * @param currentLikes - Un arreglo de IDs de usuarios que han dado like al post. 
+   *                       Es utilizado para verificar si el usuario ya ha dado like al post.
+   * 
+   * @returns {void} - No retorna ningún valor. Realiza una actualización en la base de datos de Firestore.
+   */
   const handleLike = async (postId: string, currentLikes: any) => {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
 
     if (!Array.isArray(currentLikes)) return;
-
-    const postRef = doc(db, "posts", postId);
+    
     if (currentLikes.includes(userId)) {
-      await updateDoc(postRef, {
+      await updatePost(postId, {
         likes: currentLikes.filter((id: string) => id !== userId),
-      });
+      })
     } else {
-      await updateDoc(postRef, {
+      // Se busca el post al que se dió like
+      const post = snapshots
+        .filter((doc) => doc.id === postId)
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Post[];
+      
+      await updatePost(postId, {
         likes: [...currentLikes, userId],
-      });
+      })
+
+      // Si el post fue encontrado & el dueño del post no es el usuario que da like
+      if (post.length > 0 && post[0].userId !== userId) {
+        // Se envia una notificación
+        await sendPostNotification(post, userId, "Nuevo like!", "ha dado like a tu publicación:");
+      }
     }
   };
 
+  /**
+   * Maneja el proceso de agregar un comentario a un post específico.
+   * 
+   * Verifica si el usuario está autenticado, valida que los comentarios sean un arreglo,
+   * y luego agrega el nuevo comentario al post. Si el dueño del post no es el usuario que comenta,
+   * se envía una notificación al dueño del post.
+   * 
+   * @param postId - El ID del post al que se va a agregar el comentario.
+   * @param newComment - El texto del nuevo comentario que se va a agregar.
+   * @param currentComments - El arreglo actual de comentarios en el post.
+   * 
+   * @returns {void} - No retorna nada. Si ocurre algún error, se muestra en la consola.
+   * 
+   * @throws - Lanza un error si hay problemas al realizar la actualización en Firestore o al enviar la notificación.
+   */
   const handleAddComment = async (
     postId: string,
     newComment: string,
@@ -238,58 +234,84 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }
   
     try {
-      const postRef = doc(db, "posts", postId); // Referencia al documento del post
-  
       const commentToAdd = {
         userId,
         text: newComment,
       };
-  
-      await updateDoc(postRef, {
+
+      // Se busca el post al que se comentó
+      const post = snapshots
+      .filter((doc) => doc.id === postId)
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Post[];
+
+      await updatePost(postId, {
         comments: [...currentComments, commentToAdd],
       });
+
+      // Si el post fue encontrado & el dueño del post no es el usuario que da like
+      if (post.length > 0 && post[0].userId !== userId) {
+        // Se envia una notificación
+        sendPostNotification(post, userId, "Nuevo Comentario!", "ha comentado tu publicación:");
+      }
     } catch (error) {
       console.error("Error al agregar el comentario al post:", error);
     }
   };
 
+  // Alterna la visibilidad de los comentarios de un post específico
   const toggleCommentsVisibility = (postId: string) => {
     setVisibleComments((prevState) => ({
       ...prevState,
-      [postId]: !prevState[postId],
+      [postId]: !prevState[postId], // Alterna la visibilidad del post seleccionado
     }));
+    // Si los comentarios del post aún no son visibles, se inicializa el número de comentarios a mostrar en 5
     if (!visibleComments[postId]) {
       setCommentsToShow((prevState) => ({
         ...prevState,
-        [postId]: 5,
+        [postId]: 5, // Establece el número inicial de comentarios a mostrar para este post
       }));
     }
   };
 
+  // Cargar más comentarios de un post específico
   const loadMoreComments = (postId: string) => {
     setCommentsToShow((prevState) => ({
       ...prevState,
-      [postId]: (prevState[postId] || 5) + 10,
+      [postId]: (prevState[postId] || 5) + 10, // Aumenta en 10 la cantidad de comentarios visibles, por defecto empieza en 5
     }));
   };
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+
   useEffect(() => {
-    const fetchUserProfileImage = async () => {
-      const userId = auth.currentUser?.uid;
-      if (!userId) return;
-  
-      try {
-        const userDoc = await getDocs(query(collection(db, "users")));
-        userDoc.forEach((doc) => {
-          if (doc.id === userId) {
-            setProfileImage(doc.data().profileImage || null);
-          }
-        });
-      } catch (error) {
-        console.error("Error al obtener la imagen de perfil:", error);
+    // Carga inicial de posts
+    const unsubscribe = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
+      setSnapshots(newSnapshots);
+    });
+    // Cancelar el listener en tiempo real al desmontar el componente
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
-  
+  }, []);
+
+  useEffect(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    const fetchUserData = async () => {
+      const usersMap = await getAllUsers();
+      setUsers(usersMap);
+    };
+
+    const fetchUserProfileImage = async () => {
+      const imageUrl = await getProfileImageById(userId);
+      setProfileImage(imageUrl);
+    };
+
+    fetchUserData();
     fetchUserProfileImage();
   }, []);
   
@@ -302,7 +324,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     const createdTimeAgo = timeAgo(item.createdAt);
 
     return (
-      <View className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
+      <ScrollView className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
         {/* photo and username */}
         <View className="flex flex-row items-center gap-2 px-4 pt-4">
           {userName?.profileImage ? <Image source={{ uri: userName.profileImage }} className="object-cover h-8 w-8 rounded-full" /> : <FontAwesome6 name="user-circle" size={26} />}
@@ -312,13 +334,13 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         </View>
 
         {/* post content */}
-        <Text className="text-xl px-4">{item.content}</Text>
+        <Text className="text-xl px-4 py-2">{item.content}</Text>
 
         {/* post image */}
-        {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-auto rounded-lg mx-2 object-cover h-96" />}
+        {item.imageUrl && <Image source={{ uri: item.imageUrl }} className="w-auto aspect-square rounded-lg mx-2 object-cover" />}
 
         {/* post actions */}
-        <View className="flex flex-row items-center justify-start gap-2 px-4 pt-1">
+        <View className="flex flex-row items-center justify-start gap-2 px-4 pt-3 pb-2">
           <TouchableOpacity onPress={() => handleLike(item.id, item.likes)} className="flex flex-row items-center gap-2 w-12">
             <FontAwesome name={userHasLiked ? "heart" : "heart-o"} size={24} color="#5CB868" />
             <Text>{Array.isArray(item.likes) ? item.likes.length : 0}</Text>
@@ -334,7 +356,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
         {/* post comments */}
         {showComments && (
-          <View className="flex gap-6 pb-4 px-5">
+          <View className="flex gap-4 pb-4 px-5">
 
             {/* comments list */}
             {item.comments.slice(0, commentsLimit).map((comment, index) => {
@@ -380,7 +402,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
             </View>
           </View>
         )}
-      </View>
+      </ScrollView>
     );
   };
 
@@ -395,22 +417,40 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
       {/* Create post */}
       <View className="flex flex-row items-center rounded-full gap-2">
-  {profileImage ? (
-    <Image source={{ uri: profileImage }} className="object-cover h-10 w-10 rounded-full" />
-  ) : (
-    <FontAwesome6 name="user-circle" size={40} />
-  )}
-  <TextInput
-className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
-    placeholder="¿Qué estás pensando?"
-    value={content}
-    onChangeText={setContent}
-    multiline
-    placeholderTextColor="#9095A1"
-  />
-  <Feather name="image" size={40} onPress={handlePickImage} />
-</View>
+        {profileImage ? (
+          <Image source={{ uri: profileImage }} className="object-cover h-11 w-11 rounded-full" />
+        ) : (
+          <FontAwesome6 name="user-circle" size={38} />
+        )}
+        <TextInput
+          className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
+          placeholder="¿Qué estás pensando?"
+          value={content}
+          onChangeText={setContent}
+          multiline
+          placeholderTextColor="#9095A1"
+        />
+        {image ? (
+          <Pressable onPress={() => setModalVisible(true)}>
+            <Image source={{ uri: image }} className="w-11 h-11 rounded-lg" />
+          </Pressable>
+        ) : <Feather name="image" size={40} onPress={handlePickImage} />}
 
+        {/* Modal para mostrar la imagen seleccionada */}
+        <CustomModal visible={modalVisible} onClose={() => setModalVisible(false)} width="w-3/4" height="h-[41%]">
+          {image ? (
+            <>
+              <Image source={{ uri: image }} className="w-full aspect-square rounded-lg" />
+              <TouchableOpacity className="flex-row gap-2 items-center mt-4 px-4 py-2 bg-[#A5D6A7] rounded-lg" onPress={handlePickImage}>
+                <Feather name="image" size={20} color="#142C15" />
+                <Text className="text-[#142C15] font-bold">Elegir otra imagen</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text className="text-gray-500">No hay imagen seleccionada</Text>
+          )}
+        </CustomModal>
+      </View>
 
       {/* Post button */}
       <View className="my-3">
@@ -419,7 +459,7 @@ className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
           onPress={handleCreatePost}
           disabled={loading}
         >
-          <Text className="color-[#142C15] text-center text-xl">{loading ? "Publicando..." : "Publicar"}</Text>
+          <Text className="text-[#142C15] text-center text-xl">{loading ? "Publicando..." : "Publicar"}</Text>
         </TouchableOpacity>
       </View>
 

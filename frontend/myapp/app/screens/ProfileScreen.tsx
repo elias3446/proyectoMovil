@@ -149,7 +149,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
   }, [currentUser, db]);
 
-  // Seleccionar imagen: se guarda la URI local para previsualización
   const handleImagePick = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -157,7 +156,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
       aspect: [1, 1],
       quality: 1,
     });
-
     if (!result.canceled) {
       setNewProfileImage(result.assets[0].uri);
     }
@@ -282,6 +280,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
       // Actualización de datos en Firestore
       const userRef = doc(db, "users", currentUser.uid);
+      
       await updateDoc(userRef, {
         firstName,
         lastName,
@@ -356,7 +355,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             <FontAwesome name="camera" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
-
         {/*
           Se concatena el nombre y el apellido en un solo nodo para evitar conflictos en el DOM.
         */}

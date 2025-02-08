@@ -59,21 +59,22 @@ const AccountRecoveryScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      className="flex-1 bg-white"
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.contenedor}>
-          <Text style={styles.title}>Recupera tu cuenta</Text>
-          <Text style={styles.instruction}>
+        <View className="flex-1 w-full max-w-[25rem] bg-white justify-center items-center px-5 mt-10">
+          <Text className="text-3xl font-bold text-center text-black mb-3">Recupera tu cuenta</Text>
+          <Text className="text-lg text-[#666] text-center mb-5">
             Ingresa tu correo electrónico para buscar tu cuenta.
           </Text>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Correo Electrónico</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={24} color="black" style={styles.icon} />
+          {/* mail */}
+          <View className="w-full mb-5">
+            <Text className="text-black text-base mb-2 text-left font-bold">Correo Electrónico</Text>
+            <View className="flex-row items-center bg-[#F3F4F6] rounded-xl relative w-full">
+              <Ionicons name="mail-outline" size={24} color="black" className="absolute z-20 left-3" />
               <TextInput
-                style={styles.input}
+                className="flex-1 h-11 pl-11 pr-4 text-lg text-black bg-[#F3F4F6] rounded-xl"
                 placeholder="Ingresa tu correo"
                 placeholderTextColor="gray"
                 value={emailOrPhone}
@@ -84,19 +85,19 @@ const AccountRecoveryScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             </View>
           </View>
 
-          <View style={styles.footer}>
+          <View className="flex-row w-full mt-5 justify-between">
             <TouchableOpacity
-              style={styles.cancelButton}
+              className="bg-[#CCCCCC] py-3 px-5 rounded-xl w-[48%] items-center"
               onPress={() => setCurrentScreen("LoginScreen")}
             >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
+              <Text className="text-white font-bold text-lg">Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.submitButton}
+              className="bg-[#5CB868] py-3 px-5 rounded-xl w-[48%] items-center"
               onPress={handleSubmit}
               disabled={loading}
             >
-              <Text style={styles.submitButtonText}>
+              <Text className="text-white font-bold text-lg">
                 {loading ? "Cargando..." : "Buscar"}
               </Text>
             </TouchableOpacity>
@@ -111,102 +112,11 @@ const AccountRecoveryScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-  },
-  contenedor: {
-    flex: 1,
-    width: "100%",
-    maxWidth: 400,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginTop: 40,
-    borderRadius: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 10,
-    color: "black",
-  },
-  instruction: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  inputContainer: {
-    width: "100%",
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: "black",
-    marginBottom: 5,
-    textAlign: "left",
-    fontWeight: "bold",
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    position: "relative",
-    width: "100%",
-  },
-  input: {
-    flex: 1,
-    height: 44,
-    paddingLeft: 40,
-    paddingRight: 16,
-    fontSize: 16,
-    color: "black",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    borderWidth: 0,
-  },
-  icon: {
-    position: "absolute",
-    left: 10,
-    zIndex: 2,
-  },
-  footer: {
-    width: "100%",
-    marginTop: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  cancelButton: {
-    backgroundColor: "#CCCCCC",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-  },
-  cancelButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  submitButton: {
-    backgroundColor: "#5CB868",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-  },
-  submitButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
   },
 });
 

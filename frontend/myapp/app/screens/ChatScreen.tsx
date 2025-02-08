@@ -172,18 +172,18 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     const isCloudinaryImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.text); // Verifica si la URL tiene extensión de imagen
 
     return (
-      <View style={styles.messageContainer}>
+      <View className='flex-row items-start my-1'>
         {isBotMessage && (
           <Image
             source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
-            style={styles.botProfileImage}
+            className='w-12 h-12 mx-3 rounded-full'
           />
         )}
         <View style={isBotMessage ? styles.botBubble : styles.userBubble}>
           {isCloudinaryImage && item.text.startsWith('http') ? (
             <Image source={{ uri: item.text }} style={styles.imageMessage} />
           ) : (
-            <Text style={[styles.messageText, isMyMessage && styles.myMessageText]}>
+            <Text className={`text-lg text-[#6B7280]`}>
               {item.isSending ? '...' : item.text}
             </Text>
           )}
@@ -191,9 +191,9 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         {isMyMessage && (
           <MaterialIcons
             name="account-circle" // Ícono predeterminado de usuario
-            size={50} // Dimensiones del ícono
+            size={48} // Dimensiones del ícono
             color="#B8E6B9" // Color del ícono del usuario
-            style={styles.userProfileImage}
+            className='w-16 h-16 mx-1 rounded-full'
           />
         )}
       </View>
@@ -222,9 +222,9 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         ListFooterComponent={isBotTyping ? renderTypingIndicator : null}
       />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text className='text-red-500 mt-3 text-center'>{error}</Text> : null}
 
-      <View style={styles.inputContainer}>
+      <View className='flex-row items-center p-4 bg-white'>
         <TextInput
           style={[styles.input, { color: '#9CA3AF' }]} // Color neutro 400
           placeholder="Escribe un mensaje..."
@@ -233,7 +233,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           onSubmitEditing={sendMessage} // Envía el mensaje al presionar Enter/done
           returnKeyType="send" // Muestra “send” en el teclado de móviles
         />
-        <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={loading}>
+        <TouchableOpacity className={`w-14 h-14 rounded-full justify-center items-center ${loading ? 'bg-[#B8E6B9]' : 'bg-[#5CB868]'}`} onPress={sendMessage} disabled={loading}>
           <MaterialIcons name="send" size={24} color="white" />
         </TouchableOpacity>
       </View>

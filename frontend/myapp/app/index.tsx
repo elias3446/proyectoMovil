@@ -15,7 +15,6 @@ import MyTab from "@/Components/MyTab"; // Importamos MyTab
 import registerNNPushToken from 'native-notify'; // for push notifications
 import "../global.css"
 import SocialNet from "./screens/SocialNetScreen";
-import ProfileScreen from "./screens/ProfileScreen";
 
 export default function Index() {
   registerNNPushToken(27248, 'g7bm81eIUEY0Mmtod4FmYb'); // Native Notify appId & appToken

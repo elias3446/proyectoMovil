@@ -1,7 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Image } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Image,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 interface LoginProps {
@@ -18,7 +33,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     isSending?: boolean; // Para manejar los mensajes que se están enviando
   }
 
-  // Estados para los mensajes, entrada de texto, carga, errores y para el indicador de "escribiendo..."
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,60 +50,55 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     if (user) {
       const userMessagesRef = collection(db, 'users', user.uid, 'messages');
       const q = query(userMessagesRef, orderBy('timestamp'));
-      const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const messagesData: Message[] = [];
-
-        const processMessages = async () => {
-          for (const doc of querySnapshot.docs) {
-            const data = doc.data();
-            messagesData.push({
-              id: doc.id,
-              text: data.text,
-              sender: data.sender,
-              receiver: data.receiver,
-              timestamp: data.timestamp,
-            });
-          }
-        };
-
-        await processMessages();
-
-        messagesData.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+        querySnapshot.docs.forEach((doc) => {
+          const data = doc.data();
+          messagesData.push({
+            id: doc.id,
+            text: data.text,
+            sender: data.sender,
+            receiver: data.receiver,
+            timestamp: data.timestamp,
+          });
+        });
+        messagesData.sort(
+          (a, b) => a.timestamp.toMillis() - b.timestamp.toMillis()
+        );
         setMessages(messagesData);
       });
-
       return () => unsubscribe();
     }
   }, [db, user]);
 
-  // Componente interno que muestra una animación simple de puntos (".", "..", "...")
+  // Componente que muestra una animación simple de puntos (".", "..", "...")
   const TypingIndicator: React.FC = () => {
     const [dotCount, setDotCount] = useState(0);
-
     useEffect(() => {
       const interval = setInterval(() => {
         setDotCount((prev) => (prev + 1) % 4);
       }, 500);
       return () => clearInterval(interval);
     }, []);
-
     return <Text style={styles.messageText}>{'.'.repeat(dotCount)}</Text>;
   };
 
-  // Función que renderiza el indicador de "escribiendo..." como si fuera un mensaje del chatbot
+  // Renderiza el indicador de "escribiendo..." del chatbot
   const renderTypingIndicator = () => (
-    <View style={styles.messageContainer}>
-      <Image
-        source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
-        style={styles.botProfileImage}
-      />
+    <View style={styles.messageRow}>
+      <View style={styles.avatar}>
+        <Image
+          source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
+          style={styles.avatarImage}
+        />
+      </View>
       <View style={styles.botBubble}>
         <TypingIndicator />
       </View>
     </View>
   );
 
-  // Asegura el desplazamiento automático al final al agregarse nuevos mensajes o al activar el indicador
+  // Auto-scroll al final cuando se agregan nuevos mensajes o aparece el indicador de "escribiendo..."
   useEffect(() => {
     if (messages.length > 0 || isBotTyping) {
       flatListRef.current?.scrollToEnd({ animated: true });
@@ -99,7 +108,6 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   // Función para enviar el mensaje
   const sendMessage = async () => {
     if (messageText.trim() && user && !loading) {
-      // Capturamos el mensaje actual antes de limpiarlo
       const currentMessageText = messageText;
       const senderMessage = {
         text: currentMessageText,
@@ -124,7 +132,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         await addDoc(userMessagesRef, senderMessage);
         await addDoc(receiverMessagesRef, senderMessage);
 
-        // Se activa el indicador de "escribiendo..." para simular que el chatbot está pensando
+        // Activa el indicador de "escribiendo..." para simular que el chatbot está pensando
         setIsBotTyping(true);
 
         const response = await fetch('https://proyectomovil-qh8q.onrender.com/chat', {
@@ -153,7 +161,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         await addDoc(userMessagesRef, botResponse);
         await addDoc(receiverMessagesRef, botResponse);
 
-        // Se desactiva el indicador al recibir la respuesta
+        // Desactiva el indicador al recibir la respuesta
         setIsBotTyping(false);
       } catch (error) {
         console.error('Error al enviar el mensaje:', error);
@@ -169,32 +177,31 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMyMessage = item.sender === user?.uid;
     const isBotMessage = item.sender === receiverUID;
-    const isCloudinaryImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.text); // Verifica si la URL tiene extensión de imagen
+    const isCloudinaryImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.text);
 
     return (
-      <View className='flex-row items-start my-1'>
+      <View style={styles.messageRow}>
         {isBotMessage && (
-          <Image
-            source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
-            className='w-12 h-12 mx-3 rounded-full'
-          />
+          <View style={styles.avatar}>
+            <Image
+              source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
+              style={styles.avatarImage}
+            />
+          </View>
         )}
         <View style={isBotMessage ? styles.botBubble : styles.userBubble}>
           {isCloudinaryImage && item.text.startsWith('http') ? (
             <Image source={{ uri: item.text }} style={styles.imageMessage} />
           ) : (
-            <Text className={`text-lg text-[#6B7280]`}>
+            <Text style={styles.messageText}>
               {item.isSending ? '...' : item.text}
             </Text>
           )}
         </View>
         {isMyMessage && (
-          <MaterialIcons
-            name="account-circle" // Ícono predeterminado de usuario
-            size={48} // Dimensiones del ícono
-            color="#B8E6B9" // Color del ícono del usuario
-            className='w-16 h-16 mx-1 rounded-full'
-          />
+          <View style={styles.avatar}>
+            <MaterialIcons name="account-circle" size={64} color="#B8E6B9" />
+          </View>
         )}
       </View>
     );
@@ -222,18 +229,25 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         ListFooterComponent={isBotTyping ? renderTypingIndicator : null}
       />
 
-      {error ? <Text className='text-red-500 mt-3 text-center'>{error}</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View className='flex-row items-center p-4 bg-white'>
+      <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.input, { color: '#9CA3AF' }]} // Color neutro 400
+          style={[styles.input, { color: '#9CA3AF' }]}
           placeholder="Escribe un mensaje..."
           value={messageText}
           onChangeText={setMessageText}
-          onSubmitEditing={sendMessage} // Envía el mensaje al presionar Enter/done
-          returnKeyType="send" // Muestra “send” en el teclado de móviles
+          onSubmitEditing={sendMessage}
+          returnKeyType="send"
         />
-        <TouchableOpacity className={`w-14 h-14 rounded-full justify-center items-center ${loading ? 'bg-[#B8E6B9]' : 'bg-[#5CB868]'}`} onPress={sendMessage} disabled={loading}>
+        <TouchableOpacity
+          style={[
+            styles.sendButton,
+            { backgroundColor: loading ? '#B8E6B9' : '#5CB868' },
+          ]}
+          onPress={sendMessage}
+          disabled={loading}
+        >
           <MaterialIcons name="send" size={24} color="white" />
         </TouchableOpacity>
       </View>
@@ -272,17 +286,28 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     paddingBottom: 20,
+    paddingHorizontal: 10,
   },
-  messageContainer: {
+  messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginVertical: 5,
   },
-  botProfileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 10,
+  // Contenedor de avatar para chatbot y usuario (64x64 píxeles)
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  // La imagen ocupa todo el contenedor
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   botBubble: {
     padding: 10,
@@ -294,25 +319,16 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     padding: 10,
-    backgroundColor: '#B8E6B9', // Color de fondo para mensajes del usuario
+    backgroundColor: '#B8E6B9',
     borderRadius: 8,
     maxWidth: '70%',
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 'auto',
   },
-  userProfileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginLeft: 10,
-  },
   messageText: {
     fontSize: 16,
-    color: '#6B7280', // Color neutro 500
-  },
-  myMessageText: {
-    color: '#6B7280', // Color neutro 500 para el mensaje del usuario
+    color: '#6B7280',
   },
   imageMessage: {
     width: 200,
@@ -329,17 +345,16 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 50,
-    borderColor: '#D1D5DB', // Gris
+    borderColor: '#D1D5DB',
     borderWidth: 1,
-    borderRadius: 25, // Bordes redondeados
+    borderRadius: 25,
     paddingHorizontal: 15,
     marginRight: 10,
   },
   sendButton: {
-    backgroundColor: '#B8E6B9', // Color del botón de enviar
-    width: 50,
-    height: 50,
-    borderRadius: 50, // Botón redondo
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -34,7 +34,7 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
     setLoading(true);
     try {
-      //setTimeout(() => setCurrentScreen("CameraCapture"), 150);  // Cambiar pantalla después de éxito
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       setSuccessMessage('Inicio de sesión exitoso');
       registerIndieID(userCredential.user.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
       setCurrentScreen('CameraCaptureScreen');
@@ -63,9 +63,9 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <View className='flex-1 w-full max-w-[25rem] bg-wihte justify-center items-center mt-10 px-5'>
-          <Image
+        <Image
             source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
-            className='w-3/5 aspect-[1] -mb-10'
+            style={styles.logoImage}
             resizeMode="contain"
           />
 
@@ -128,5 +128,119 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     </KeyboardAvoidingView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  contenedor: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 401,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 40,
+    borderRadius: 16,
+  },
+  logoImage: {
+    width: '60%',
+    aspectRatio: 1,
+    marginBottom: -30,
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 15,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: 'black',
+    marginBottom: 5,
+    textAlign: 'left',
+    fontWeight: 'bold',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    position: 'relative',
+    width: '100%',
+  },
+  input: {
+    flex: 1,
+    height: 44,
+    paddingLeft: 40,
+    paddingRight: 16,
+    fontSize: 16,
+    color: 'black',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    borderWidth: 0,
+  },
+  passwordInput: {
+    flex: 1,
+    height: 44,
+    paddingLeft: 40,
+    paddingRight: 50,
+    fontSize: 16,
+    color: 'black',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    borderWidth: 0,
+  },
+  icon: {
+    position: 'absolute',
+    left: 10,
+    zIndex: 2,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 15,
+    top: 10,
+    zIndex: 2,
+  },
+  forgotPasswordContainer: {
+    width: '100%',
+    alignItems: 'flex-end',
+    marginBottom: 20,
+  },
+  forgotPassword: {
+    color: '#5CB868',
+  },
+  loginButton: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#5CB868',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 25,
+    marginBottom: 30,
+  },
+  loginText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  registerPrompt: {
+    fontSize: 14,
+    color: '#000',
+    textAlign: 'center',
+    marginTop: 30,
+  },
+  registerText: {
+    color: '#5CB868',
+    fontWeight: 'bold',
+  },
+});
+
 
 export default LoginScreen;

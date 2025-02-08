@@ -106,10 +106,10 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       <View className={`w-full p-5 bg-white rounded-xl relative ${width > 400 ? 'max-w-[25rem]' : 'max-w-[calc(100%-40px)]'}`}>
         {/* Logo */}
         <Image
-          source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
-          className="w-3/5 aspect-[1] -mb-10 self-center"
-          resizeMode="contain"
-        />
+                    source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
         <Text className="font-bold text-2xl text-center mb-5">Crea una cuenta</Text>
 
         {/* firstname & lastname */}
@@ -276,12 +276,111 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     marginTop: -50, // Ajuste para subir todos los elementos internos
   },
-  picker: {
+  formContainer: {
+    width: "100%",
+    padding: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    position: "relative",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  input: {
+    width: "100%",
     height: 50,
     paddingHorizontal: 15,
     marginBottom: 12,
     backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    fontSize: 16,
+  },
+  inputHalf: {
+    width: "48%",
+  },
+  passwordContainer: {
+    position: "relative",
+  },
+  eyeIconContainer: {
+    position: 'absolute',
+    right: 15,
+    top: 10,
+    zIndex: 2,
+  },
+  picker: {
+    width: "100%",
+    height: 50,
+    paddingHorizontal: 15,
+    marginBottom: 12,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
     color: "#000",
+  },
+  label: {
+    fontSize: 14,
+    color: "black",
+    marginBottom: 6,
+    fontWeight: "bold",
+  },
+  note: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 12,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  checkbox: {
+    marginRight: 8,
+  },
+  acceptText: {
+    fontSize: 14,
+    color: "black",
+  },
+  linkText: {
+    color: "#5CB868",
+  },
+  button: {
+    padding: 15,
+    borderRadius: 25,
+    alignItems: "center",
+    marginVertical: 12,
+  },
+  registerButton: {
+    backgroundColor: "#5CB868",
+  },
+  registerButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  logoImage: {
+    width: '60%',
+    aspectRatio: 1,
+    marginBottom: -40,
+    alignSelf: 'center',
+  },
+  loginLink: {
+    color: "#000",
+    textAlign: "center",
+    fontSize: 14,
+    marginTop: 10,
+  },
+  loginText: {
+    color: "#000",
+  },
+  signInText: {
+    color: "#5CB868",
   },
 });
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import {
   View,
@@ -174,7 +175,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     if (!userId) return;
 
     if (!Array.isArray(currentLikes)) return;
-
     
     if (currentLikes.includes(userId)) {
       await updatePost(postId, {

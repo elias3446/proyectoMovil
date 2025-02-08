@@ -34,7 +34,7 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      //setTimeout(() => setCurrentScreen("CameraCapture"), 150);  // Cambiar pantalla después de éxito
       setSuccessMessage('Inicio de sesión exitoso');
       registerIndieID(userCredential.user.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
       setCurrentScreen('CameraCaptureScreen');

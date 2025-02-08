@@ -35,9 +35,14 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [profileImage, setProfileImage] = useState<string | null>(null); // Inicialmente null
+
+
   const [showPassword, setShowPassword] = useState(false);  // Estado para mostrar/ocultar la contraseña
 
   const { width } = Dimensions.get("window");
+
 
   useEffect(() => {
     if (errorMessage || successMessage) {
@@ -83,6 +88,7 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         gender,
         pronoun: pronoun || (gender === "F" ? "Femenino" : gender === "M" ? "Masculino" : ""),
         customGender,
+        profileImage: profileImage || null, // Incluye la imagen de perfil (vacía inicialmente)
       };
 
       await setDoc(doc(db, "users", user.uid), userData);

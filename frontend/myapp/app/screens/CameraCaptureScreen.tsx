@@ -1,17 +1,16 @@
 import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform, Image } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator'; // Se importa para procesar la imagen
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
 import NotificationBanner from '@/Components/NotificationBanner';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
-
-const { width, height } = Dimensions.get('window');
 
 const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [facing, setFacing] = useState<CameraType>('back');
@@ -21,15 +20,33 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [flash, setFlash] = useState<FlashMode>('off');
   const cameraRef = useRef<CameraView | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isCameraReady, setIsCameraReady] = useState(false);
 
   useEffect(() => {
-    if (permission?.granted === false) {
-      requestPermission();
-    }
+    const checkPermissions = async () => {
+      if (Platform.OS === 'web') {
+        try {
+          await navigator.mediaDevices.getUserMedia({ video: true });
+        } catch (error) {
+          setErrorMessage('No se pudo acceder a la cámara en la web');
+        }
+      } else {
+        if (!permission?.granted) {
+          await requestPermission();
+        }
+      }
+    };
+
+    checkPermissions();
   }, [permission]);
 
   const handleTakePhoto = useCallback(async () => {
-    if (cameraRef.current) {
+    if (!permission?.granted) {
+      await requestPermission();
+      return;
+    }
+
+    if (cameraRef.current && isCameraReady) {
       const options = {
         quality: 1,
         base64: true,
@@ -43,7 +60,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         setErrorMessage("Error tomando la foto");
       }
     }
-  }, [flash]);
+  }, [flash, permission, isCameraReady]);
 
   const handleRetakePhoto = useCallback(() => setPhoto(null), []);
 
@@ -56,14 +73,19 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       });
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
-        setPhoto(result.assets[0]); // Almacenar la imagen seleccionada
+        const asset = result.assets[0];
+        // Se utiliza ImageManipulator para procesar la imagen y dejarla en un formato similar
+        const manipulatedImage = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [],
+          { compress: 1, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        setPhoto(manipulatedImage);
       }
     } catch (error) {
       setErrorMessage('Error abriendo la galería');
     }
   };
-
-  const handleChat = () => setCurrentScreen('ChatScreen');
 
   const toggleCameraFacing = useCallback(() => {
     setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
@@ -73,17 +95,11 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     setFlash((prev) => (prev === 'off' ? 'auto' : 'off'));
   }, []);
 
-  if (!permission) {
-    return <View />;
-  }
-
-  if (!permission.granted) {
+  if (!permission?.granted && Platform.OS !== 'web') {
     return (
-      <View className='flex-1 justify-center items-center p-5'>
-        <Text className='text-black mb-5 text-lg text-center'>Necesitamos tu permiso para mostrar la cámara</Text>
-        <TouchableOpacity className='bg-[#4CAF50] p-3 rounded-lg' onPress={requestPermission}>
-          <Text className='text-white text-lg'>Conceder permiso</Text>
-        </TouchableOpacity>
+      <View style={styles.permissionContainer}>
+        <Text style={styles.permissionText}>Solicitando acceso a la cámara...</Text>
+
       </View>
     );
   }
@@ -99,8 +115,15 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef} zoom={zoom} flash={flash}>
+    <View style={styles.container}>
+      <CameraView
+        style={styles.camera}
+        facing={facing}
+        ref={cameraRef}
+        zoom={zoom}
+        flash={flash}
+        onCameraReady={() => setIsCameraReady(true)}
+      >
         <View style={styles.gridOverlay} />
       </CameraView>
 
@@ -125,10 +148,18 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         </View>
       )}
 
-      <View className="absolute bottom-0 left-0 right-0 bg-white h-[7.5rem] flex-row justify-center items-center z-[2]" style={{ paddingHorizontal: width * 0.05 }}>
-        <TouchableOpacity className='-bottom-[1] z-[1]' onPress={handleTakePhoto}>
-          <View className='p-2 bg-transparent border-[#A5D6A7] border-8 rounded-full justify-center items-center'>
-            <View className='bg-[#5CB868] rounded-full w-16 h-16 justify-center items-center' />
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[
+            styles.captureButtonWrapper,
+            { opacity: !permission?.granted || !isCameraReady ? 0.5 : 1 },
+          ]}
+          onPress={handleTakePhoto}
+          disabled={!permission?.granted || !isCameraReady}
+        >
+          <View style={styles.captureButtonRing}>
+            <View style={styles.captureButtonCircle} />
+
           </View>
         </TouchableOpacity>
       </View>
@@ -150,7 +181,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       )}
 
       <NotificationBanner message={errorMessage} type="error" />
-    </ScrollView>
+    </View>
   );
 };
 
@@ -160,9 +191,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFFFF",
     justifyContent: 'center',
   },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  permissionText: {
+    textAlign: 'center',
+    marginBottom: 20,
+    fontSize: 16,
+    color: '#000',
+  },
   camera: {
     flex: 1,
-    zIndex: -1,
   },
   gridOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -170,9 +212,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     opacity: 0.6,
   },
+  sliderContainer: {
+    position: 'absolute',
+    bottom: 130,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButton: {
+    paddingHorizontal: 0,
+  },
   slider: {
     width: '57%',
     height: 22,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    height: 100,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  captureButtonWrapper: {
+    position: 'absolute',
+    bottom: -1,
+  },
+  captureButtonRing: {
+    borderColor: '#A5D6A7',
+    borderWidth: 8,
+    borderRadius: 55,
+    padding: 5,
+  },
+  captureButtonCircle: {
+    backgroundColor: '#5CB868',
+    borderRadius: 45,
+    width: 65,
+    height: 65,
+  },
+  galleryButtonContainer: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+  },
+  rightButtonsContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+  },
+  controlButton: {
+    padding: 5,
   },
 });
 

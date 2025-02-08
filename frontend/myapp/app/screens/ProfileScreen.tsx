@@ -7,80 +7,147 @@ import {
   ScrollView,
   Image,
   Modal,
+  StyleSheet,
+  Dimensions,
+  Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   getAuth,
   signOut,
   updatePassword,
+  updateEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from "firebase/auth";
-import { getFirestore, doc, updateDoc, getDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  updateDoc,
+  onSnapshot,
+} from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import NotificationBanner from "@/Components/NotificationBanner";
 import { FontAwesome } from "@expo/vector-icons";
-import { unregisterIndieDevice } from 'native-notify';
+
+// Componente Modal personalizado para compatibilidad en web
+interface CustomModalProps {
+  visible: boolean;
+  onRequestClose: () => void;
+  children: React.ReactNode;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({
+  visible,
+  onRequestClose,
+  children,
+}) => {
+  if (!visible) return null;
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>{children}</View>
+      </View>
+    );
+  }
+  return (
+    <Modal
+      transparent={true}
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onRequestClose}
+    >
+      {children}
+    </Modal>
+  );
+};
 
 interface ProfileScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+interface IUserData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  profileImage: string | null;
+}
+
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
+  // Estados para los datos del usuario
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); // Nueva contraseña
-  const [currentPassword, setCurrentPassword] = useState(""); // Contraseña actual para reautenticación
+  const [phoneNumber, setPhoneNumber] = useState("");
+  // Imagen actual y nueva (para previsualización)
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [newProfileImage, setNewProfileImage] = useState<string | null>(null);
+
+  // Estados para la modificación de contraseña
+  const [password, setPassword] = useState(""); // Nueva contraseña
+  const [currentPassword, setCurrentPassword] = useState(""); // Contraseña para reautenticación
+
+  // Estados para mensajes y carga
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [showSignOutModal, setShowSignOutModal] = useState(false);
 
+  // Datos originales del usuario (para comparar cambios)
+  const [originalUserData, setOriginalUserData] = useState<IUserData>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    profileImage: null,
+  });
+
+  const [currentUser, setCurrentUser] = useState(getAuth().currentUser);
   const auth = getAuth();
   const db = getFirestore();
-  const user = auth.currentUser; // Obtén el usuario autenticado actual
 
+  // Escucha en tiempo real el estado de autenticación
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user) {
-        setErrorMessage("No estás autenticado. Por favor, inicia sesión.");
-        return;
-      }
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+    });
+    return unsubscribe;
+  }, []);
 
-      try {
-        const userData = await AsyncStorage.getItem("userData");
-        if (userData) {
-          const parsedData = JSON.parse(userData);
-          setFirstName(parsedData.firstName || "");
-          setLastName(parsedData.lastName || "");
-          setEmail(parsedData.email || "");
-          setProfileImage(parsedData.profileImage || null);
-          setPhoneNumber(parsedData.phoneNumber || "");
-        } else {
-          const docRef = doc(db, "users", user.uid);
-          const docSnap = await getDoc(docRef);
+  // Listener en tiempo real del documento del usuario en Firestore
+  useEffect(() => {
+    if (currentUser) {
+      const userRef = doc(db, "users", currentUser.uid);
+      const unsubscribe = onSnapshot(
+        userRef,
+        (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
             setFirstName(data.firstName || "");
             setLastName(data.lastName || "");
             setEmail(data.email || "");
-            setProfileImage(data.profileImage || null);
             setPhoneNumber(data.phoneNumber || "");
-
-            // Guardar en AsyncStorage
-            await AsyncStorage.setItem("userData", JSON.stringify(data));
+            setProfileImage(data.profileImage || null);
+            setOriginalUserData({
+              firstName: data.firstName || "",
+              lastName: data.lastName || "",
+              email: data.email || "",
+              phoneNumber: data.phoneNumber || "",
+              profileImage: data.profileImage || null,
+            });
+            AsyncStorage.setItem("userData", JSON.stringify(data));
           }
+        },
+        (error) => {
+          setErrorMessage("Error al escuchar los cambios del usuario: " + error.message);
         }
-      } catch (error) {
-        setErrorMessage("Error al cargar datos del usuario.");
-      }
-    };
-
-    fetchUserData();
-  }, [user]);
+      );
+      return () => unsubscribe();
+    } else {
+      setErrorMessage("No estás autenticado. Por favor, inicia sesión.");
+    }
+  }, [currentUser, db]);
 
   const handleImagePick = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -90,13 +157,107 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
       quality: 1,
     });
     if (!result.canceled) {
-      try {
+      setNewProfileImage(result.assets[0].uri);
+    }
+  };
+
+  // Guardar cambios: actualiza datos sensibles (correo/contraseña) y demás datos del perfil
+  const handleSaveChanges = async () => {
+    if (!currentUser) {
+      setErrorMessage("No estás autenticado. Por favor, inicia sesión.");
+      return;
+    }
+    setLoading(true);
+    try {
+      // Determinar si se ha modificado el correo
+      const isEmailChanged = email !== originalUserData.email;
+      
+      // Validar formato del correo en caso de modificación
+      if (isEmailChanged) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          setErrorMessage("Ingresa un correo electrónico válido.");
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Determinar si se ha modificado la contraseña
+      const isPasswordChanged = password !== "";
+      const needReauth = isEmailChanged || isPasswordChanged;
+      
+      if (needReauth) {
+        if (!currentPassword) {
+          setErrorMessage("Debes ingresar tu contraseña actual para actualizar el correo o la contraseña.");
+          setTimeout(() => setErrorMessage(""), 1500);
+          setLoading(false);
+          return;
+        }
+        // Reautenticación
+        try {
+          const credential = EmailAuthProvider.credential(currentUser.email!, currentPassword);
+          await reauthenticateWithCredential(currentUser, credential);
+        } catch (error: any) {
+          if (error.code === "auth/wrong-password") {
+            setErrorMessage("La contraseña actual no coincide.");
+          } else {
+            setErrorMessage("Error al verificar la contraseña actual.");
+          }
+          setTimeout(() => setErrorMessage(""), 1500);
+          setLoading(false);
+          return;
+        }
+        // Actualización del correo si fue modificado
+        if (isEmailChanged) {
+          try {
+            await updateEmail(currentUser, email);
+          } catch (error: any) {
+            if (error.code === "auth/email-already-in-use") {
+              setErrorMessage("El correo electrónico ya está en uso por otro usuario.");
+            } else {
+              setErrorMessage("Error al actualizar el correo electrónico: " + error.message);
+            }
+            setTimeout(() => setErrorMessage(""), 1500);
+            setLoading(false);
+            return;
+          }
+        }
+        // Actualización de la contraseña si se proporcionó una nueva
+        if (isPasswordChanged) {
+          if (password === currentPassword) {
+            setErrorMessage("La nueva contraseña debe ser diferente a la actual.");
+            setTimeout(() => setErrorMessage(""), 1500);
+            setLoading(false);
+            return;
+          }
+          try {
+            await updatePassword(currentUser, password);
+            setSuccessMessage("Contraseña actualizada con éxito");
+            setTimeout(() => setSuccessMessage(""), 2000);
+          } catch (error: any) {
+            setErrorMessage("Error al actualizar la contraseña: " + error.message);
+            setTimeout(() => setErrorMessage(""), 1500);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Manejo de imagen de perfil: si se seleccionó una nueva imagen se sube a Cloudinary
+      let finalProfileImage = profileImage;
+      if (newProfileImage) {
         const formData = new FormData();
-        formData.append("file", {
-          uri: result.assets[0].uri,
-          type: "image/jpeg",
-          name: "profile.jpg",
-        } as any);
+        if (Platform.OS === "web") {
+          const response = await fetch(newProfileImage);
+          const blob = await response.blob();
+          formData.append("file", blob, "profile.jpg");
+        } else {
+          formData.append("file", {
+            uri: newProfileImage,
+            type: "image/jpeg",
+            name: "profile.jpg",
+          } as any);
+        }
         formData.append("upload_preset", "my_upload_preset2");
         formData.append("folder", "profile_images");
 
@@ -107,75 +268,48 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             body: formData,
           }
         );
-
         const data = await cloudinaryResponse.json();
-        setProfileImage(data.secure_url);
-
-        // Actualizar AsyncStorage
-        const userData = await AsyncStorage.getItem("userData");
-        if (userData) {
-          const parsedData = JSON.parse(userData);
-          parsedData.profileImage = data.secure_url;
-          await AsyncStorage.setItem("userData", JSON.stringify(parsedData));
-        }
-      } catch (error) {
-        console.log(error);
-        setErrorMessage("Error al subir la imagen.");
-      }
-    }
-  };
-
-  const handleSaveChanges = async () => {
-    if (!user) {
-      setErrorMessage("No estás autenticado. Por favor, inicia sesión.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Verificar si la contraseña fue cambiada
-      if (password) {
-        // Si hay una nueva contraseña, debemos reautenticar y luego actualizar la contraseña
-        if (!currentPassword) {
-          setErrorMessage("Debes ingresar tu contraseña actual.");
-          setTimeout(() => setErrorMessage(""), 1500);
+        if (data.secure_url) {
+          finalProfileImage = data.secure_url;
+        } else {
+          setErrorMessage("Error al obtener la URL de la imagen.");
+          setLoading(false);
           return;
         }
-
-        // Reautenticación
-        const credential = EmailAuthProvider.credential(user.email!, currentPassword);
-        await reauthenticateWithCredential(user, credential);
-
-        // Actualización de contraseña
-        await updatePassword(user, password);
-        setSuccessMessage("Contraseña actualizada con éxito");
-        setTimeout(() => setSuccessMessage(""), 2000);
       }
 
-      // Actualización de perfil (nombre, apellido, correo, teléfono, imagen)
-      const userRef = doc(db, "users", user.uid);
+      // Actualización de datos en Firestore
+      const userRef = doc(db, "users", currentUser.uid);
+      
       await updateDoc(userRef, {
         firstName,
         lastName,
         email,
-        profileImage: profileImage || null,
+        profileImage: finalProfileImage || null,
         phoneNumber,
       });
 
-      // Actualización de AsyncStorage
-      const userData = {
+      // Actualización de AsyncStorage y de los estados originales
+      const updatedUserData: IUserData = {
         firstName,
         lastName,
         email,
-        profileImage: profileImage || null,
         phoneNumber,
+        profileImage: finalProfileImage || null,
       };
-      await AsyncStorage.setItem("userData", JSON.stringify(userData));
+      await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+      setOriginalUserData(updatedUserData);
+      setProfileImage(finalProfileImage);
+      setNewProfileImage(null);
 
       setSuccessMessage("Cambios guardados exitosamente");
-      setTimeout(() => setSuccessMessage(""), 2000); // Mensaje desaparece después de 2 segundos
+      setTimeout(() => setSuccessMessage(""), 2000);
+
+      // Limpiar campos de contraseña
+      setPassword("");
+      setCurrentPassword("");
     } catch (error: any) {
-      setErrorMessage("No se ha podido guardar los cambios.");
+      setErrorMessage("No se han podido guardar los cambios: " + error.message);
       setTimeout(() => setErrorMessage(""), 1500);
     } finally {
       setLoading(false);
@@ -184,127 +318,264 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
   const handleSignOut = async () => {
     try {
-      unregisterIndieDevice(auth.currentUser?.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
       await signOut(auth);
       await AsyncStorage.clear();
       setSuccessMessage("Sesión cerrada correctamente");
       setTimeout(() => {
         setSuccessMessage("");
-        setCurrentScreen("LoginScreen"); // Cambiar la pantalla al inicio de sesión
+        setCurrentScreen("LoginScreen");
       }, 2000);
     } catch (error) {
       setErrorMessage("Error al cerrar sesión.");
     }
   };
 
-  return (
-    <ScrollView className="p-4">
-      <View className="bg-white rounded-xl p-4 shadow-md">
-        <Text className="text-2xl font-bold text-center mb-4">Editar Perfil</Text>
+  const { width } = Dimensions.get("window");
 
-        <View className="items-center mb-4 relative">
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} className="w-24 h-24 rounded-full" />
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View
+        style={[
+          styles.formContainer,
+          { maxWidth: width > 400 ? 400 : width - 40 },
+        ]}
+      >
+        <Text style={styles.title}>Editar Perfil</Text>
+
+        <View style={styles.profileImageContainer}>
+          {newProfileImage || profileImage ? (
+            <Image
+              source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
+              style={styles.profileImage}
+            />
           ) : (
-            <View className="w-24 h-24 rounded-full bg-gray-300 items-center justify-center">
-              <Text className="text-gray-500">Sin Imagen</Text>
-            </View>
+            <Text style={styles.noImageText}>Sin Imagen</Text>
           )}
-          <TouchableOpacity
-            onPress={handleImagePick}
-            className="absolute bottom-0 right-28 bg-green-500 p-2 rounded-full"
-          >
+          <TouchableOpacity onPress={handleImagePick} style={styles.cameraButton}>
             <FontAwesome name="camera" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
-
-        <Text className="text-center text-lg font-semibold mb-4">{firstName} {lastName}</Text>
+        {/*
+          Se concatena el nombre y el apellido en un solo nodo para evitar conflictos en el DOM.
+        */}
+        <Text style={[styles.label, { textAlign: "center", marginBottom: 20 }]}>
+          {`${firstName} ${lastName}`.trim()}
+        </Text>
 
         <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
+          style={styles.input}
           placeholder="Nombre"
           value={firstName}
           onChangeText={setFirstName}
+          placeholderTextColor="#9CA3AF"
         />
         <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
+          style={styles.input}
           placeholder="Apellido"
           value={lastName}
           onChangeText={setLastName}
+          placeholderTextColor="#9CA3AF"
         />
         <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
+          style={styles.input}
           placeholder="Correo Electrónico"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
+          placeholderTextColor="#9CA3AF"
         />
-        
-        <Text className="text-lg font-semibold mb-2">Modificar contraseña:</Text>
+
+        <Text style={styles.label}>Modificar contraseña:</Text>
         <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
-          placeholder="Contraseña Actual"
+          style={styles.input}
+          placeholder="Ingresa tu contraseña actual"
           value={currentPassword}
           onChangeText={setCurrentPassword}
           secureTextEntry
+          placeholderTextColor="#9CA3AF"
         />
         <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
-          placeholder="Nueva Contraseña"
+          style={styles.input}
+          placeholder="Ingresa la nueva contraseña"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          placeholderTextColor="#9CA3AF"
         />
 
         <TouchableOpacity
-          className="bg-[#A5D6A7] p-3 rounded-lg items-center mb-4"
+          style={[styles.button, styles.primaryButton]}
           onPress={handleSaveChanges}
           disabled={loading}
         >
-          <Text className="text-[#142C15] font-bold">{loading ? "Guardando..." : "Guardar Cambios"}</Text>
+          <Text style={styles.buttonText}>
+            {loading ? "Guardando..." : "Guardar Cambios"}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          className="bg-black p-3 rounded-lg items-center flex-row justify-center mt-10 w-1/2 self-center"
+          style={[styles.button, styles.primaryButton]}
           onPress={() => setShowSignOutModal(true)}
         >
-          <FontAwesome name="sign-out" size={20} color="#fff" className="mr-2" />
-          <Text className="text-white font-bold">Cerrar Sesión</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <FontAwesome name="sign-out" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Cerrar Sesión</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
-      {errorMessage && <NotificationBanner message={errorMessage} type="error" />}
-      {successMessage && <NotificationBanner message={successMessage} type="success" />}
-      
-      <Modal
-        transparent={true}
+      {errorMessage !== "" && (
+        <NotificationBanner message={errorMessage} type="error" />
+      )}
+      {successMessage !== "" && (
+        <NotificationBanner message={successMessage} type="success" />
+      )}
+
+      <CustomModal
         visible={showSignOutModal}
-        animationType="slide"
         onRequestClose={() => setShowSignOutModal(false)}
       >
-        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-          <View className="w-4/5 bg-white p-5 rounded-xl">
-            <Text className="text-lg font-semibold mb-4">¿Seguro que deseas cerrar sesión?</Text>
-            <View className="flex-row justify-between">
-              <TouchableOpacity
-                className="bg-gray-300 p-3 rounded-lg flex-1 mr-2"
-                onPress={() => setShowSignOutModal(false)}
-              >
-                <Text className="text-center">Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="bg-red-500 p-3 rounded-lg flex-1 ml-2"
-                onPress={handleSignOut}
-              >
-                <Text className="text-center text-white">Cerrar Sesión</Text>
-              </TouchableOpacity>
-            </View>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>¿Seguro que deseas cerrar sesión?</Text>
+          <View style={styles.modalButtonRow}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalCancelButton]}
+              onPress={() => setShowSignOutModal(false)}
+            >
+              <Text style={styles.buttonText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalSignOutButton]}
+              onPress={handleSignOut}
+            >
+              <Text style={styles.buttonText}>Cerrar Sesión</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </CustomModal>
     </ScrollView>
   );
 };
 
-export default ProfileScreen;
+const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    marginTop: -20,
+  },
+  formContainer: {
+    width: "100%",
+    padding: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    position: "relative",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  input: {
+    width: "100%",
+    height: 50,
+    paddingHorizontal: 15,
+    marginBottom: 12,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    fontSize: 16,
+    color: "#000",
+  },
+  label: {
+    fontSize: 14,
+    color: "black",
+    marginBottom: 6,
+    fontWeight: "bold",
+  },
+  button: {
+    padding: 15,
+    borderRadius: 25,
+    alignItems: "center",
+    marginVertical: 5,
+  },
+  primaryButton: {
+    backgroundColor: "#5CB868",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  profileImageContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#F3F4F6",
+    alignSelf: "center",
+    marginBottom: 5,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  noImageText: {
+    color: "#9CA3AF",
+  },
+  cameraButton: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#5CB868",
+    padding: 8,
+    borderRadius: 20,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    position: Platform.OS === "web" ? "fixed" : "relative",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
+  modalContent: {
+    width: "80%",
+    backgroundColor: "#FFF",
+    padding: 20,
+    borderRadius: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  modalButtonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 25,
+    alignItems: "center",
+  },
+  modalCancelButton: {
+    backgroundColor: "#ccc",
+    marginRight: 10,
+  },
+  modalSignOutButton: {
+    backgroundColor: "#E53935",
+    marginLeft: 10,
+  },
+});
 
+export default ProfileScreen;

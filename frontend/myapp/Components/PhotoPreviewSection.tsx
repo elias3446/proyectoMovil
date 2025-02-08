@@ -40,7 +40,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ image_url: imageUri }), // Imagen en base64
+            body: JSON.stringify({ image_url: imageUri }),
         });
 
         const data = await response.json();
@@ -51,7 +51,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         return data.respuesta || 'No response from server';
     } catch (error) {
         console.error('Error sending image:', error);
-        setErrorMessage('Error sending image to the server');
+        setErrorMessage(imageUri);
         throw error;
     }
 };
@@ -131,12 +131,15 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         await addDoc(userMessagesRef, botMessage);
         await addDoc(receiverMessagesRef, botMessage);
 
+        setErrorMessage(imageUrl);
+
       } catch (error) {
         console.error("Error al enviar la imagen:", error);
-        setErrorMessage("No se pudo enviar la imagen.");
+       // setErrorMessage("Error al enviar la imagen: " + (error as any).message);
       } finally {
 
-        setCurrentScreen("ChatScreen"); // Cambiar a la pantalla de chat
+        
+       // setCurrentScreen("ChatScreen"); // Cambiar a la pantalla de chat
         
         setIsLoading(false);
       }

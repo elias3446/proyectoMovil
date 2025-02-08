@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 # Ruta para procesar imágenes
 @app.route('/process_image', methods=['POST'])
 def process_image():
-    image_url = request.json.get("image_url")
+    data = request.json
+    image_url = data.get("image_url", "")
     
     if not image_url:
         return jsonify({'error': 'No se encontró URL de imagen'}), 400

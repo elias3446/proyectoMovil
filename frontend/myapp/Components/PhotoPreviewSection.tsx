@@ -1,250 +1,237 @@
-import { Fontisto } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { TouchableOpacity, SafeAreaView, Image, StyleSheet, View, Text, Platform, ActivityIndicator } from 'react-native';
-import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
-import { getFirestore, collection, addDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import Fontisto from "@expo/vector-icons/Fontisto"; // Importación corregida
+import React, { useState } from "react";
+import {
+  TouchableOpacity,
+  SafeAreaView,
+  Image,
+  StyleSheet,
+  View,
+  Text,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import NotificationBanner from "@/Components/NotificationBanner";
 
 interface LoginProps {
-    photo: { uri: string; base64?: string }; // Ahora acepta imágenes seleccionadas con base64 opcional
-    handleRetakePhoto: () => void;
-    setCurrentScreen: (screen: string) => void;
+  photo: { uri: string };
+  handleRetakePhoto: () => void;
+  setCurrentScreen: (screen: string) => void;
 }
 
 const PhotoPreviewSection: React.FC<LoginProps> = ({
-    photo,
-    handleRetakePhoto,
-    setCurrentScreen,
+  photo,
+  handleRetakePhoto,
+  setCurrentScreen,
 }) => {
-    const [errorMessage, setErrorMessage] = useState("");
-    const [isLoading, setIsLoading] = useState(false); // Estado para manejar el círculo de carga
-    const auth = getAuth();
-    const db = getFirestore();
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-    const sendImageToAPI = async (imageUri: string) => {
-        try {
-            setErrorMessage("");  // Reset error message
-            const response = await fetch('https://proyectomovil-qh8q.onrender.com/process_image', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ image: imageUri }), // Imagen en base64
-            });
+  const auth = getAuth();
+  const db = getFirestore();
 
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Error en la respuesta de la API');
-            }
+  const sendImageToAPI = async (imageUri: string) => {
+    try {
+        setErrorMessage("");  // Reset error message
+        const response = await fetch('https://proyectomovil-qh8q.onrender.com/process_image', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ image_url: imageUri }), // Imagen en base64
+        });
 
-            return data.respuesta || 'No response from server';
-        } catch (error) {
-            console.error('Error sending image:', error);
-            setErrorMessage('Error sending image to the server');
-            throw error;
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Error en la respuesta de la API');
         }
-    };
 
-    const chunkBase64 = (base64String: string, chunkSize: number = 1000000) => {
-        const chunks = [];
-        for (let i = 0; i < base64String.length; i += chunkSize) {
-            chunks.push(base64String.slice(i, i + chunkSize));
+        return data.respuesta || 'No response from server';
+    } catch (error) {
+        console.error('Error sending image:', error);
+        setErrorMessage('Error sending image to the server');
+        throw error;
+    }
+};
+
+  // Subir imagen a Cloudinary
+  const uploadImageToCloudinary = async (photo: { uri: string }) => {
+    try {
+      setErrorMessage("");
+
+      const formData = new FormData();
+
+      if (Platform.OS === "web") {
+        const response = await fetch(photo.uri);
+        const blob = await response.blob();
+        formData.append("file", blob, "photo.jpg");
+      } else {
+        formData.append("file", {
+          uri: photo.uri,
+          type: photo.uri.endsWith("png") ? "image/png" : "image/jpeg",
+          name: photo.uri.split("/").pop(),
+        } as any);
+      }
+
+      formData.append("upload_preset", "my_upload_preset2");
+      formData.append("folder", "user_messages");
+
+      const response = await fetch(
+        "https://api.cloudinary.com/v1_1/dwhl67ka5/image/upload",
+        {
+          method: "POST",
+          body: formData,
         }
-        return chunks;
-    };
+      );
 
-    const saveImageLocally = async (imageUri: string) => {
-        try {
-            if (Platform.OS !== 'web') {
-                const permission = await MediaLibrary.requestPermissionsAsync();
-                if (!permission.granted) {
-                    setErrorMessage("Permission to access media library is required.");
-                    return null;
-                }
-                const asset = await MediaLibrary.createAssetAsync(imageUri);
-                await MediaLibrary.createAlbumAsync("MyApp", asset, false);
-                return asset.uri;
-            } else {
-                const a = document.createElement('a');
-                a.href = imageUri;
-                a.download = 'photo.jpg'; 
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                return imageUri;
-            }
-        } catch (error) {
-            console.error("Error saving image locally:", error);
-            setErrorMessage("Failed to save the image locally.");
-            throw error;
-        }
-    };
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error?.message || "Error al subir la imagen");
+      }
 
-    const handleSendPhoto = async () => {
-        const user = auth.currentUser;
-        if (user) {
-            setIsLoading(true);
-            try {
-                let base64Image = photo.base64 || '';
+     
 
-                if (base64Image) {
-                    if (!base64Image.startsWith('data:image')) {
-                        const imageExtension = photo.uri.split('.').pop()?.toLowerCase();
-                        if (imageExtension === 'jpg' || imageExtension === 'jpeg') {
-                            base64Image = `data:image/jpeg;base64,${base64Image}`;
-                        } else if (imageExtension === 'png') {
-                            base64Image = `data:image/png;base64,${base64Image}`;
-                        } else {
-                            base64Image = `data:image/jpeg;base64,${base64Image}`;
-                        }
-                    }
-                }
+      return data.secure_url;
+    } catch (error) {
+      console.error("Error subiendo la imagen:", error);
+      setErrorMessage("Error al subir la imagen a Cloudinary.");
+      throw error;
+    }
+  };
 
-                if (!base64Image && Platform.OS !== 'web') {
-                    const fileContent = await FileSystem.readAsStringAsync(photo.uri, {
-                        encoding: FileSystem.EncodingType.Base64,
-                    });
-                    const imageExtension = photo.uri.split('.').pop()?.toLowerCase();
-                    if (imageExtension === 'jpg' || imageExtension === 'jpeg') {
-                        base64Image = `data:image/jpeg;base64,${fileContent}`;
-                    } else if (imageExtension === 'png') {
-                        base64Image = `data:image/png;base64,${fileContent}`;
-                    } else {
-                        base64Image = `data:image/jpeg;base64,${fileContent}`;
-                    }
-                }
+  // Enviar imagen al chat
+  const handleSendPhoto = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      setIsLoading(true);
+      try {
+        const imageUrl = await uploadImageToCloudinary(photo);
 
-                setCurrentScreen('ChatScreen');
+        const receiverUID = "receiverUID"; // Cambia esto con el ID del receptor real
+        const userMessagesRef = collection(db, "users", user.uid, "messages");
+        const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
 
-                if (!photo.base64) {
-                    await saveImageLocally(photo.uri);
-                }
+        await addDoc(userMessagesRef, {
+          text: imageUrl,
+          sender: user.uid,
+          receiver: receiverUID,
+          timestamp: new Date(),
+        });
 
-                const base64Chunks = chunkBase64(base64Image);
+        const botResponseText = await sendImageToAPI(imageUrl);
 
-                const receiverUID = 'receiverUID';
-                const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-                const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
+        const botMessage = {
+            text: botResponseText,
+            sender: receiverUID,
+            receiver: user.uid,
+            timestamp: new Date(),
+        };
+        await addDoc(userMessagesRef, botMessage);
+        await addDoc(receiverMessagesRef, botMessage);
 
-                const messageDocRef = await addDoc(userMessagesRef, {
-                    text: '',
-                    sender: user.uid,
-                    receiver: receiverUID,
-                    timestamp: new Date(),
-                });
+      } catch (error) {
+        console.error("Error al enviar la imagen:", error);
+        setErrorMessage("No se pudo enviar la imagen.");
+      } finally {
 
-                const fragmentsCollectionRef = collection(messageDocRef, 'imageFragments');
-                for (const [index, chunk] of base64Chunks.entries()) {
-                    await addDoc(fragmentsCollectionRef, {
-                        fragmentIndex: index,
-                        fragment: chunk,
-                        timestamp: new Date(),
-                    });
-                }
+        setCurrentScreen("ChatScreen"); // Cambiar a la pantalla de chat
+        
+        setIsLoading(false);
+      }
+    }
+  };
 
-                const botResponseText = await sendImageToAPI(base64Image);
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.box}>
+        <NotificationBanner message={errorMessage} type="error" />
+        {photo?.uri ? (
+          <Image
+            style={styles.previewContainer}
+            source={{ uri: photo.uri }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={styles.errorText}>No image available</Text>
+        )}
+      </View>
 
-                const botMessage = {
-                    text: botResponseText,
-                    sender: receiverUID,
-                    receiver: user.uid,
-                    timestamp: new Date(),
-                };
-                await addDoc(userMessagesRef, botMessage);
-                await addDoc(receiverMessagesRef, botMessage);
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.button} onPress={handleRetakePhoto}>
+          <Fontisto name="trash" size={36} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleSendPhoto}
+          disabled={isLoading}
+        >
+          <Fontisto name="check" size={36} color="white" />
+        </TouchableOpacity>
+      </View>
 
-            } catch (error) {
-                console.error('Error al procesar la imagen:', error);
-                setErrorMessage('Failed to send photo.');
-            } finally {
-                setIsLoading(false);
-            }
-        }
-    };
+      {isLoading && (
+        <ActivityIndicator
+          size="large"
+          color="#5CB868"
+          style={styles.loadingIndicator}
+        />
+      )}
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.box}>
-                <NotificationBanner message={errorMessage} type="error" />
-                {photo?.uri ? (
-                    <Image
-                        style={styles.previewContainer}
-                        source={{ uri: photo.uri }}
-                        resizeMode="cover"
-                    />
-                ) : (
-                    <Text style={styles.errorText}>No image available</Text>
-                )}
-            </View>
-
-            <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.button} onPress={handleRetakePhoto}>
-                    <Fontisto name='trash' size={36} color='white' />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={handleSendPhoto} disabled={isLoading}>
-                    <Fontisto name='check' size={36} color='white' />
-                </TouchableOpacity>
-            </View>
-
-            {isLoading && (
-                <ActivityIndicator size="large" color="#5CB868" style={styles.loadingIndicator} />
-            )}
-
-            {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-        </SafeAreaView>
-    );
+      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        position: "relative",
-        backgroundColor: "#FFFFFF",
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    box: {
-        width: '100%',
-        backgroundColor: '#F3F4F6',
-        justifyContent: 'center',
-        alignItems: 'center',
-        flex: 1,
-        borderRadius: 16,
-        marginBottom: 30,
-    },
-    previewContainer: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 15,
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    button: {
-        backgroundColor: '#5CB868',
-        borderRadius: 25,
-        padding: 12,
-        margin: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 16,
-        textAlign: 'center',
-        marginTop: 10,
-    },
-    loadingIndicator: {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: [{ translateX: -25 }, { translateY: -25 }],
-    },
+  container: {
+    flex: 1,
+    position: "relative",
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  box: {
+    width: "100%",
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    flex: 1,
+    borderRadius: 16,
+    marginBottom: 30,
+  },
+  previewContainer: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 15,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  button: {
+    backgroundColor: "#5CB868",
+    borderRadius: 25,
+    padding: 12,
+    margin: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorText: {
+    color: "red",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 10,
+  },
+  loadingIndicator: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -25 }, { translateY: -25 }],
+  },
 });
 
 export default PhotoPreviewSection;

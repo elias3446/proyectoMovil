@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform } from '
 import Slider from '@react-native-community/slider';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator'; // Se importa para procesar la imagen
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
 import NotificationBanner from '@/Components/NotificationBanner';
 
@@ -37,7 +38,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     };
 
     checkPermissions();
-  }, [permission]); // Se ejecuta cada vez que el estado de permisos cambia
+  }, [permission]);
 
   const handleTakePhoto = useCallback(async () => {
     if (!permission?.granted) {
@@ -72,7 +73,14 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       });
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
-        setPhoto(result.assets[0]);
+        const asset = result.assets[0];
+        // Se utiliza ImageManipulator para procesar la imagen y dejarla en un formato similar
+        const manipulatedImage = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [],
+          { compress: 1, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        setPhoto(manipulatedImage);
       }
     } catch (error) {
       setErrorMessage('Error abriendo la galería');

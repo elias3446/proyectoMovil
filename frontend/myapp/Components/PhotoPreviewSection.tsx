@@ -1,4 +1,4 @@
-import Fontisto from "@expo/vector-icons/Fontisto"; // Importación corregida
+import Fontisto from "@expo/vector-icons/Fontisto";
 import React, { useState } from "react";
 import {
   TouchableOpacity,
@@ -32,31 +32,32 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
   const auth = getAuth();
   const db = getFirestore();
 
+  // Funciones para subir la imagen y enviar al API (se mantienen igual)
   const sendImageToAPI = async (imageUri: string) => {
     try {
-        setErrorMessage("");  // Reset error message
-        const response = await fetch('https://proyectomovil-qh8q.onrender.com/process_image', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ image_url: imageUri }),
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.message || 'Error en la respuesta de la API');
+      setErrorMessage(""); 
+      const response = await fetch(
+        "https://proyectomovil-qh8q.onrender.com/process_image",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ image_url: imageUri }),
         }
-
-        return data.respuesta || 'No response from server';
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Error en la respuesta de la API");
+      }
+      return data.respuesta || "No response from server";
     } catch (error) {
-        console.error('Error sending image:', error);
-        setErrorMessage(imageUri);
-        throw error;
+      console.error("Error sending image:", error);
+      setErrorMessage(imageUri);
+      throw error;
     }
-};
+  };
 
-  // Subir imagen a Cloudinary
   const uploadImageToCloudinary = async (photo: { uri: string }) => {
     try {
       setErrorMessage("");
@@ -91,8 +92,6 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         throw new Error(data.error?.message || "Error al subir la imagen");
       }
 
-     
-
       return data.secure_url;
     } catch (error) {
       console.error("Error subiendo la imagen:", error);
@@ -101,7 +100,6 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
     }
   };
 
-  // Enviar imagen al chat
   const handleSendPhoto = async () => {
     const user = auth.currentUser;
     if (user) {
@@ -111,7 +109,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
 
         const receiverUID = "receiverUID"; // Cambia esto con el ID del receptor real
         const userMessagesRef = collection(db, "users", user.uid, "messages");
-        const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
+        const receiverMessagesRef = collection(db, "users", receiverUID, "messages");
 
         await addDoc(userMessagesRef, {
           text: imageUrl,
@@ -123,25 +121,18 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         const botResponseText = await sendImageToAPI(imageUrl);
 
         const botMessage = {
-            text: botResponseText,
-            sender: receiverUID,
-            receiver: user.uid,
-            timestamp: new Date(),
+          text: botResponseText,
+          sender: receiverUID,
+          receiver: user.uid,
+          timestamp: new Date(),
         };
         await addDoc(userMessagesRef, botMessage);
         await addDoc(receiverMessagesRef, botMessage);
-
-        setErrorMessage(imageUrl);
-
       } catch (error) {
         console.error("Error al enviar la imagen:", error);
-       // setErrorMessage("Error al enviar la imagen: " + (error as any).message);
       } finally {
-
-        
-       // setCurrentScreen("ChatScreen"); // Cambiar a la pantalla de chat
-        
         setIsLoading(false);
+        setCurrentScreen("ChatScreen"); // Cambiar a la pantalla de chat
       }
     }
   };
@@ -154,7 +145,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
           <Image
             style={styles.previewContainer}
             source={{ uri: photo.uri }}
-            resizeMode="cover"
+            resizeMode="contain" // Se usa contain para evitar que se agrande en exceso
           />
         ) : (
           <Text style={styles.errorText}>No image available</Text>
@@ -201,7 +192,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
-    flex: 1,
+    // En lugar de flex: 1, se puede definir una altura fija para evitar que el contenedor se expanda demasiado
+    height: 300,
     borderRadius: 16,
     marginBottom: 30,
   },
@@ -209,6 +201,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 15,
+    backgroundColor: "#FFFFFFFF",
   },
   buttonContainer: {
     flexDirection: "row",

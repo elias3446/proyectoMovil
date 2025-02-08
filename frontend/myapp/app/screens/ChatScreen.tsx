@@ -23,16 +23,16 @@ interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
-  interface Message {
-    id: string;
-    text: string;
-    sender: string;
-    receiver: string;
-    timestamp: any;
-    isSending?: boolean; // Para manejar los mensajes que se están enviando
-  }
+interface Message {
+  id: string;
+  text: string;
+  sender: string;
+  receiver: string;
+  timestamp: any;
+  isSending?: boolean; // Para manejar los mensajes que se están enviando
+}
 
+const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,6 +62,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             timestamp: data.timestamp,
           });
         });
+        // Ordenamos por tiempo (para mayor seguridad, aunque el query ya ordena)
         messagesData.sort(
           (a, b) => a.timestamp.toMillis() - b.timestamp.toMillis()
         );
@@ -264,8 +265,8 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 15,
-    paddingTop: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 15,
   },
   profileImage: {
     width: 100,
@@ -285,15 +286,14 @@ const styles = StyleSheet.create({
     color: '#B8E6B9',
   },
   messagesContainer: {
-    paddingBottom: 20,
     paddingHorizontal: 10,
+    paddingBottom: 20,
   },
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginVertical: 5,
   },
-  // Contenedor de avatar para chatbot y usuario (64x64 píxeles)
   avatar: {
     width: 64,
     height: 64,
@@ -303,7 +303,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 8,
   },
-  // La imagen ocupa todo el contenedor
   avatarImage: {
     width: '100%',
     height: '100%',
@@ -362,6 +361,18 @@ const styles = StyleSheet.create({
     color: 'red',
     marginTop: 10,
     textAlign: 'center',
+  },
+  sliderContainer: {
+    position: 'absolute',
+    bottom: 128,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButton: {
+    paddingHorizontal: 0,
   },
 });
 

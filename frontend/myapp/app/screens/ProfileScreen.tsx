@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -140,7 +140,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           }
         },
         (error) => {
-          setErrorMessage("Error al escuchar los cambios del usuario: " + error.message);
+          setErrorMessage(
+            "Error al escuchar los cambios del usuario: " + error.message
+          );
         }
       );
       return () => unsubscribe();
@@ -188,14 +190,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
       
       if (needReauth) {
         if (!currentPassword) {
-          setErrorMessage("Debes ingresar tu contraseña actual para actualizar el correo o la contraseña.");
+          setErrorMessage(
+            "Debes ingresar tu contraseña actual para actualizar el correo o la contraseña."
+          );
           setTimeout(() => setErrorMessage(""), 1500);
           setLoading(false);
           return;
         }
         // Reautenticación
         try {
-          const credential = EmailAuthProvider.credential(currentUser.email!, currentPassword);
+          const credential = EmailAuthProvider.credential(
+            currentUser.email!,
+            currentPassword
+          );
           await reauthenticateWithCredential(currentUser, credential);
         } catch (error: any) {
           if (error.code === "auth/wrong-password") {
@@ -280,7 +287,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
       // Actualización de datos en Firestore
       const userRef = doc(db, "users", currentUser.uid);
-      
       await updateDoc(userRef, {
         firstName,
         lastName,
@@ -334,12 +340,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View
-        style={[
-          styles.formContainer,
-          { maxWidth: width > 400 ? 400 : width - 40 },
-        ]}
-      >
+      <View style={[styles.formContainer, { maxWidth: width > 400 ? 400 : width - 40 }]}>
         <Text style={styles.title}>Editar Perfil</Text>
 
         <View style={styles.profileImageContainer}>
@@ -355,10 +356,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             <FontAwesome name="camera" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
-        {/*
-          Se concatena el nombre y el apellido en un solo nodo para evitar conflictos en el DOM.
-        */}
-        <Text style={[styles.label, { textAlign: "center", marginBottom: 20 }]}>
+        {/* Nombre completo en un solo nodo */}
+        <Text style={[styles.label, styles.centeredText, styles.fullName]}>
           {`${firstName} ${lastName}`.trim()}
         </Text>
 
@@ -417,8 +416,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           style={[styles.button, styles.primaryButton]}
           onPress={() => setShowSignOutModal(true)}
         >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <FontAwesome name="sign-out" size={20} color="#fff" style={{ marginRight: 8 }} />
+          <View style={styles.signOutRow}>
+            <FontAwesome name="sign-out" size={20} color="#fff" style={styles.signOutIcon} />
             <Text style={styles.buttonText}>Cerrar Sesión</Text>
           </View>
         </TouchableOpacity>
@@ -458,62 +457,37 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 };
 
 const styles = StyleSheet.create({
+  // Contenedor principal del ScrollView
   scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     marginTop: -20,
+    paddingVertical: 20,
   },
+  // Contenedor del formulario
   formContainer: {
     width: "100%",
     padding: 20,
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    position: "relative",
+    elevation: 2,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
+    marginBottom: 20,
   },
-  input: {
-    width: "100%",
-    height: 50,
-    paddingHorizontal: 15,
-    marginBottom: 12,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    fontSize: 16,
-    color: "#000",
-  },
-  label: {
-    fontSize: 14,
-    color: "black",
-    marginBottom: 6,
-    fontWeight: "bold",
-  },
-  button: {
-    padding: 15,
-    borderRadius: 25,
-    alignItems: "center",
-    marginVertical: 5,
-  },
-  primaryButton: {
-    backgroundColor: "#5CB868",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  // Estilos para la imagen de perfil
   profileImageContainer: {
     width: 100,
     height: 100,
     borderRadius: 50,
     backgroundColor: "#F3F4F6",
     alignSelf: "center",
-    marginBottom: 5,
+    marginBottom: 10,
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
@@ -534,6 +508,52 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
   },
+  // Etiquetas y campos de entrada
+  label: {
+    fontSize: 14,
+    color: "#000",
+    marginBottom: 6,
+    fontWeight: "bold",
+  },
+  centeredText: {
+    textAlign: "center",
+  },
+  fullName: {
+    marginBottom: 20,
+  },
+  input: {
+    width: "100%",
+    height: 50,
+    paddingHorizontal: 15,
+    marginBottom: 12,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    fontSize: 16,
+    color: "#000",
+  },
+  // Botones generales
+  button: {
+    padding: 15,
+    borderRadius: 25,
+    alignItems: "center",
+    marginVertical: 5,
+  },
+  primaryButton: {
+    backgroundColor: "#5CB868",
+  },
+  buttonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  signOutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  signOutIcon: {
+    marginRight: 8,
+  },
+  // Modal
   modalContainer: {
     flex: 1,
     justifyContent: "center",
@@ -551,6 +571,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     padding: 20,
     borderRadius: 16,
+    elevation: 5,
   },
   modalTitle: {
     fontSize: 18,

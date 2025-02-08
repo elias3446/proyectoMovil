@@ -13,21 +13,21 @@ import { Picker } from "@react-native-picker/picker";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import NotificationBanner from "@/Components/NotificationBanner";
-import Checkbox from 'expo-checkbox';
-import { Ionicons } from '@expo/vector-icons';  // Importamos los iconos
+import Checkbox from "expo-checkbox";
+import { Ionicons } from "@expo/vector-icons";
 
-interface LoginProps {
+interface RegisterScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
+const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [birthDay, setBirthDay] = useState("1");
   const [birthMonth, setBirthMonth] = useState("1");
-  const [birthYear, setBirthYear] = useState((new Date()).getFullYear().toString());
+  const [birthYear, setBirthYear] = useState(new Date().getFullYear().toString());
   const [gender, setGender] = useState("");
   const [pronoun, setPronoun] = useState("");
   const [customGender, setCustomGender] = useState("");
@@ -35,28 +35,35 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [profileImage, setProfileImage] = useState<string | null>(null); // Inicialmente null
-
-
-  const [showPassword, setShowPassword] = useState(false);  // Estado para mostrar/ocultar la contraseña
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { width } = Dimensions.get("window");
 
-
+  // Limpia mensajes de error o éxito después de 3 segundos
   useEffect(() => {
     if (errorMessage || successMessage) {
       const timer = setTimeout(() => {
         setErrorMessage("");
         setSuccessMessage("");
       }, 3000);
-
       return () => clearTimeout(timer);
     }
   }, [errorMessage, successMessage]);
 
+  // Función para manejar el registro de usuario
   const handleRegister = async () => {
-    if (!email || !password || !firstName || !lastName || !birthDay || !birthMonth || !birthYear || !gender) {
+    // Validación de campos obligatorios (usando trim para eliminar espacios innecesarios)
+    if (
+      !email.trim() ||
+      !password.trim() ||
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !birthDay ||
+      !birthMonth ||
+      !birthYear ||
+      !gender
+    ) {
       setErrorMessage("Todos los campos son obligatorios.");
       return;
     }
@@ -75,60 +82,89 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     try {
       const auth = getAuth();
       const db = getFirestore();
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password.trim());
       const user = userCredential.user;
 
       const userData = {
-        firstName,
-        lastName,
-        email,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
         birthDay,
         birthMonth,
         birthYear,
         gender,
         pronoun: pronoun || (gender === "F" ? "Femenino" : gender === "M" ? "Masculino" : ""),
-        customGender,
-        profileImage: profileImage || null, // Incluye la imagen de perfil (vacía inicialmente)
+        customGender: customGender.trim(),
+        profileImage: profileImage || null,
       };
 
       await setDoc(doc(db, "users", user.uid), userData);
-
       setSuccessMessage("Usuario registrado exitosamente.");
       setCurrentScreen("LoginScreen");
-    } catch (error: any) {
-      setErrorMessage(`Error al registrar: ${error.message}`);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setErrorMessage(`Error al registrar: ${error.message}`);
+      } else {
+        setErrorMessage("Error al registrar el usuario.");
+      }
       setLoading(false);
     }
   };
 
+  // Funciones helper para generar ítems de los Pickers
+  const renderDayItems = () => {
+    return [...Array(31).keys()].map((day) => (
+      <Picker.Item key={day + 1} label={(day + 1).toString()} value={(day + 1).toString()} />
+    ));
+  };
+
+  const renderMonthItems = () => {
+    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    return months.map((month, index) => (
+      <Picker.Item key={index} label={month} value={(index + 1).toString()} />
+    ));
+  };
+
+  const renderYearItems = () => {
+    const currentYear = new Date().getFullYear();
+    return [...Array(100).keys()].map((year) => {
+      const y = currentYear - year;
+      return <Picker.Item key={y} label={y.toString()} value={y.toString()} />;
+    });
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View className={`w-full p-5 bg-white rounded-xl relative ${width > 400 ? 'max-w-[25rem]' : 'max-w-[calc(100%-40px)]'}`}>
+      <View
+        className={`w-full p-5 bg-white rounded-xl relative ${
+          width > 400 ? "max-w-[25rem]" : "max-w-[calc(100%-40px)]"
+        }`}
+      >
         {/* Logo */}
         <Image
-                    source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
-                    style={styles.logoImage}
-                    resizeMode="contain"
-                  />
+          source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text className="font-bold text-2xl text-center mb-5">Crea una cuenta</Text>
 
-        {/* firstname & lastname */}
+        {/* Nombre y Apellido */}
         <View className="flex-row justify-between mb-3">
           <TextInput
-            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${firstName ? 'text-back' : 'text-[#9CA3AF]'}`}
+            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${firstName ? "text-black" : "text-[#9CA3AF]"}`}
             placeholder="Nombre"
             value={firstName}
             onChangeText={setFirstName}
           />
           <TextInput
-            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${lastName ? 'text-back' : 'text-[#9CA3AF]'}`}
+            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${lastName ? "text-black" : "text-[#9CA3AF]"}`}
             placeholder="Apellido"
             value={lastName}
             onChangeText={setLastName}
           />
         </View>
 
-        {/* birthdate */}
+        {/* Fecha de Nacimiento */}
         <Text className="text-base text-black mb-2 font-bold">Fecha de nacimiento</Text>
         <View className="flex-row justify-between mb-3">
           <Picker
@@ -136,42 +172,32 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             style={[styles.picker, { borderWidth: 0, width: "33.33%" }]}
             onValueChange={(itemValue) => setBirthDay(itemValue)}
           >
-            {[...Array(31).keys()].map((day) => (
-              <Picker.Item key={day + 1} label={(day + 1).toString()} value={(day + 1).toString()} />
-            ))}
+            {renderDayItems()}
           </Picker>
           <Picker
             selectedValue={birthMonth}
             style={[styles.picker, { borderWidth: 0, width: "33.33%" }]}
             onValueChange={(itemValue) => setBirthMonth(itemValue)}
           >
-            {["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].map(
-              (month, index) => (
-                <Picker.Item key={index} label={month} value={(index + 1).toString()} />
-              )
-            )}
+            {renderMonthItems()}
           </Picker>
           <Picker
             selectedValue={birthYear}
             style={[styles.picker, { borderWidth: 0, width: "33.33%" }]}
             onValueChange={(itemValue) => setBirthYear(itemValue)}
           >
-            {[...Array(100).keys()]
-              .map((year) => new Date().getFullYear() - year)
-              .map((year) => (
-                <Picker.Item key={year} label={year.toString()} value={year.toString()} />
-              ))}
+            {renderYearItems()}
           </Picker>
         </View>
 
-        {/* Gender */}
+        {/* Género */}
         <Text className="text-base text-black mb-2 font-bold">Género</Text>
         <Picker
           selectedValue={gender}
           style={[styles.picker, { borderWidth: 0, width: "100%" }]}
           onValueChange={(itemValue) => {
             setGender(itemValue);
-            if (itemValue !== "O") setPronoun(""); // Clear pronoun if not 'Personalizado'
+            if (itemValue !== "O") setPronoun("");
           }}
         >
           <Picker.Item label="Selecciona tu género" value="" />
@@ -197,7 +223,9 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
             <Text className="text-base text-black mb-2 font-bold">Género (opcional)</Text>
             <TextInput
-              className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${customGender ? 'text-back' : 'text-[#9CA3AF]'}`}
+              className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${
+                customGender ? "text-black" : "text-[#9CA3AF]"
+              }`}
               placeholder="Escribe tu género"
               value={customGender}
               onChangeText={setCustomGender}
@@ -205,40 +233,34 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </>
         )}
 
-        {/* email */}
+        {/* Correo Electrónico */}
         <TextInput
-          className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${email ? 'text-back' : 'text-[#9CA3AF]'}`}
+          className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${email ? "text-black" : "text-[#9CA3AF]"}`}
           placeholder="Correo electrónico"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
         />
 
-        {/* password */}
+        {/* Contraseña */}
         <View className="relative">
           <TextInput
-            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${password ? 'text-back' : 'text-[#9CA3AF]'}`}
+            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${password ? "text-black" : "text-[#9CA3AF]"}`}
             placeholder="Contraseña nueva"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
           />
-
-          {/* Contenedor centrado */}
           <View className="absolute z-20 right-4 top-3">
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
               <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="gray" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* terms & conditions */}
+        {/* Términos y Condiciones */}
         <View className="flex-row items-center mb-3">
-          <Checkbox
-            value={acceptTerms}
-            onValueChange={setAcceptTerms}
-            className="mr-2"
-          />
+          <Checkbox value={acceptTerms} onValueChange={setAcceptTerms} className="mr-2" />
           <TouchableOpacity onPress={() => {}}>
             <Text className="text-base text-black">
               Acepto los{" "}
@@ -249,10 +271,16 @@ const RegisterScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity className="items-center my-3 p-4 rounded-xl bg-[#5CB868]" onPress={handleRegister} disabled={loading}>
+        {/* Botón de Registro */}
+        <TouchableOpacity
+          className="items-center my-3 p-4 rounded-xl bg-[#5CB868]"
+          onPress={handleRegister}
+          disabled={loading}
+        >
           <Text className="text-white font-bold text-lg">{loading ? "Cargando..." : "Registrar"}</Text>
         </TouchableOpacity>
 
+        {/* Enlace a Iniciar Sesión */}
         <TouchableOpacity onPress={() => setCurrentScreen("LoginScreen")}>
           <Text className="text-black text-center mt-3 text-base">
             <Text className="text-black">¿Ya tienes cuenta?</Text>
@@ -274,46 +302,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
     backgroundColor: "#FFFFFF",
-    marginTop: -50, // Ajuste para subir todos los elementos internos
-  },
-  formContainer: {
-    width: "100%",
-    padding: 20,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    position: "relative",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  input: {
-    width: "100%",
-    height: 50,
-    paddingHorizontal: 15,
-    marginBottom: 12,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    fontSize: 16,
-  },
-  inputHalf: {
-    width: "48%",
-  },
-  passwordContainer: {
-    position: "relative",
-  },
-  eyeIconContainer: {
-    position: 'absolute',
-    right: 15,
-    top: 10,
-    zIndex: 2,
+    marginTop: -50, // Ajuste para subir los elementos internos
   },
   picker: {
     width: "100%",
@@ -324,65 +313,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     color: "#000",
   },
-  label: {
-    fontSize: 14,
-    color: "black",
-    marginBottom: 6,
-    fontWeight: "bold",
-  },
-  note: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 12,
-  },
-  checkboxContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  checkbox: {
-    marginRight: 8,
-  },
-  acceptText: {
-    fontSize: 14,
-    color: "black",
-  },
-  linkText: {
-    color: "#5CB868",
-  },
-  button: {
-    padding: 15,
-    borderRadius: 25,
-    alignItems: "center",
-    marginVertical: 12,
-  },
-  registerButton: {
-    backgroundColor: "#5CB868",
-  },
-  registerButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
   logoImage: {
-    width: '60%',
+    width: "60%",
     aspectRatio: 1,
     marginBottom: -40,
-    alignSelf: 'center',
-  },
-  loginLink: {
-    color: "#000",
-    textAlign: "center",
-    fontSize: 14,
-    marginTop: 10,
-  },
-  loginText: {
-    color: "#000",
-  },
-  signInText: {
-    color: "#5CB868",
+    alignSelf: "center",
   },
 });
-
 
 export default RegisterScreen;

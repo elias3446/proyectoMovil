@@ -99,7 +99,6 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionText}>Solicitando acceso a la cámara...</Text>
-
       </View>
     );
   }
@@ -128,8 +127,8 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       </CameraView>
 
       {Platform.OS !== 'web' && (
-        <View className='absolute bottom-32 left-0 right-0 flex-row justify-center items-center'>
-          <TouchableOpacity className='px-0' onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))}>
+        <View style={styles.sliderContainer}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))}>
             <MaterialIcons name="remove-circle" size={40} color="white" />
           </TouchableOpacity>
 
@@ -142,7 +141,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             thumbTintColor="#FFFFFF"
           />
 
-          <TouchableOpacity className='px-0' onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))}>
             <MaterialIcons name="add-circle" size={40} color="white" />
           </TouchableOpacity>
         </View>
@@ -159,22 +158,21 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         >
           <View style={styles.captureButtonRing}>
             <View style={styles.captureButtonCircle} />
-
           </View>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity className='absolute bottom-7 right-7 z-[3]' onPress={handleGallery}>
+      <TouchableOpacity style={styles.galleryButton} onPress={handleGallery}>
         <MaterialIcons name="photo-library" size={50} color="black" />
       </TouchableOpacity>
 
       {Platform.OS !== 'web' && (
-        <View className='absolute top-3 right-3 flex-row justify-start items-center z-[3]'>
-          <TouchableOpacity className='bg-transparent p-1 mr-0 justify-center items-center rounded-xl' onPress={toggleFlash}>
+        <View style={styles.topRightButtons}>
+          <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
             <MaterialIcons name={flash === 'off' ? 'flash-off' : 'flash-auto'} size={50} color="white" />
           </TouchableOpacity>
 
-          <TouchableOpacity className='bg-transparent p-1 mr-0 justify-center items-center rounded-xl' onPress={toggleCameraFacing}>
+          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
             <MaterialIcons name="flip-camera-android" size={50} color="white" />
           </TouchableOpacity>
         </View>
@@ -214,12 +212,12 @@ const styles = StyleSheet.create({
   },
   sliderContainer: {
     position: 'absolute',
-    bottom: 130,
+    bottom: 128, // equivale a "bottom-32" en Tailwind (128px)
     left: 0,
     right: 0,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   iconButton: {
     paddingHorizontal: 0,
@@ -255,19 +253,28 @@ const styles = StyleSheet.create({
     width: 65,
     height: 65,
   },
-  galleryButtonContainer: {
+  galleryButton: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    bottom: 28, // equivale a "bottom-7" (28px)
+    right: 28,  // equivale a "right-7" (28px)
+    zIndex: 3,
   },
-  rightButtonsContainer: {
+  topRightButtons: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 12, // equivale a "top-3" (12px)
+    right: 12, // equivale a "right-3" (12px)
     flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    zIndex: 3,
   },
   controlButton: {
-    padding: 5,
+    backgroundColor: 'transparent',
+    padding: 4, // equivale a "p-1" (4px)
+    marginRight: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8, // aproximado a "rounded-xl"
   },
 });
 

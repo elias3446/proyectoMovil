@@ -1,6 +1,6 @@
 import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform, Image } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,8 +11,6 @@ interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const { width, height } = Dimensions.get('window');
-
 const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
@@ -21,15 +19,33 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [flash, setFlash] = useState<FlashMode>('off');
   const cameraRef = useRef<CameraView | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isCameraReady, setIsCameraReady] = useState(false);
 
   useEffect(() => {
-    if (permission?.granted === false) {
-      requestPermission();
-    }
-  }, [permission]);
+    const checkPermissions = async () => {
+      if (Platform.OS === 'web') {
+        try {
+          await navigator.mediaDevices.getUserMedia({ video: true });
+        } catch (error) {
+          setErrorMessage('No se pudo acceder a la cámara en la web');
+        }
+      } else {
+        if (!permission?.granted) {
+          await requestPermission();
+        }
+      }
+    };
+
+    checkPermissions();
+  }, [permission]); // Se ejecuta cada vez que el estado de permisos cambia
 
   const handleTakePhoto = useCallback(async () => {
-    if (cameraRef.current) {
+    if (!permission?.granted) {
+      await requestPermission();
+      return;
+    }
+
+    if (cameraRef.current && isCameraReady) {
       const options = {
         quality: 1,
         base64: true,
@@ -43,7 +59,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         setErrorMessage("Error tomando la foto");
       }
     }
-  }, [flash]);
+  }, [flash, permission, isCameraReady]);
 
   const handleRetakePhoto = useCallback(() => setPhoto(null), []);
 
@@ -56,14 +72,12 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       });
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
-        setPhoto(result.assets[0]); // Almacenar la imagen seleccionada
+        setPhoto(result.assets[0]);
       }
     } catch (error) {
       setErrorMessage('Error abriendo la galería');
     }
   };
-
-  const handleChat = () => setCurrentScreen('ChatScreen');
 
   const toggleCameraFacing = useCallback(() => {
     setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
@@ -73,17 +87,10 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     setFlash((prev) => (prev === 'off' ? 'auto' : 'off'));
   }, []);
 
-  if (!permission) {
-    return <View />;
-  }
-
-  if (!permission.granted) {
+  if (!permission?.granted && Platform.OS !== 'web') {
     return (
       <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>Necesitamos tu permiso para mostrar la cámara</Text>
-        <TouchableOpacity onPress={requestPermission} style={styles.permissionButton}>
-          <Text style={styles.permissionButtonText}>Conceder permiso</Text>
-        </TouchableOpacity>
+        <Text style={styles.permissionText}>Solicitando acceso a la cámara...</Text>
       </View>
     );
   }
@@ -99,8 +106,15 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef} zoom={zoom} flash={flash}>
+    <View style={styles.container}>
+      <CameraView
+        style={styles.camera}
+        facing={facing}
+        ref={cameraRef}
+        zoom={zoom}
+        flash={flash}
+        onCameraReady={() => setIsCameraReady(true)}
+      >
         <View style={styles.gridOverlay} />
       </CameraView>
 
@@ -126,7 +140,14 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       )}
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.captureButtonWrapper} onPress={handleTakePhoto}>
+        <TouchableOpacity
+          style={[
+            styles.captureButtonWrapper,
+            { opacity: !permission?.granted || !isCameraReady ? 0.5 : 1 },
+          ]}
+          onPress={handleTakePhoto}
+          disabled={!permission?.granted || !isCameraReady}
+        >
           <View style={styles.captureButtonRing}>
             <View style={styles.captureButtonCircle} />
           </View>
@@ -150,7 +171,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       )}
 
       <NotificationBanner message={errorMessage} type="error" />
-    </ScrollView>
+    </View>
   );
 };
 
@@ -170,20 +191,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     fontSize: 16,
-    color: '#fff',
-  },
-  permissionButton: {
-    backgroundColor: '#4CAF50',
-    padding: 12,
-    borderRadius: 6,
-  },
-  permissionButtonText: {
-    color: 'white',
-    fontSize: 16,
+    color: '#000',
   },
   camera: {
     flex: 1,
-    zIndex: -1,
   },
   gridOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -193,12 +204,12 @@ const styles = StyleSheet.create({
   },
   sliderContainer: {
     position: 'absolute',
-    bottom: 130,  // Ajuste estático
+    bottom: 130,
     left: 0,
     right: 0,
-    justifyContent: 'center',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   iconButton: {
     paddingHorizontal: 0,
@@ -206,22 +217,6 @@ const styles = StyleSheet.create({
   slider: {
     width: '57%',
     height: 22,
-  },
-  track: {
-    position: 'absolute',
-    top: 15,
-    width: '50%',
-    height: 10,
-    backgroundColor: '#EFF8F0FF',
-    overflow: 'hidden',
-    zIndex: -1,
-    borderRadius: 4,
-  },
-  activeTrack: {
-    position: 'absolute',
-    left: 0,
-    height: 100,
-    backgroundColor: '#A5D6A7FF',
   },
   footer: {
     position: 'absolute',
@@ -233,57 +228,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: width * 0.05,
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    borderWidth: 1,
-    borderColor: 'white',
-    zIndex: 2,
   },
   captureButtonWrapper: {
     position: 'absolute',
     bottom: -1,
-    zIndex: 1,
   },
   captureButtonRing: {
-    backgroundColor: 'transparent',
     borderColor: '#A5D6A7',
     borderWidth: 8,
     borderRadius: 55,
     padding: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   captureButtonCircle: {
     backgroundColor: '#5CB868',
     borderRadius: 45,
     width: 65,
     height: 65,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   galleryButtonContainer: {
     position: 'absolute',
     bottom: 20,
-    right: 20,  // Ajuste estático
-    zIndex: 3,
+    right: 20,
   },
   rightButtonsContainer: {
     position: 'absolute',
     top: 10,
-    right: 10,  // Ajuste estático
+    right: 10,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    zIndex: 3,
   },
   controlButton: {
-    backgroundColor: 'transparent',
     padding: 5,
-    marginRight: 0,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 

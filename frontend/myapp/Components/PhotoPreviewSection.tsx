@@ -91,7 +91,7 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         throw new Error(data.error?.message || "Error al subir la imagen");
       }
 
-      setCurrentScreen("ChatScreen"); // Cambiar a la pantalla de chat
+     
 
       return data.secure_url;
     } catch (error) {
@@ -135,6 +135,8 @@ const PhotoPreviewSection: React.FC<LoginProps> = ({
         console.error("Error al enviar la imagen:", error);
         setErrorMessage("No se pudo enviar la imagen.");
       } finally {
+
+        setCurrentScreen("ChatScreen"); // Cambiar a la pantalla de chat
         
         setIsLoading(false);
       }

@@ -1,10 +1,10 @@
 import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform } from 'react-native';
+import { Text, TouchableOpacity, View, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator'; // Se importa para procesar la imagen
+import * as ImageManipulator from 'expo-image-manipulator'; // Para procesar la imagen
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
 import NotificationBanner from '@/Components/NotificationBanner';
 
@@ -19,9 +19,18 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [zoom, setZoom] = useState(0);
   const [flash, setFlash] = useState<FlashMode>('off');
   const cameraRef = useRef<CameraView | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState('');
   const [isCameraReady, setIsCameraReady] = useState(false);
 
+  // Limpia el mensaje de error automáticamente después de 3 segundos
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
+
+  // Verifica los permisos de la cámara al montar el componente
   useEffect(() => {
     const checkPermissions = async () => {
       if (Platform.OS === 'web') {
@@ -38,8 +47,9 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     };
 
     checkPermissions();
-  }, [permission]);
+  }, [permission, requestPermission]);
 
+  // Captura la foto
   const handleTakePhoto = useCallback(async () => {
     if (!permission?.granted) {
       await requestPermission();
@@ -47,23 +57,32 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     }
 
     if (cameraRef.current && isCameraReady) {
-      const options = {
-        quality: 1,
-        base64: true,
-        exif: true,
-        flash,
-      };
-      const takenPhoto = await cameraRef.current.takePictureAsync(options);
-      if (takenPhoto) {
-        setPhoto(takenPhoto);
-      } else {
-        setErrorMessage("Error tomando la foto");
+      try {
+        const options = {
+          quality: 1,
+          base64: true,
+          exif: true,
+          flash,
+        };
+        const takenPhoto = await cameraRef.current.takePictureAsync(options);
+        if (takenPhoto) {
+          setPhoto(takenPhoto);
+        } else {
+          setErrorMessage('Error al tomar la foto');
+        }
+      } catch (error) {
+        console.error('Error al capturar la foto:', error);
+        setErrorMessage('Error al capturar la foto');
       }
     }
-  }, [flash, permission, isCameraReady]);
+  }, [flash, permission, isCameraReady, requestPermission]);
 
-  const handleRetakePhoto = useCallback(() => setPhoto(null), []);
+  // Reinicia la toma de foto
+  const handleRetakePhoto = useCallback(() => {
+    setPhoto(null);
+  }, []);
 
+  // Abre la galería y procesa la imagen seleccionada
   const handleGallery = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -74,7 +93,6 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
         const asset = result.assets[0];
-        // Se utiliza ImageManipulator para procesar la imagen y dejarla en un formato similar
         const manipulatedImage = await ImageManipulator.manipulateAsync(
           asset.uri,
           [],
@@ -83,26 +101,33 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         setPhoto(manipulatedImage);
       }
     } catch (error) {
+      console.error('Error al abrir la galería:', error);
       setErrorMessage('Error abriendo la galería');
     }
   };
 
+  // Alterna entre la cámara trasera y frontal
   const toggleCameraFacing = useCallback(() => {
     setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
   }, []);
 
+  // Alterna el flash
   const toggleFlash = useCallback(() => {
     setFlash((prev) => (prev === 'off' ? 'auto' : 'off'));
   }, []);
 
+  // Si no se tienen permisos y no es web, se muestra un mensaje de espera
   if (!permission?.granted && Platform.OS !== 'web') {
     return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>Solicitando acceso a la cámara...</Text>
+      <View className="flex-1 justify-center items-center p-5">
+        <Text className="text-center mb-5 text-base text-black">
+          Solicitando acceso a la cámara...
+        </Text>
       </View>
     );
   }
 
+  // Si ya se tomó una foto, se muestra la sección de vista previa
   if (photo) {
     return (
       <PhotoPreviewSection
@@ -114,168 +139,104 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View className="flex-1 bg-white justify-center">
+      {/* Cámara: se ocupa todo el espacio */}
       <CameraView
-        style={styles.camera}
+        style={{ flex: 1 }}
         facing={facing}
         ref={cameraRef}
         zoom={zoom}
         flash={flash}
         onCameraReady={() => setIsCameraReady(true)}
       >
-        <View style={styles.gridOverlay} />
+        <View className="absolute inset-0 border border-white opacity-60" />
       </CameraView>
 
       {Platform.OS !== 'web' && (
-        <View style={styles.sliderContainer}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))}>
+        <View className="absolute bottom-32 left-0 right-0 flex-row justify-center items-center space-x-1">
+          {/* Botón para disminuir zoom */}
+          <TouchableOpacity
+            onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))}
+            accessibilityLabel="Disminuir zoom"
+            accessibilityRole="button"
+          >
             <MaterialIcons name="remove-circle" size={40} color="white" />
           </TouchableOpacity>
 
           <Slider
-            style={styles.slider}
+            style={{ width: '60%', height: 22 }}
             minimumValue={0}
             maximumValue={1}
             value={zoom}
             onValueChange={setZoom}
             thumbTintColor="#FFFFFF"
+            minimumTrackTintColor="#FFFFFF"
+            maximumTrackTintColor="#888"
+            accessibilityLabel="Control de zoom"
           />
 
-          <TouchableOpacity style={styles.iconButton} onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))}>
+          {/* Botón para aumentar zoom */}
+          <TouchableOpacity
+            onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))}
+            accessibilityLabel="Aumentar zoom"
+            accessibilityRole="button"
+          >
             <MaterialIcons name="add-circle" size={40} color="white" />
           </TouchableOpacity>
         </View>
       )}
 
-      <View style={styles.footer}>
+      {/* Botón de captura */}
+      <View className="absolute bottom-0 left-0 right-0 bg-white h-[100px] flex-row justify-center items-center">
         <TouchableOpacity
-          style={[
-            styles.captureButtonWrapper,
-            { opacity: !permission?.granted || !isCameraReady ? 0.5 : 1 },
-          ]}
+          className="rounded-full"
           onPress={handleTakePhoto}
           disabled={!permission?.granted || !isCameraReady}
+          style={{ opacity: !permission?.granted || !isCameraReady ? 0.5 : 1 }}
+          accessibilityLabel="Tomar foto"
+          accessibilityRole="button"
         >
-          <View style={styles.captureButtonRing}>
-            <View style={styles.captureButtonCircle} />
+          <View className="border-4 border-[#A5D6A7] rounded-full p-1">
+            <View className="bg-[#5CB868] rounded-full w-[60px] h-[60px]" />
           </View>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.galleryButton} onPress={handleGallery}>
+      {/* Botón para abrir la galería */}
+      <TouchableOpacity
+        className="absolute bottom-7 right-7 z-[3]"
+        onPress={handleGallery}
+        accessibilityLabel="Abrir galería"
+        accessibilityRole="button"
+      >
         <MaterialIcons name="photo-library" size={50} color="black" />
       </TouchableOpacity>
 
       {Platform.OS !== 'web' && (
-        <View style={styles.topRightButtons}>
-          <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
+        <View className="absolute top-3 right-3 flex-row justify-start items-center z-[3]">
+          <TouchableOpacity
+            className="bg-transparent p-1 justify-center items-center rounded-xl"
+            onPress={toggleFlash}
+            accessibilityLabel={flash === 'off' ? 'Encender flash' : 'Apagar flash'}
+            accessibilityRole="button"
+          >
             <MaterialIcons name={flash === 'off' ? 'flash-off' : 'flash-auto'} size={50} color="white" />
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
+          <TouchableOpacity
+            className="bg-transparent p-1 justify-center items-center rounded-xl"
+            onPress={toggleCameraFacing}
+            accessibilityLabel="Cambiar cámara"
+            accessibilityRole="button"
+          >
             <MaterialIcons name="flip-camera-android" size={50} color="white" />
           </TouchableOpacity>
         </View>
       )}
 
+      {/* Banner de notificaciones para mostrar errores */}
       <NotificationBanner message={errorMessage} type="error" />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFFFF",
-    justifyContent: 'center',
-  },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  permissionText: {
-    textAlign: 'center',
-    marginBottom: 20,
-    fontSize: 16,
-    color: '#000',
-  },
-  camera: {
-    flex: 1,
-  },
-  gridOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderColor: 'white',
-    borderWidth: 1,
-    opacity: 0.6,
-  },
-  sliderContainer: {
-    position: 'absolute',
-    bottom: 128, // equivale a "bottom-32" en Tailwind (128px)
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconButton: {
-    paddingHorizontal: 0,
-  },
-  slider: {
-    width: '57%',
-    height: 22,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    height: 100,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  captureButtonWrapper: {
-    position: 'absolute',
-    bottom: -1,
-  },
-  captureButtonRing: {
-    borderColor: '#A5D6A7',
-    borderWidth: 8,
-    borderRadius: 55,
-    padding: 5,
-  },
-  captureButtonCircle: {
-    backgroundColor: '#5CB868',
-    borderRadius: 45,
-    width: 65,
-    height: 65,
-  },
-  galleryButton: {
-    position: 'absolute',
-    bottom: 28, // equivale a "bottom-7" (28px)
-    right: 28,  // equivale a "right-7" (28px)
-    zIndex: 3,
-  },
-  topRightButtons: {
-    position: 'absolute',
-    top: 12, // equivale a "top-3" (12px)
-    right: 12, // equivale a "right-3" (12px)
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    zIndex: 3,
-  },
-  controlButton: {
-    backgroundColor: 'transparent',
-    padding: 4, // equivale a "p-1" (4px)
-    marginRight: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8, // aproximado a "rounded-xl"
-  },
-});
 
 export default CameraCaptureScreen;

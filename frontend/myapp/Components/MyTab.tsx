@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { memo } from 'react';
+import { View, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 interface MyTabProps {
@@ -8,40 +8,56 @@ interface MyTabProps {
 }
 
 const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
+  // Arreglo de pestañas con sus propiedades
+  const tabs = [
+    {
+      screen: 'CameraCaptureScreen',
+      icon: 'camera',
+      accessibilityLabel: 'Cámara',
+    },
+    {
+      screen: 'ChatScreen',
+      icon: 'robot',
+      accessibilityLabel: 'Chat',
+    },
+    {
+      screen: 'SocialNetScreen',
+      icon: 'earth',
+      accessibilityLabel: 'Red Social',
+    },
+    {
+      screen: 'ProfileScreen',
+      icon: 'account-circle',
+      accessibilityLabel: 'Perfil',
+    },
+  ];
 
-  // Cambiar pantalla al presionar un ícono
+  // Cambia la pantalla actual al presionar un ícono
   const handleTabPress = (screen: string) => {
-    setCurrentScreen(screen);  // Cambiar la pantalla activa
+    setCurrentScreen(screen);
   };
 
-  // Función para determinar el color del ícono basado en la pantalla activa
+  // Determina el color del ícono según si es la pantalla activa
   const getIconColor = (screen: string) => {
-    return currentScreen === screen ? '#5cb868' : '#616161'; // Verde si está activo, neutro 600 si no
+    return currentScreen === screen ? '#5cb868' : '#616161';
   };
 
   return (
-    <View className='flex-row justify-around bg-white py-3'>
-      {/* Icono de la cámara */}
-      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('CameraCaptureScreen')}>
-        <Icon name="camera" size={30} color={getIconColor('CameraCaptureScreen')} />
-      </TouchableOpacity>
-
-      {/* Icono del bot */}
-      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('ChatScreen')}>
-        <Icon name="robot" size={30} color={getIconColor('ChatScreen')} />
-      </TouchableOpacity>
-
-      {/* Icono del mundo */}
-      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('SocialNetScreen')} >
-        <Icon name="earth" size={30} color={getIconColor('SocialNetScreen')} />
-      </TouchableOpacity>
-
-      {/* Icono del usuario */}
-      <TouchableOpacity className='items-center p-3' onPress={() => handleTabPress('ProfileScreen')}>
-        <Icon name="account-circle" size={30} color={getIconColor('ProfileScreen')} />
-      </TouchableOpacity>
+    <View className="flex-row justify-around bg-white py-3">
+      {tabs.map((tab) => (
+        <TouchableOpacity
+          key={tab.screen}
+          className="items-center p-3"
+          onPress={() => handleTabPress(tab.screen)}
+          accessible={true}
+          accessibilityLabel={tab.accessibilityLabel}
+          accessibilityRole="button"
+        >
+          <Icon name={tab.icon} size={30} color={getIconColor(tab.screen)} />
+        </TouchableOpacity>
+      ))}
     </View>
   );
 };
 
-export default MyTab;
+export default memo(MyTab);

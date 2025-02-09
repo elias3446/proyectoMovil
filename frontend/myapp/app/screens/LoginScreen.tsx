@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '@/Config/firebaseConfig';
@@ -20,13 +22,46 @@ interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+type NotificationType = 'error' | 'success';
+
+interface NotificationState {
+  message: string;
+  type: NotificationType | null;
+}
+
 const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>('');
-  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [notification, setNotification] = useState<NotificationState>({
+    message: '',
+    type: null,
+  });
   const [passwordVisible, setPasswordVisible] = useState<boolean>(false);
+
+  // Ref para el input de contraseña (para gestionar el enfoque)
+  const passwordInputRef = useRef<TextInput>(null);
+
+  // Función para limpiar notificaciones después de 3 segundos
+  const clearNotification = useCallback(() => {
+    setNotification({ message: '', type: null });
+  }, []);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (notification.message) {
+      timer = setTimeout(clearNotification, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [notification, clearNotification]);
+
+  // Validación básica del formato de correo
+  const validateEmail = (email: string): boolean => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  };
 
   // Alterna la visibilidad de la contraseña
   const togglePasswordVisibility = () => {
@@ -34,49 +69,74 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   };
 
   const handleLogin = async () => {
-    setErrorMessage('');
-    setSuccessMessage('');
+    // Oculta el teclado (en web no afecta)
+    Keyboard.dismiss();
+    clearNotification();
 
-    if (!email || !password) {
-      setErrorMessage('Por favor, completa ambos campos.');
+    if (!email.trim() || !password) {
+      setNotification({ message: 'Por favor, completa ambos campos.', type: 'error' });
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setNotification({ message: 'Por favor, ingresa un correo válido.', type: 'error' });
       return;
     }
 
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      setSuccessMessage('Inicio de sesión exitoso');
-      // Registro para notificaciones
-      registerIndieID(userCredential.user.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
-      setCurrentScreen('CameraCaptureScreen');
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setErrorMessage(error.message || 'Credenciales incorrectas o problema de red.');
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      setNotification({ message: 'Inicio de sesión exitoso', type: 'success' });
+
+      // Registro para notificaciones solo en dispositivos móviles (Android/iOS)
+      if (Platform.OS !== 'web') {
+        registerIndieID(userCredential.user.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
       } else {
-        setErrorMessage('Credenciales incorrectas o problema de red.');
+        // En web se podría usar el API de Notificaciones del navegador si se desea
+        console.log('Registro de notificaciones omitido en web');
       }
+
+      // Se espera un instante para mostrar el mensaje de éxito antes de cambiar de pantalla
+      setTimeout(() => {
+        setCurrentScreen('CameraCaptureScreen');
+      }, 500);
+    } catch (error: any) {
+      let message = 'Ocurrió un error inesperado. Por favor, inténtalo de nuevo más tarde.';
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/invalid-email':
+            message = 'El formato del correo electrónico es incorrecto.';
+            break;
+          case 'auth/user-disabled':
+            message = 'Esta cuenta ha sido deshabilitada. Contacta con soporte si crees que es un error.';
+            break;
+          case 'auth/user-not-found':
+            message = 'No encontramos una cuenta con ese correo. ¿Deseas registrarte?';
+            break;
+          case 'auth/wrong-password':
+            message = 'La contraseña es incorrecta. Por favor, inténtalo de nuevo.';
+            break;
+          default:
+            message = 'Ocurrió un error inesperado. Por favor, revisa tus datos o inténtalo de nuevo más tarde.';
+        }
+      }
+      setNotification({ message, type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  // Limpia los mensajes de error/exito después de 3 segundos
-  useEffect(() => {
-    if (errorMessage || successMessage) {
-      const timer = setTimeout(() => {
-        setErrorMessage('');
-        setSuccessMessage('');
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMessage, successMessage]);
+  // Permite pasar del input de correo al de contraseña
+  const onEmailSubmitEditing = () => {
+    passwordInputRef.current?.focus();
+  };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-white"
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
         <View className="flex-1 w-full max-w-[25rem] bg-white justify-center items-center mt-10 px-5">
           <Image
             source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
@@ -93,8 +153,14 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
                 className="flex-1 h-12 pl-11 pr-12 text-base text-black bg-[#F3F4F6] rounded-xl border-0"
                 placeholder="Ingresa tu correo"
                 placeholderTextColor="gray"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
                 value={email}
                 onChangeText={setEmail}
+                returnKeyType="next"
+                onSubmitEditing={onEmailSubmitEditing}
+                blurOnSubmit={false}
               />
             </View>
           </View>
@@ -105,12 +171,15 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             <View className="w-full flex-row items-center bg-[#F3F4F6] rounded-xl relative">
               <Ionicons className="absolute left-3 z-20" name="lock-closed-outline" size={24} color="black" />
               <TextInput
+                ref={passwordInputRef}
                 className="flex-1 h-12 pl-11 pr-12 text-base text-black bg-[#F3F4F6] rounded-xl border-0"
                 placeholder="Ingresa tu contraseña"
                 placeholderTextColor="gray"
                 secureTextEntry={!passwordVisible}
                 value={password}
                 onChangeText={setPassword}
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
               />
               <TouchableOpacity
                 className="absolute items-center right-4 z-20"
@@ -134,10 +203,14 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             className="w-full h-12 bg-[#5CB868] justify-center items-center rounded-xl mb-5"
             onPress={handleLogin}
             disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Iniciar sesión"
           >
-            <Text className="font-bold text-white text-lg">
-              {loading ? 'Cargando...' : 'Iniciar sesión'}
-            </Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text className="font-bold text-white text-lg">Iniciar sesión</Text>
+            )}
           </TouchableOpacity>
 
           {/* Enlace para registrarse */}
@@ -150,8 +223,9 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       </ScrollView>
 
       {/* Notificaciones */}
-      {errorMessage !== '' && <NotificationBanner message={errorMessage} type="error" />}
-      {successMessage !== '' && <NotificationBanner message={successMessage} type="success" />}
+      {notification.message !== '' && notification.type && (
+        <NotificationBanner message={notification.message} type={notification.type} />
+      )}
     </KeyboardAvoidingView>
   );
 };

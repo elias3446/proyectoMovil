@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { auth } from "@/Config/firebaseConfig";
@@ -18,19 +19,34 @@ interface AccountRecoveryScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({ setCurrentScreen }) => {
+const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
+  setCurrentScreen,
+}) => {
   const [emailOrPhone, setEmailOrPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSubmit = async () => {
+  // Función para validar formato de correo electrónico
+  const validateEmail = useCallback((email: string): boolean => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  }, []);
+
+  // Función para enviar el correo de recuperación, memorizada con useCallback
+  const handleSubmit = useCallback(async () => {
+    // Se limpian mensajes previos y se cierra el teclado
     setErrorMessage("");
     setSuccessMessage("");
+    Keyboard.dismiss();
 
     const trimmedEmail = emailOrPhone.trim();
     if (trimmedEmail === "") {
       setErrorMessage("Por favor, ingresa tu correo electrónico.");
+      return;
+    }
+    if (!validateEmail(trimmedEmail)) {
+      setErrorMessage("Ingresa un correo electrónico válido.");
       return;
     }
 
@@ -40,16 +56,18 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({ setCurren
       setSuccessMessage("Correo de recuperación enviado exitosamente.");
       // Redirige al login después de 1.5 segundos
       setTimeout(() => setCurrentScreen("LoginScreen"), 1500);
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setErrorMessage(error.message || "Error al enviar el correo de recuperación.");
+    } catch (error: any) {
+      if (error.code === "auth/user-not-found") {
+        setErrorMessage("No se encontró un usuario con ese correo electrónico.");
       } else {
-        setErrorMessage("Error al enviar el correo de recuperación.");
+        setErrorMessage(
+          error.message || "Error al enviar el correo de recuperación."
+        );
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [emailOrPhone, setCurrentScreen, validateEmail]);
 
   // Limpia los mensajes de error o éxito después de 3 segundos
   useEffect(() => {
@@ -65,11 +83,19 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({ setCurren
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-white"
+      className="flex-1 bg-white justify-center items-center"
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View className="flex-1 w-full max-w-[25rem] bg-white justify-center items-center px-5 mt-10">
-          <Text className="text-3xl font-bold text-center text-black mb-3">
+      <ScrollView
+        className="bg-white w-full"
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          padding: 20,
+        }}
+      >
+        <View className="w-full bg-white rounded-xl relative max-w-[25rem] px-5 mt-10">
+          <Text className="font-bold text-3xl text-center text-black mb-3">
             Recupera tu cuenta
           </Text>
           <Text className="text-lg text-[#666] text-center mb-5">
@@ -95,6 +121,7 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({ setCurren
                 value={emailOrPhone}
                 onChangeText={setEmailOrPhone}
                 keyboardType="email-address"
+                autoCapitalize="none"
                 autoFocus
               />
             </View>
@@ -108,7 +135,9 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({ setCurren
               disabled={loading}
               accessibilityLabel="Cancelar"
             >
-              <Text className="text-white font-bold text-lg">Cancelar</Text>
+              <Text className="text-white font-bold text-lg text-center">
+                Cancelar
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="bg-[#5CB868] py-3 px-5 rounded-xl w-[48%] items-center"
@@ -116,7 +145,7 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({ setCurren
               disabled={loading}
               accessibilityLabel="Buscar"
             >
-              <Text className="text-white font-bold text-lg">
+              <Text className="text-white font-bold text-lg text-center">
                 {loading ? "Cargando..." : "Buscar"}
               </Text>
             </TouchableOpacity>
@@ -129,14 +158,5 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({ setCurren
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-});
 
 export default AccountRecoveryScreen;

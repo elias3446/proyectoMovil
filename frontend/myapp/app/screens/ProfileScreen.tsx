@@ -198,10 +198,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
   };
 
   return (
-    <ScrollView className="p-4">
-      <View className="bg-white rounded-xl p-4 shadow-md">
-        <Text className="text-2xl font-bold text-center mb-4">Editar Perfil</Text>
+    <View className="flex h-full w-full">
+      <View className="bg-white rounded-xl p-4">
 
+        <View className="flex-row justify-end items-center w-full mb-3">
+          <TouchableOpacity
+            className="bg-black p-1 rounded-lg items-center flex-row justify-center w-2/7 h-10"
+            onPress={() => setShowSignOutModal(true)}
+          >
+            <FontAwesome name="sign-out" size={20} color="#fff" className="mr-2" />
+            <Text className="text-white font-bold ">Salir</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text className="text-2xl font-bold text-center mb-4 text-[#5CB868]">
+          Editar Perfil
+        </Text>
+        
         <View className="items-center mb-4 relative">
           {profileImage ? (
             <Image source={{ uri: profileImage }} className="w-24 h-24 rounded-full" />
@@ -220,56 +233,61 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
         <Text className="text-center text-lg font-semibold mb-4">{firstName} {lastName}</Text>
 
-        <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
-          placeholder="Nombre"
-          value={firstName}
-          onChangeText={setFirstName}
-        />
-        <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
-          placeholder="Apellido"
-          value={lastName}
-          onChangeText={setLastName}
-        />
-        <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
-          placeholder="Correo Electrónico"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-        
-        <Text className="text-lg font-semibold mb-2">Modificar contraseña:</Text>
-        <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
-          placeholder="Contraseña Actual"
-          value={currentPassword}
-          onChangeText={setCurrentPassword}
-          secureTextEntry
-        />
-        <TextInput
-          className="border border-gray-300 rounded-lg p-2 mb-4"
-          placeholder="Nueva Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View className="border-b-2 border-gray-300 mb-4">
+          <Text className="color-[#5CB868] font-semibold">Nombre</Text>
+          <TextInput
+            className="pt-2 pb-2"
+            placeholder="Nombre"
+            value={firstName}
+            onChangeText={setFirstName}
+          />
+        </View>
 
+        <View className="border-b-2 border-gray-300 mb-4">
+          <Text className="color-[#5CB868] font-semibold">Apellido</Text>
+          <TextInput
+            className="pt-2 pb-2"
+            placeholder="Apellido"
+            value={lastName}
+            onChangeText={setLastName}
+          />
+         </View>
+
+        <View className="border-b-2 border-gray-300 mb-6">
+        <Text className="color-[#5CB868] font-semibold">Correo Electrónico</Text>
+          <TextInput
+            className="pt-2 pb-2"
+            placeholder="Correo Electrónico"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
+        </View>
+
+        <View className="mb-4">
+          <Text className="text-lg font-bold color-[#5CB868] mb-2">Modificar contraseña:</Text>
+          <TextInput
+            className="border-b-2 border-gray-300 pt-2 pb-2 mb-4"
+            placeholder="Contraseña Actual"
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            secureTextEntry
+          />
+          <TextInput
+            className="border-b-2 border-gray-300 pb-2 mb-2"
+            placeholder="Nueva Contraseña"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        </View>
         <TouchableOpacity
-          className="bg-[#A5D6A7] p-3 rounded-lg items-center mb-4"
+          className="bg-[#A5D6A7] p-3 rounded-lg items-center flex-row justify-center mt-3 w-1/2 self-center"
           onPress={handleSaveChanges}
           disabled={loading}
         >
-          <Text className="text-[#142C15] font-bold">{loading ? "Guardando..." : "Guardar Cambios"}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className="bg-black p-3 rounded-lg items-center flex-row justify-center mt-10 w-1/2 self-center"
-          onPress={() => setShowSignOutModal(true)}
-        >
-          <FontAwesome name="sign-out" size={20} color="#fff" className="mr-2" />
-          <Text className="text-white font-bold">Cerrar Sesión</Text>
+          <FontAwesome name="save" size={20} color="black" className="mr-2" />
+          <Text className="text-[#142C15] font-bold ">{loading ? "Guardando..." : "Guardar Cambios"}</Text>
         </TouchableOpacity>
       </View>
 
@@ -302,7 +320,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 

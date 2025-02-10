@@ -198,20 +198,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
   };
 
   return (
-    <View className="flex h-full w-full">
-      <View className="bg-white rounded-xl p-4">
-
-        <View className="flex-row justify-end items-center w-full mb-3">
+    <View className="flex h-full w-full px-5">
+      <View className="bg-white rounded-xl">
+        <View className="flex-row justify-end items-center w-full">
           <TouchableOpacity
-            className="bg-black p-1 rounded-lg items-center flex-row justify-center w-2/7 h-10"
+            className="px-3 rounded-lg items-center flex-row justify-center w-2/7 h-10"
             onPress={() => setShowSignOutModal(true)}
           >
-            <FontAwesome name="sign-out" size={20} color="#fff" className="mr-2" />
-            <Text className="text-white font-bold ">Salir</Text>
+            <FontAwesome name="sign-out" size={30} color="#5CB868"/>
+        <Text className="text-gray-400 font-bold ">Salir</Text>
           </TouchableOpacity>
         </View>
 
-        <Text className="text-2xl font-bold text-center mb-4 text-[#5CB868]">
+        <Text className="text-2xl font-bold text-center mb-5 text-[#5CB868]">
           Editar Perfil
         </Text>
         

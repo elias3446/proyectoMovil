@@ -135,7 +135,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         content,
         imageUrl,
         likes: [],
+        likesCount: 0,
         comments: [],
+        commentsCount: 0,
         createdAt: new Date().toISOString(),
       }
     );
@@ -179,6 +181,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     if (currentLikes.includes(userId)) {
       await updatePost(postId, {
         likes: currentLikes.filter((id: string) => id !== userId),
+        likesCount: currentLikes.length - 1,
       })
     } else {
       // Se busca el post al que se dió like
@@ -191,6 +194,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       
       await updatePost(postId, {
         likes: [...currentLikes, userId],
+        likesCount: currentLikes.length + 1,
       })
 
       // Si el post fue encontrado & el dueño del post no es el usuario que da like
@@ -249,6 +253,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
       await updatePost(postId, {
         comments: [...currentComments, commentToAdd],
+        commentsCount: currentComments.length + 1,
       });
 
       // Si el post fue encontrado & el dueño del post no es el usuario que da like

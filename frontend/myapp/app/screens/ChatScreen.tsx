@@ -1,3 +1,4 @@
+// ChatScreen.tsx
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
@@ -6,29 +7,20 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  Keyboard,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  onSnapshot,
-} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+
+// Importa las funciones del servicio de chat
+import {
+  subscribeToUserMessages,
+  sendChatAndBotResponse,
+  Message,
+} from '@/api/firebaseService';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
-}
-
-interface Message {
-  id: string;
-  text: string;
-  sender: string;
-  receiver: string;
-  timestamp: any;
-  isSending?: boolean;
 }
 
 const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
@@ -41,33 +33,15 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const user = auth.currentUser;
-  const db = getFirestore();
+  // Define el UID del receptor (por ejemplo, el chatbot)
   const receiverUID = 'receiverUID'; // Reemplaza con el UID real del receptor
 
-  // Escucha en tiempo real los mensajes desde Firestore
+  // Se suscribe a los mensajes del usuario usando el servicio
   useEffect(() => {
     if (user) {
-      const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-      const q = query(userMessagesRef, orderBy('timestamp'));
-      const unsubscribe = onSnapshot(
-        q,
-        (querySnapshot) => {
-          const messagesData: Message[] = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              text: data.text,
-              sender: data.sender,
-              receiver: data.receiver,
-              timestamp: data.timestamp,
-            } as Message;
-          });
-          // Ordena por timestamp (por seguridad, aunque el query ya lo ordene)
-          messagesData.sort(
-            (a, b) => a.timestamp.toMillis() - b.timestamp.toMillis()
-          );
-          setMessages(messagesData);
-        },
+      const unsubscribe = subscribeToUserMessages(
+        user.uid,
+        (msgs) => setMessages(msgs),
         (err) => {
           console.error('Error al cargar mensajes:', err);
           setError('Error al cargar mensajes.');
@@ -75,16 +49,16 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       );
       return () => unsubscribe();
     }
-  }, [db, user]);
+  }, [user]);
 
   // Auto-scroll al final cuando se agregan nuevos mensajes o aparece el indicador de "escribiendo..."
   useEffect(() => {
-    if (flatListRef.current && (messages.length > 0 || isBotTyping)) {
-      flatListRef.current.scrollToEnd({ animated: true });
+    if (flatListRef.current && (messages.length *1000 > 0 || isBotTyping)) {
+      flatListRef.current.scrollToEnd({ animated: false });
     }
   }, [messages, isBotTyping]);
 
-  // Componente que muestra una animación simple de puntos (".", "..", "...")
+  // Componente para mostrar una animación simple de "puntos" (".", "..", "...")
   const TypingIndicator: React.FC = () => {
     const [dotCount, setDotCount] = useState(0);
     useEffect(() => {
@@ -112,67 +86,33 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     </View>
   ), []);
 
-  // Función para enviar el mensaje
+  // Función para enviar el mensaje y obtener la respuesta del bot mediante el servicio
   const sendMessage = useCallback(async () => {
     if (!messageText.trim() || !user || loading) return;
 
     const currentMessageText = messageText.trim();
-    const senderMessage: Omit<Message, 'id'> = {
-      text: currentMessageText,
-      sender: user.uid,
-      receiver: receiverUID,
-      timestamp: new Date(),
-    };
 
-    // Muestra inmediatamente el mensaje con un id temporal
+    // Agrega un mensaje temporal para retroalimentación inmediata
     setMessages((prevMessages) => [
       ...prevMessages,
-      { ...senderMessage, id: `temp-${Date.now()}`, isSending: true },
+      {
+        id: `temp-${Date.now()}`,
+        text: currentMessageText,
+        sender: user.uid,
+        receiver: receiverUID,
+        timestamp: new Date(),
+        isSending: true,
+      },
     ]);
     setMessageText('');
     setLoading(true);
     setError('');
 
     try {
-      const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-      const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
-
-      // Guarda el mensaje del usuario en ambas colecciones
-      await Promise.all([
-        addDoc(userMessagesRef, senderMessage),
-        addDoc(receiverMessagesRef, senderMessage),
-      ]);
-
-      // Activa el indicador de "escribiendo..." para simular que el chatbot está respondiendo
+      // Activa el indicador de "escribiendo..."
       setIsBotTyping(true);
-
-      const response = await fetch('https://proyectomovil-qh8q.onrender.com/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: currentMessageText, user: user.uid }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al obtener la respuesta de la API');
-      }
-
-      const responseData = await response.json();
-      const botResponseText =
-        responseData?.response || 'No se obtuvo una respuesta válida.';
-
-      const botResponse: Omit<Message, 'id'> = {
-        text: botResponseText,
-        sender: receiverUID,
-        receiver: user.uid,
-        timestamp: new Date(),
-      };
-
-      await Promise.all([
-        addDoc(userMessagesRef, botResponse),
-        addDoc(receiverMessagesRef, botResponse),
-      ]);
+      // Envía el mensaje y procesa la respuesta del bot
+      await sendChatAndBotResponse(user.uid, receiverUID, currentMessageText);
     } catch (err) {
       console.error('Error al enviar el mensaje:', err);
       setError('No se pudo enviar el mensaje. Inténtalo de nuevo.');
@@ -180,62 +120,66 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       setIsBotTyping(false);
       setLoading(false);
     }
-  }, [messageText, user, loading, db, receiverUID]);
+  }, [messageText, user, loading, receiverUID]);
 
-  // Función para renderizar cada mensaje
-  const renderMessage = useCallback(({ item }: { item: Message }) => {
-    const isMyMessage = item.sender === user?.uid;
-    const isBotMessage = item.sender === receiverUID;
-    const isCloudinaryImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.text);
+  // Renderiza cada mensaje en la lista
+  const renderMessage = useCallback(
+    ({ item }: { item: Message }) => {
+      const isMyMessage = item.sender === user?.uid;
+      const isBotMessage = item.sender === receiverUID;
+      const isCloudinaryImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.text);
 
-    return (
-      <View className="flex-row items-start my-1">
-        {isBotMessage && (
-          <View className="w-16 h-16 rounded-full overflow-hidden justify-center items-center mx-2">
-            <Image
-              source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
+      return (
+        <View className="flex-row items-start my-1">
+          {isBotMessage && (
+            <View className="w-16 h-16 rounded-full overflow-hidden justify-center items-center mx-2">
+              <Image
+                source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            </View>
+          )}
+          <View
+            className={`p-2 rounded-lg max-w-[70%] flex-row items-center ${
+              isBotMessage ? 'bg-gray-300' : 'bg-green-300 ml-auto'
+            }`}
+          >
+            {isCloudinaryImage && item.text.startsWith('http') ? (
+              <Image
+                source={{ uri: item.text }}
+                className="w-[200px] h-[200px] rounded-lg my-1"
+                resizeMode="cover"
+              />
+            ) : (
+              <Text className="text-base text-gray-500">
+                {item.isSending ? '...' : item.text}
+              </Text>
+            )}
           </View>
-        )}
-        <View
-          className={`p-2 rounded-lg max-w-[70%] flex-row items-center ${
-            isBotMessage ? 'bg-gray-300' : 'bg-green-300 ml-auto'
-          }`}
-        >
-          {isCloudinaryImage && item.text.startsWith('http') ? (
-            <Image
-              source={{ uri: item.text }}
-              className="w-[200px] h-[200px] rounded-lg my-1"
-              resizeMode="cover"
+          {isMyMessage && (
+            <MaterialIcons
+              name="account-circle"
+              size={64}
+              color="#B8E6B9"
+              style={{
+                alignSelf: 'center',
+                textAlign: 'center',
+                textAlignVertical: 'center',
+                lineHeight: 64,
+                marginHorizontal: 8,
+              }}
             />
-          ) : (
-            <Text className="text-base text-gray-500">
-              {item.isSending ? '...' : item.text}
-            </Text>
           )}
         </View>
-        {isMyMessage && (
-          <MaterialIcons
-            name="account-circle"
-            size={64}
-            color="#B8E6B9"
-            style={{
-              alignSelf: 'center',
-              textAlign: 'center',
-              textAlignVertical: 'center',
-              lineHeight: 64,
-              marginHorizontal: 8,
-            }}
-          />
-        )}
-      </View>
-    );
-  }, [user]);
+      );
+    },
+    [user, receiverUID]
+  );
 
   return (
     <View className="flex-1 bg-white">
+      {/* Encabezado */}
       <View className="flex-col items-center bg-white py-5 px-4">
         <Image
           source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
@@ -248,17 +192,21 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         </Text>
       </View>
 
+      {/* Lista de mensajes */}
       <FlatList
         ref={flatListRef}
         data={messages}
         renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id!}
         contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 20 }}
         ListFooterComponent={isBotTyping ? renderTypingIndicator : null}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       />
 
       {error ? <Text className="text-red-500 mt-2 text-center">{error}</Text> : null}
 
+      {/* Área de entrada y envío de mensajes */}
       <View className="flex-row items-center p-4 bg-white">
         <TextInput
           className="flex-1 h-12 border border-gray-300 rounded-full px-4 mr-2 text-gray-400"

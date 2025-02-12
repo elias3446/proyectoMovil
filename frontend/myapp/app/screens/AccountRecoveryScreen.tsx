@@ -1,3 +1,4 @@
+// AccountRecoveryScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -7,13 +8,12 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Image,
   Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { auth } from "@/Config/firebaseConfig";
-import { sendPasswordResetEmail } from "firebase/auth";
 import NotificationBanner from "@/Components/NotificationBanner";
+// Importa la función del servicio de recuperación de cuenta
+import { sendRecoveryEmail } from "@/api/firebaseService";
 
 interface AccountRecoveryScreenProps {
   setCurrentScreen: (screen: string) => void;
@@ -33,7 +33,7 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
     return regex.test(email);
   }, []);
 
-  // Función para enviar el correo de recuperación, memorizada con useCallback
+  // Función para enviar el correo de recuperación
   const handleSubmit = useCallback(async () => {
     // Se limpian mensajes previos y se cierra el teclado
     setErrorMessage("");
@@ -52,7 +52,7 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
 
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, trimmedEmail);
+      await sendRecoveryEmail(trimmedEmail);
       setSuccessMessage("Correo de recuperación enviado exitosamente.");
       // Redirige al login después de 1.5 segundos
       setTimeout(() => setCurrentScreen("LoginScreen"), 1500);
@@ -93,6 +93,7 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
           alignItems: "center",
           padding: 20,
         }}
+        keyboardShouldPersistTaps="handled"
       >
         <View className="w-full bg-white rounded-xl relative max-w-[25rem] px-5 mt-10">
           <Text className="font-bold text-3xl text-center text-black mb-3">

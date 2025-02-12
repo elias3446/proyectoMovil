@@ -1,12 +1,19 @@
+// CameraCaptureScreen.tsx
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Text,
+  TouchableOpacity,
+  View,
+  Platform,
+} from 'react-native';
 import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
-import { useRef, useState, useEffect, useCallback } from 'react';
-import { Text, TouchableOpacity, View, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator'; // Para procesar la imagen
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
 import NotificationBanner from '@/Components/NotificationBanner';
+
+// Importa las funciones del servicio de cámara
+import { checkCameraPermissions, takePicture, openGalleryAndProcessImage } from '@/api/cameraService';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -30,41 +37,22 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     }
   }, [errorMessage]);
 
-  // Verifica los permisos de la cámara al montar el componente
+  // Verifica los permisos de la cámara al montar el componente usando el servicio
   useEffect(() => {
-    const checkPermissions = async () => {
-      if (Platform.OS === 'web') {
-        try {
-          await navigator.mediaDevices.getUserMedia({ video: true });
-        } catch (error) {
-          setErrorMessage('No se pudo acceder a la cámara en la web');
-        }
-      } else {
-        if (!permission?.granted) {
-          await requestPermission();
-        }
-      }
-    };
-
-    checkPermissions();
+    if (permission) {
+      checkCameraPermissions(permission, requestPermission, setErrorMessage);
+    }
   }, [permission, requestPermission]);
 
-  // Captura la foto
+  // Captura la foto utilizando el servicio
   const handleTakePhoto = useCallback(async () => {
     if (!permission?.granted) {
       await requestPermission();
       return;
     }
-
     if (cameraRef.current && isCameraReady) {
       try {
-        const options = {
-          quality: 1,
-          base64: true,
-          exif: true,
-          flash,
-        };
-        const takenPhoto = await cameraRef.current.takePictureAsync(options);
+        const takenPhoto = await takePicture(cameraRef, flash);
         if (takenPhoto) {
           setPhoto(takenPhoto);
         } else {
@@ -82,29 +70,16 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     setPhoto(null);
   }, []);
 
-  // Abre la galería y procesa la imagen seleccionada
-  const handleGallery = async () => {
+  // Abre la galería y procesa la imagen seleccionada usando el servicio
+  const handleGallery = useCallback(async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets[0]?.uri) {
-        const asset = result.assets[0];
-        const manipulatedImage = await ImageManipulator.manipulateAsync(
-          asset.uri,
-          [],
-          { compress: 1, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-        );
-        setPhoto(manipulatedImage);
-      }
+      const manipulatedImage = await openGalleryAndProcessImage();
+      setPhoto(manipulatedImage);
     } catch (error) {
       console.error('Error al abrir la galería:', error);
       setErrorMessage('Error abriendo la galería');
     }
-  };
+  }, []);
 
   // Alterna entre la cámara trasera y frontal
   const toggleCameraFacing = useCallback(() => {
@@ -114,6 +89,15 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   // Alterna el flash
   const toggleFlash = useCallback(() => {
     setFlash((prev) => (prev === 'off' ? 'auto' : 'off'));
+  }, []);
+
+  // Funciones auxiliares para ajustar el zoom
+  const handleZoomDecrease = useCallback(() => {
+    setZoom((prev) => Math.max(0, prev - 0.1));
+  }, []);
+
+  const handleZoomIncrease = useCallback(() => {
+    setZoom((prev) => Math.min(1, prev + 0.1));
   }, []);
 
   // Si no se tienen permisos y no es web, se muestra un mensaje de espera
@@ -140,7 +124,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
   return (
     <View className="flex-1 bg-white justify-center">
-      {/* Cámara: se ocupa todo el espacio */}
+      {/* Cámara: ocupa todo el espacio */}
       <CameraView
         style={{ flex: 1 }}
         facing={facing}
@@ -156,7 +140,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         <View className="absolute bottom-32 left-0 right-0 flex-row justify-center items-center space-x-1">
           {/* Botón para disminuir zoom */}
           <TouchableOpacity
-            onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))}
+            onPress={handleZoomDecrease}
             accessibilityLabel="Disminuir zoom"
             accessibilityRole="button"
           >
@@ -177,7 +161,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
           {/* Botón para aumentar zoom */}
           <TouchableOpacity
-            onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))}
+            onPress={handleZoomIncrease}
             accessibilityLabel="Aumentar zoom"
             accessibilityRole="button"
           >

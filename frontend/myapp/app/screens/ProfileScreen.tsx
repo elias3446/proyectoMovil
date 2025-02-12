@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+// ProfileScreen.tsx
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,27 +10,26 @@ import {
   Modal,
   Dimensions,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  getAuth,
-  signOut,
-  updatePassword,
-  updateEmail,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-} from "firebase/auth";
-import {
-  getFirestore,
-  doc,
-  updateDoc,
-  onSnapshot,
-} from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
 import NotificationBanner from "@/Components/NotificationBanner";
 import { FontAwesome } from "@expo/vector-icons";
 
-// Componente Modal personalizado para compatibilidad en web y native
+// Importa las funciones del servicio de Firebase
+import {
+  updateUserCredentials,
+  updateUserProfileData,
+  signOutUser,
+  uploadProfileImage,
+} from "@/api/firebaseService";
+
+// Para obtener el estado de autenticación y realizar la escucha
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, onSnapshot } from "firebase/firestore";
+
 interface CustomModalProps {
   visible: boolean;
   onRequestClose: () => void;
@@ -42,7 +42,6 @@ const CustomModal: React.FC<CustomModalProps> = ({
   children,
 }) => {
   if (!visible) return null;
-  // Para web
   if (Platform.OS === "web") {
     return (
       <View className="flex-1 justify-center items-center bg-black/50 fixed inset-0 z-[999]">
@@ -52,10 +51,9 @@ const CustomModal: React.FC<CustomModalProps> = ({
       </View>
     );
   }
-  // Para native
   return (
     <Modal
-      transparent={true}
+      transparent
       visible={visible}
       animationType="slide"
       onRequestClose={onRequestClose}
@@ -87,7 +85,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  // Imagen actual y nueva (para previsualización)
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [newProfileImage, setNewProfileImage] = useState<string | null>(null);
 
@@ -110,31 +107,37 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     profileImage: null,
   });
 
-  const [currentUser, setCurrentUser] = useState(getAuth().currentUser);
   const auth = getAuth();
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const db = getFirestore();
+  const { width } = Dimensions.get("window");
 
-  // Helper para mostrar mensajes de error que se limpian automáticamente
+  // Funciones helper para mostrar mensajes
   const showError = useCallback((msg: string, timeout = 1500) => {
     setErrorMessage(msg);
     setTimeout(() => setErrorMessage(""), timeout);
   }, []);
 
-  // Helper para mostrar mensajes de éxito
   const showSuccess = useCallback((msg: string, timeout = 2000) => {
     setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(""), timeout);
   }, []);
 
-  // Escucha en tiempo real el estado de autenticación
+  // Función para validar el correo electrónico
+  const isValidEmail = useCallback((email: string): boolean => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  }, []);
+
+  // Escucha el estado de autenticación
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
     });
     return unsubscribe;
   }, [auth]);
 
-  // Listener en tiempo real del documento del usuario en Firestore
+  // Escucha en tiempo real el documento del usuario en Firestore
   useEffect(() => {
     if (currentUser) {
       const userRef = doc(db, "users", currentUser.uid);
@@ -185,38 +188,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
   }, [showError]);
 
-  // Función auxiliar para subir imagen a Cloudinary
-  const uploadProfileImage = useCallback(async (imageUri: string) => {
-    const formData = new FormData();
-    if (Platform.OS === "web") {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      formData.append("file", blob, "profile.jpg");
-    } else {
-      formData.append("file", {
-        uri: imageUri,
-        type: "image/jpeg",
-        name: "profile.jpg",
-      } as any);
-    }
-    formData.append("upload_preset", "my_upload_preset2");
-    formData.append("folder", "profile_images");
-
-    const cloudinaryResponse = await fetch(
-      "https://api.cloudinary.com/v1_1/dwhl67ka5/image/upload",
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-    const data = await cloudinaryResponse.json();
-    if (data.secure_url) {
-      return data.secure_url;
-    } else {
-      throw new Error("Error al obtener la URL de la imagen.");
-    }
-  }, []);
-
   // Función para guardar los cambios del perfil
   const handleSaveChanges = useCallback(async () => {
     if (!currentUser) {
@@ -225,65 +196,40 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
     setLoading(true);
     try {
-      const isEmailChanged = email !== originalUserData.email;
-      if (isEmailChanged) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-          showError("Ingresa un correo electrónico válido.");
-          setLoading(false);
-          return;
-        }
+      const emailChanged = email !== originalUserData.email;
+      if (emailChanged && !isValidEmail(email)) {
+        showError("Ingresa un correo electrónico válido.");
+        setLoading(false);
+        return;
       }
-      const isPasswordChanged = password !== "";
-      const needReauth = isEmailChanged || isPasswordChanged;
-      if (needReauth) {
-        if (!currentPassword) {
-          showError("Debes ingresar tu contraseña actual para actualizar el correo o la contraseña.");
-          setLoading(false);
-          return;
-        }
+      const passwordChanged = password.trim() !== "";
+      const requiresReauth = emailChanged || passwordChanged;
+      if (requiresReauth && !currentPassword.trim()) {
+        showError("Debes ingresar tu contraseña actual para actualizar el correo o la contraseña.");
+        setLoading(false);
+        return;
+      }
+      if (requiresReauth) {
         try {
-          const credential = EmailAuthProvider.credential(currentUser.email!, currentPassword);
-          await reauthenticateWithCredential(currentUser, credential);
+          await updateUserCredentials(
+            currentUser,
+            emailChanged ? email : undefined,
+            passwordChanged ? password : undefined,
+            currentPassword
+          );
+          if (passwordChanged) {
+            showSuccess("Contraseña actualizada con éxito");
+          }
         } catch (error: any) {
           if (error.code === "auth/wrong-password") {
             showError("La contraseña actual no coincide.");
           } else {
-            showError("Error al verificar la contraseña actual.");
+            showError("Error al actualizar: " + error.message);
           }
           setLoading(false);
           return;
         }
-        if (isEmailChanged) {
-          try {
-            await updateEmail(currentUser, email);
-          } catch (error: any) {
-            if (error.code === "auth/email-already-in-use") {
-              showError("El correo electrónico ya está en uso por otro usuario.");
-            } else {
-              showError("Error al actualizar el correo electrónico: " + error.message);
-            }
-            setLoading(false);
-            return;
-          }
-        }
-        if (isPasswordChanged) {
-          if (password === currentPassword) {
-            showError("La nueva contraseña debe ser diferente a la actual.");
-            setLoading(false);
-            return;
-          }
-          try {
-            await updatePassword(currentUser, password);
-            showSuccess("Contraseña actualizada con éxito");
-          } catch (error: any) {
-            showError("Error al actualizar la contraseña: " + error.message);
-            setLoading(false);
-            return;
-          }
-        }
       }
-
       let finalProfileImage = profileImage;
       if (newProfileImage) {
         try {
@@ -294,16 +240,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           return;
         }
       }
-
-      const userRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userRef, {
+      await updateUserProfileData(currentUser.uid, {
         firstName,
         lastName,
         email,
-        profileImage: finalProfileImage || null,
         phoneNumber,
+        profileImage: finalProfileImage || null,
       });
-
       const updatedUserData: IUserData = {
         firstName,
         lastName,
@@ -329,14 +272,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     email,
     firstName,
     lastName,
+    phoneNumber,
     password,
     currentPassword,
     originalUserData,
-    phoneNumber,
     profileImage,
     newProfileImage,
-    db,
-    uploadProfileImage,
+    isValidEmail,
     showError,
     showSuccess,
   ]);
@@ -344,152 +286,160 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
   // Función para cerrar sesión
   const handleSignOut = useCallback(async () => {
     try {
-      await signOut(auth);
-      await AsyncStorage.clear();
+      await signOutUser();
       showSuccess("Sesión cerrada correctamente");
       setTimeout(() => {
         setCurrentScreen("LoginScreen");
       }, 2000);
-    } catch (error) {
-      showError("Error al cerrar sesión.");
+    } catch (error: any) {
+      showError("Error al cerrar sesión: " + error.message);
     }
-  }, [auth, setCurrentScreen, showError, showSuccess]);
-
-  const { width } = Dimensions.get("window");
+  }, [setCurrentScreen, showError, showSuccess]);
 
   return (
-    <ScrollView
-      className="flex-grow bg-white mt-[-20px] py-5"
-      contentContainerStyle={{ justifyContent: "center", alignItems: "center" }}
-    >
-      {/* Contenedor externo sin bordes, centrado y con maxWidth definido */}
-      <View
-        className="w-full p-5 bg-white self-center"
-        style={{ maxWidth: width > 400 ? 400 : width - 40 }}
+    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+      <ScrollView
+        className="flex-grow bg-white mt-[-20px] py-5"
+        contentContainerStyle={{ justifyContent: "center", alignItems: "center" }}
       >
-        <Text className="text-2xl font-bold text-center mb-5">Editar Perfil</Text>
+        <View
+          className="w-full p-5 bg-white self-center"
+          style={{ maxWidth: width > 400 ? 400 : width - 40 }}
+        >
+          <Text className="text-2xl font-bold text-center mb-5">Editar Perfil</Text>
 
-        <View className="w-[100px] h-[100px] rounded-full bg-[#F3F4F6] self-center mb-3 justify-center items-center relative">
-          {newProfileImage || profileImage ? (
-            <Image
-              source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
-              className="w-[100px] h-[100px] rounded-full"
-            />
-          ) : (
-            <Text className="text-[#9CA3AF]">Sin Imagen</Text>
-          )}
+          <View className="w-[100px] h-[100px] rounded-full bg-[#F3F4F6] self-center mb-3 justify-center items-center relative">
+            {newProfileImage || profileImage ? (
+              <Image
+                source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
+                className="w-[100px] h-[100px] rounded-full"
+              />
+            ) : (
+              <Text className="text-[#9CA3AF]">Sin Imagen</Text>
+            )}
+            <TouchableOpacity
+              onPress={handleImagePick}
+              className="absolute bottom-0 right-0 bg-[#5CB868] p-2 rounded-[20px]"
+              accessibilityLabel="Seleccionar imagen de perfil"
+            >
+              <FontAwesome name="camera" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <Text className="text-sm text-black font-bold text-center mb-5">
+            {`${firstName} ${lastName}`.trim()}
+          </Text>
+
+          <TextInput
+            className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+            placeholder="Nombre"
+            value={firstName}
+            onChangeText={setFirstName}
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Nombre"
+          />
+          <TextInput
+            className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+            placeholder="Apellido"
+            value={lastName}
+            onChangeText={setLastName}
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Apellido"
+          />
+          <TextInput
+            className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+            placeholder="Correo Electrónico"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Correo Electrónico"
+          />
+
+          <Text className="text-sm text-black font-bold mb-[6px]">
+            Modificar contraseña:
+          </Text>
+          <TextInput
+            className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+            placeholder="Ingresa tu contraseña actual"
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            secureTextEntry
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Contraseña actual"
+          />
+          <TextInput
+            className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+            placeholder="Ingresa la nueva contraseña"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Nueva contraseña"
+          />
+
           <TouchableOpacity
-            onPress={handleImagePick}
-            className="absolute bottom-0 right-0 bg-[#5CB868] p-2 rounded-[20px]"
+            className="p-[15px] rounded-[25px] items-center my-1 bg-[#5CB868]"
+            onPress={handleSaveChanges}
+            disabled={loading}
+            accessibilityLabel="Guardar cambios"
           >
-            <FontAwesome name="camera" size={18} color="#fff" />
+            <Text className="text-white text-base font-bold">
+              {loading ? "Guardando..." : "Guardar Cambios"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="p-[15px] rounded-[25px] items-center my-1 bg-[#5CB868]"
+            onPress={() => setShowSignOutModal(true)}
+            accessibilityLabel="Cerrar sesión"
+          >
+            <View className="flex-row items-center">
+              <FontAwesome name="sign-out" size={20} color="#fff" className="mr-2" />
+              <Text className="text-white text-base font-bold">Cerrar Sesión</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
-        <Text className="text-sm text-black font-bold text-center mb-5">
-          {`${firstName} ${lastName}`.trim()}
-        </Text>
+        {errorMessage !== "" && (
+          <NotificationBanner message={errorMessage} type="error" />
+        )}
+        {successMessage !== "" && (
+          <NotificationBanner message={successMessage} type="success" />
+        )}
 
-        <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
-          placeholder="Nombre"
-          value={firstName}
-          onChangeText={setFirstName}
-          placeholderTextColor="#9CA3AF"
-        />
-        <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
-          placeholder="Apellido"
-          value={lastName}
-          onChangeText={setLastName}
-          placeholderTextColor="#9CA3AF"
-        />
-        <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
-          placeholder="Correo Electrónico"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          placeholderTextColor="#9CA3AF"
-        />
-
-        <Text className="text-sm text-black font-bold mb-[6px]">
-          Modificar contraseña:
-        </Text>
-        <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
-          placeholder="Ingresa tu contraseña actual"
-          value={currentPassword}
-          onChangeText={setCurrentPassword}
-          secureTextEntry
-          placeholderTextColor="#9CA3AF"
-        />
-        <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
-          placeholder="Ingresa la nueva contraseña"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholderTextColor="#9CA3AF"
-        />
-
-        <TouchableOpacity
-          className="p-[15px] rounded-[25px] items-center my-1 bg-[#5CB868]"
-          onPress={handleSaveChanges}
-          disabled={loading}
+        <CustomModal
+          visible={showSignOutModal}
+          onRequestClose={() => setShowSignOutModal(false)}
         >
-          <Text className="text-white text-base font-bold">
-            {loading ? "Guardando..." : "Guardar Cambios"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className="p-[15px] rounded-[25px] items-center my-1 bg-[#5CB868]"
-          onPress={() => setShowSignOutModal(true)}
-        >
-          <View className="flex-row items-center">
-            <FontAwesome name="sign-out" size={20} color="#fff" className="mr-2" />
-            <Text className="text-white text-base font-bold">Cerrar Sesión</Text>
+          <View className="p-5">
+            <Text className="text-lg font-bold mb-5 text-center">
+              ¿Seguro que deseas cerrar sesión?
+            </Text>
+            <View className="flex-row justify-center space-x-6">
+              <TouchableOpacity
+                className="w-[140px] p-3 rounded-[25px] items-center bg-gray-300"
+                onPress={() => setShowSignOutModal(false)}
+                accessibilityLabel="Cancelar cerrar sesión"
+              >
+                <Text className="w-full text-white text-base font-bold text-center">
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="w-[140px] p-3 rounded-[25px] items-center bg-[#E53935]"
+                onPress={handleSignOut}
+                accessibilityLabel="Confirmar cerrar sesión"
+              >
+                <Text className="w-full text-white text-base font-bold text-center">
+                  Cerrar Sesión
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </TouchableOpacity>
-      </View>
-
-      {errorMessage !== "" && (
-        <NotificationBanner message={errorMessage} type="error" />
-      )}
-      {successMessage !== "" && (
-        <NotificationBanner message={successMessage} type="success" />
-      )}
-
-      <CustomModal
-        visible={showSignOutModal}
-        onRequestClose={() => setShowSignOutModal(false)}
-      >
-        <View className="p-5">
-          <Text className="text-lg font-bold mb-5 text-center">
-            ¿Seguro que deseas cerrar sesión?
-          </Text>
-          <View className="flex-row justify-center space-x-6">
-            <TouchableOpacity
-              className="w-[140px] p-3 rounded-[25px] items-center bg-gray-300"
-              onPress={() => setShowSignOutModal(false)}
-            >
-              <Text className="w-full text-white text-base font-bold text-center">
-                Cancelar
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="w-[140px] p-3 rounded-[25px] items-center bg-[#E53935]"
-              onPress={handleSignOut}
-            >
-              <Text className="w-full text-white text-base font-bold text-center">
-                Cerrar Sesión
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </CustomModal>
-    </ScrollView>
+        </CustomModal>
+      </ScrollView>
+    </TouchableWithoutFeedback>
   );
 };
 

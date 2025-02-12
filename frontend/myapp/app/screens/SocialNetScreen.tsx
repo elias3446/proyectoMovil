@@ -126,8 +126,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     let imageUrl = null;
     if (image) {
       // Subir la imagen a Cloudinary
-      imageUrl = await uploadImageToCloudinary(image);
-    }
+      imageUrl = await uploadImageToCloudinary({ uri: image });    }
 
     await addPost(
       {

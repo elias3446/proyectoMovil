@@ -49,32 +49,33 @@ def process_image_endpoint():
                 "parts": [
                     uploaded_file,
                     (
-                        "Analiza esta imagen y proporciona información detallada sobre las plantas. Me gustaría saber lo siguiente:\n"
-                        "1. El tipo de planta que aparece.\n"
-                        "2. La frecuencia de riego actual recomendada.\n"
-                        "3. El tipo de tierra que parece ser más adecuado.\n"
-                        "4. La cantidad de luz solar que recibe la planta.\n"
-                        "5. Cualquier otro dato relevante que pueda ayudarme a cuidar mejor estas plantas."
-                    )
-                ],
-            }]
-        )
+                        "Analiza esta imagen y proporciona información concisa sobre las plantas. Quiero que la respuesta sea corta e incluya únicamente lo siguiente:\n"
+                        "1. Tipo de planta.\n"
+                        "2. Frecuencia de riego recomendada.\n"
+                        "3. Tipo de tierra adecuado.\n"
+                        "4. Cantidad de luz solar.\n"
+                        "5. Otros datos relevantes.\n"
+                        "Si la imagen no contiene ninguna planta, responde únicamente 'no hay plantas'."
+                        )
+                        ],
+                        }]
+                        )
         
         response_message = chat_session.send_message(
-            "Describe la imagen con la información sobre el tipo de plantas, su frecuencia de riego, tipo de tierra, cantidad de luz solar y cualquier otro detalle relevante para el cuidado. Si no es una planta, por favor indícalo y recuerda que solo puedes detectar plantas."
-        )
+            "Describe la imagen de forma breve con la información solicitada. Si no hay plantas, responde 'no hay plantas'."
+            )
         response_text = response_message.text
-
+        
         # Si la respuesta indica que no se detectaron plantas, se informa al usuario
         if "no hay plantas" in response_text.lower() or "no puedo identificar" in response_text.lower():
-            return jsonify({'respuesta': "Lo siento, parece que la imagen no contiene plantas. Solo puedo ayudarte a identificar y cuidar plantas."})
+            return jsonify({'respuesta': "no hay plantas"})
         
         return jsonify({'respuesta': response_text})
-
+    
     except Exception as e:
         logger.error(f"Error al procesar la imagen: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
-
+    
     finally:
         # Asegurarse de limpiar el archivo temporal, incluso en caso de error
         if temp_file_path and os.path.exists(temp_file_path):
@@ -82,7 +83,6 @@ def process_image_endpoint():
                 clean_temp_file(temp_file_path)
             except Exception as cleanup_error:
                 logger.error(f"Error limpiando el archivo temporal: {cleanup_error}", exc_info=True)
-
 
 @app.route("/chat", methods=["POST"])
 def chat_endpoint():

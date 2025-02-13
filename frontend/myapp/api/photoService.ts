@@ -2,7 +2,7 @@ import { uploadImageToCloudinary } from "./cloudinaryService";
 import { savePhotoMessage, saveBotResponseMessage, getCurrentUser } from "./firebaseService";
 
 // URL de la API para procesar imágenes
-const PROCESS_IMAGE_API_URL = "https://proyectomovil-qh8q.onrender.com/process_image";
+const PROCESS_IMAGE_API_URL = "https://proyectomovil-1.onrender.com/process_image";
 
 /**
  * processImageWithAPI

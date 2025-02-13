@@ -431,7 +431,7 @@ export const sendChatAndBotResponse = async (
     ]);
 
     // Solicita respuesta del bot a la API
-    const response = await fetch('https://proyectomovil-qh8q.onrender.com/chat', {
+    const response = await fetch('https://proyectomovil-1.onrender.com/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: userMessageText, user: userUid }),

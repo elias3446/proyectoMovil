@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import httpx
-
+import google.generativeai as genai
 # Importamos las funciones modulares (ajustándolas si es necesario para async)
 from modelo.chat_functions import extract_keywords, generate_response
 from modelo.procesar_imagen import download_image, save_temp_image, upload_to_gemini, clean_temp_file
@@ -60,7 +60,7 @@ async def process_image_endpoint(request: Request):
         temp_file_path = save_temp_image(image)
 
         # Subir la imagen a Gemini (manteniendo la llamada síncrona o envolviéndola en un executor)
-        uploaded_file = upload_to_gemini(model, temp_file_path, mime_type="image/png")
+        uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
 
         # Configurar el historial del chat para analizar la imagen
         chat_history = [{

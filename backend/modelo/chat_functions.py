@@ -80,7 +80,7 @@ def process_chat_request(user_message: str, user_name: str) -> str:
         str: Respuesta generada por el modelo.
     """
     # Extraer palabras clave del mensaje
-    topic_keywords = extract_keywords(user_message, model)
+    topic_keywords = extract_keywords(user_message)
     # Generar respuesta basada en el mensaje, el historial y las palabras clave
     response_text = generate_response(user_message, user_name, topic_keywords, model)
     logger.info(f"Usuario: {user_name}, Mensaje: {user_message}, Respuesta: {response_text}")

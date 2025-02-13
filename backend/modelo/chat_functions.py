@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 import firebase_admin
 from firebase_admin import credentials, firestore
-import google.generativeai as genai
+from config import model
 
 # =============================================================================
 # Configuración y carga de variables de entorno
@@ -65,7 +65,7 @@ db = init_firestore()
 # =============================================================================
 # Funciones de procesamiento del chat
 # =============================================================================
-def process_chat_request(user_message: str, user_name: str, model: Any) -> str:
+def process_chat_request(user_message: str, user_name: str) -> str:
     """
     Procesa la solicitud de chat:
       1. Extrae palabras clave del mensaje del usuario.
@@ -86,7 +86,7 @@ def process_chat_request(user_message: str, user_name: str, model: Any) -> str:
     logger.info(f"Usuario: {user_name}, Mensaje: {user_message}, Respuesta: {response_text}")
     return response_text
 
-def extract_keywords(message: str, model: Any) -> List[str]:
+def extract_keywords(message: str) -> List[str]:
     """
     Extrae palabras clave del mensaje utilizando la API de Google Generative AI.
 

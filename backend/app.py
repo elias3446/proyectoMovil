@@ -56,7 +56,7 @@ def process_image_endpoint():
         temp_file_path = save_temp_image(image)
 
         # Subir la imagen a Gemini
-        uploaded_file = upload_to_gemini(model, temp_file_path, mime_type="image/png")
+        uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
 
         # Configurar el historial del chat para analizar la imagen
         chat_history = [{

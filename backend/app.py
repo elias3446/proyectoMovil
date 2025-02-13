@@ -19,10 +19,13 @@ logger = logging.getLogger(__name__)
 # Blueprints para modularizar los endpoints
 # =============================================================================
 
-# Blueprint para endpoints de procesamiento de imágenes
-image_bp = Blueprint('image_bp', __name__)
+# Crear la aplicación Flask
+app = Flask(__name__)
+CORS(app)  # Habilita CORS para todas las rutas
 
-@image_bp.route('/process_image', methods=['POST'])
+# Blueprint para endpoints de procesamiento de imágenes
+
+@app.route('/process_image', methods=['POST'])
 def process_image_endpoint():
     """
     Endpoint para procesar imágenes.
@@ -50,10 +53,8 @@ def process_image_endpoint():
         logger.error(f"Error al procesar la imagen: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
 
-# Blueprint para endpoints de chat
-chat_bp = Blueprint('chat_bp', __name__)
 
-@chat_bp.route('/chat', methods=['POST'])
+@app.route('/chat', methods=['POST'])
 def chat_endpoint():
     """
     Endpoint para manejar solicitudes de chat.
@@ -76,35 +77,11 @@ def chat_endpoint():
         logger.error(f"Error en la solicitud de chat: {str(e)}", exc_info=True)
         return jsonify({"error": f"Error en la solicitud de chat: {str(e)}"}), 500
 
-# =============================================================================
-# Función fábrica para crear y configurar la aplicación Flask
-# =============================================================================
-
-def create_app():
-    """
-    Función fábrica que crea y configura la aplicación Flask.
-    
-    Permite una mayor modularidad, reutilización y facilita el testeo de la aplicación.
-    """
-    app = Flask(__name__)
-    
-    # Habilitar CORS para todas las rutas
-    CORS(app)
-    
-    # Registrar los blueprints creados anteriormente
-    app.register_blueprint(image_bp)
-    app.register_blueprint(chat_bp)
-    
-    return app
 
 # =============================================================================
 # Ejecución de la aplicación
 # =============================================================================
 
 if __name__ == "__main__":
-    # Crear la aplicación Flask utilizando la función fábrica
-    app = create_app()
-    
-    # Obtener el puerto desde las variables de entorno o usar el puerto 5000 por defecto
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.getenv("PORT", 5000))  # Usar 5000 como valor predeterminado
     app.run(host="0.0.0.0", port=port)

@@ -12,7 +12,7 @@ Este módulo se encarga de:
 
 import os
 import logging
-from typing import Dict
+from typing import Dict, Any
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -20,24 +20,22 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def load_configuration() -> None:
+def load_env_variables() -> None:
     """
     Carga las variables de entorno desde el archivo .env.
     """
     load_dotenv()
     logger.info("Variables de entorno cargadas correctamente.")
 
-
-def get_api_key() -> str:
+def fetch_api_key() -> str:
     """
-    Obtiene la API Key desde las variables de entorno.
+    Obtiene y valida la API_KEY desde las variables de entorno.
     
     Returns:
-        str: La API Key configurada.
+        str: La API_KEY configurada.
     
     Raises:
-        ValueError: Si la API Key no se encuentra en las variables de entorno.
+        ValueError: Si la API_KEY no está configurada.
     """
     api_key = os.getenv("API_KEY")
     if not api_key:
@@ -47,24 +45,22 @@ def get_api_key() -> str:
     logger.info("API_KEY obtenida correctamente.")
     return api_key
 
-
-def configure_genai(api_key: str) -> None:
+def setup_genai(api_key: str) -> None:
     """
-    Configura la API de Generative AI utilizando la API Key proporcionada.
+    Configura la API de Generative AI utilizando la API_KEY proporcionada.
     
     Args:
-        api_key (str): La API Key para la configuración.
+        api_key (str): La API_KEY para la configuración.
     """
     genai.configure(api_key=api_key)
     logger.info("API de Generative AI configurada correctamente.")
 
-
-def get_generation_config() -> Dict[str, object]:
+def generation_configuration() -> Dict[str, Any]:
     """
     Define y retorna la configuración de generación para el modelo generativo.
     
     Returns:
-        Dict[str, object]: Configuración con parámetros de generación.
+        Dict[str, Any]: Configuración con parámetros de generación.
     """
     config = {
         "temperature": 2,
@@ -76,24 +72,36 @@ def get_generation_config() -> Dict[str, object]:
     logger.info("Configuración de generación definida: %s", config)
     return config
 
-
-def create_model() -> genai.GenerativeModel:
+def instantiate_model() -> genai.GenerativeModel:
     """
     Crea y retorna una instancia del modelo generativo utilizando la configuración definida.
     
     Returns:
         genai.GenerativeModel: Instancia del modelo generativo.
     """
-    generation_config = get_generation_config()
+    config = generation_configuration()
     model_instance = genai.GenerativeModel(
         model_name="gemini-1.5-flash",
-        generation_config=generation_config,
+        generation_config=config,
     )
     logger.info("Modelo generativo '%s' creado exitosamente.", "gemini-1.5-flash")
     return model_instance
 
-# Secuencia de inicialización de la configuración
-load_configuration()
-api_key = get_api_key()
-configure_genai(api_key)
-model = create_model()
+def initialize_model() -> genai.GenerativeModel:
+    """
+    Inicializa la configuración del modelo generativo:
+      1. Carga las variables de entorno.
+      2. Obtiene y valida la API_KEY.
+      3. Configura la API de Generative AI.
+      4. Crea y retorna la instancia del modelo.
+    
+    Returns:
+        genai.GenerativeModel: Modelo generativo inicializado.
+    """
+    load_env_variables()
+    api_key = fetch_api_key()
+    setup_genai(api_key)
+    return instantiate_model()
+
+# Inicialización del modelo al cargar el módulo.
+model = initialize_model()

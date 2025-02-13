@@ -1,31 +1,35 @@
 import os
 import logging
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Blueprint
 from flask_cors import CORS
 from dotenv import load_dotenv
-import google.generativeai as genai
-from modelo.chat_functions import extract_keywords, generate_response
-from modelo.procesar_imagen import upload_to_gemini, clean_temp_file,download_image,save_temp_image
+
+# Importar funciones y modelos del proyecto
+from modelo.chat_functions import extract_keywords, generate_response, process_chat_request
+from modelo.procesar_imagen import upload_to_gemini, clean_temp_file, download_image, save_temp_image, process_image_flow
 from config import model
 
 # Cargar variables de entorno
 load_dotenv()
 
-app = Flask(__name__)
-CORS(app)  # Habilita CORS para todas las rutas
-
-# Configuración del registro de interacciones
+# Configurar logging para toda la aplicación
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@app.route('/process_image', methods=['POST'])
+# =============================================================================
+# Blueprints para modularizar los endpoints
+# =============================================================================
+
+# Blueprint para endpoints de procesamiento de imágenes
+image_bp = Blueprint('image_bp', __name__)
+
+@image_bp.route('/process_image', methods=['POST'])
 def process_image_endpoint():
     """
     Endpoint para procesar imágenes.
     
-    Recibe en JSON la clave 'image_url', descarga y guarda la imagen, la procesa con Gemini
-    y establece una conversación para obtener información sobre plantas. Si no se detectan plantas,
-    retorna un mensaje informativo.
+    Recibe un JSON con la clave 'image_url', descarga y procesa la imagen usando Gemini,
+    y retorna una respuesta. Si no se detectan plantas, retorna 'no hay plantas'.
     """
     data = request.get_json() or {}
     image_url = data.get("image_url", "").strip()
@@ -33,40 +37,11 @@ def process_image_endpoint():
     if not image_url:
         return jsonify({'error': 'No se encontró URL de imagen.'}), 400
 
-    temp_file_path = None
     try:
-        # Descargar y guardar la imagen en un archivo temporal
-        image = download_image(image_url)
-        temp_file_path = save_temp_image(image)
-
-        # Procesar la imagen con Gemini
-        uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
+        # Procesar la imagen mediante el flujo definido en process_image_flow
+        response_text = process_image_flow(image_url, model)
         
-        # Iniciar una conversación con el modelo enfocada en el análisis de plantas
-        chat_session = model.start_chat(
-            history=[{
-                "role": "user",
-                "parts": [
-                    uploaded_file,
-                    (
-                        "Analiza esta imagen y proporciona información concisa sobre las plantas. Quiero que la respuesta sea corta e incluya únicamente lo siguiente:\n"
-                        "1. Tipo de planta.\n"
-                        "2. Frecuencia de riego recomendada.\n"
-                        "3. Tipo de tierra adecuado.\n"
-                        "4. Cantidad de luz solar.\n"
-                        "5. Otros datos relevantes.\n"
-                        "Si la imagen no contiene ninguna planta, responde únicamente 'no hay plantas'."
-                        )
-                        ],
-                        }]
-                        )
-        
-        response_message = chat_session.send_message(
-            "Describe la imagen de forma breve con la información solicitada. Si no hay plantas, responde 'no hay plantas'."
-            )
-        response_text = response_message.text
-        
-        # Si la respuesta indica que no se detectaron plantas, se informa al usuario
+        # Verificar si la respuesta indica que no se detectaron plantas
         if "no hay plantas" in response_text.lower() or "no puedo identificar" in response_text.lower():
             return jsonify({'respuesta': "no hay plantas"})
         
@@ -75,22 +50,17 @@ def process_image_endpoint():
     except Exception as e:
         logger.error(f"Error al procesar la imagen: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
-    
-    finally:
-        # Asegurarse de limpiar el archivo temporal, incluso en caso de error
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                clean_temp_file(temp_file_path)
-            except Exception as cleanup_error:
-                logger.error(f"Error limpiando el archivo temporal: {cleanup_error}", exc_info=True)
 
-@app.route("/chat", methods=["POST"])
+# Blueprint para endpoints de chat
+chat_bp = Blueprint('chat_bp', __name__)
+
+@chat_bp.route('/chat', methods=['POST'])
 def chat_endpoint():
     """
     Endpoint para manejar solicitudes de chat.
     
-    Recibe en JSON los campos 'message' y 'user'. Se valida que el mensaje no esté vacío,
-    se extraen palabras clave (opcional) y se genera una respuesta utilizando el modelo.
+    Recibe un JSON con 'message' y 'user', procesa el mensaje (por ejemplo, extrayendo palabras clave)
+    y genera una respuesta utilizando el modelo.
     """
     data = request.get_json() or {}
     user_message = data.get("message", "").strip()
@@ -98,22 +68,44 @@ def chat_endpoint():
     
     if not user_message:
         return jsonify({"error": "El mensaje del usuario no puede estar vacío."}), 400
-
+    
     try:
-        # Extraer palabras clave del mensaje del usuario (opcional)
-        topic_keywords = extract_keywords(user_message, model)
-        # Generar la respuesta utilizando el historial y el modelo
-        response_text = generate_response(user_message, user_name, topic_keywords, model)
-
-        # Registrar la interacción
-        logger.info(f"Usuario: {user_name}, Mensaje: {user_message}, Respuesta: {response_text}")
-        
+        # Procesar la solicitud de chat mediante process_chat_request
+        response_text = process_chat_request(user_message, user_name, model)
         return jsonify({"response": response_text})
     except Exception as e:
         logger.error(f"Error en la solicitud de chat: {str(e)}", exc_info=True)
         return jsonify({"error": f"Error en la solicitud de chat: {str(e)}"}), 500
 
+# =============================================================================
+# Función fábrica para crear y configurar la aplicación Flask
+# =============================================================================
+
+def create_app():
+    """
+    Función fábrica que crea y configura la aplicación Flask.
+    
+    Permite una mayor modularidad, reutilización y facilita el testeo de la aplicación.
+    """
+    app = Flask(__name__)
+    
+    # Habilitar CORS para todas las rutas
+    CORS(app)
+    
+    # Registrar los blueprints creados anteriormente
+    app.register_blueprint(image_bp)
+    app.register_blueprint(chat_bp)
+    
+    return app
+
+# =============================================================================
+# Ejecución de la aplicación
+# =============================================================================
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))  # Usa 5000 como valor predeterminado si no se encuentra PORT en las variables de entorno
+    # Crear la aplicación Flask utilizando la función fábrica
+    app = create_app()
+    
+    # Obtener el puerto desde las variables de entorno o usar el puerto 5000 por defecto
+    port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

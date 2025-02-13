@@ -1,16 +1,38 @@
 import axios from "axios";
 
-export const sendNotificationMessage = async (receiberId: string, title: string, message: string): Promise<string | undefined> => {
+// Constantes para la configuración de Native Notify
+const NOTIFICATION_API_URL = "https://app.nativenotify.com/api/indie/notification";
+const APP_ID = 27248;
+const APP_TOKEN = "g7bm81eIUEY0Mmtod4FmYb";
+
+/**
+ * sendNotificationMessage
+ * -------------------------
+ * Envía una notificación a través de Native Notify.
+ *
+ * @param receiverId - ID del suscriptor (destinatario de la notificación).
+ * @param title - Título de la notificación.
+ * @param message - Contenido del mensaje.
+ * @returns Promise<string | undefined> - La respuesta de la API en caso de éxito o undefined si ocurre un error.
+ */
+export const sendNotificationMessage = async (
+  receiverId: string,
+  title: string,
+  message: string
+): Promise<string | undefined> => {
   try {
-    const res = await axios.post(`https://app.nativenotify.com/api/indie/notification`, {
-      subID: receiberId,
-      appId: 27248,
-      appToken: 'g7bm81eIUEY0Mmtod4FmYb',
-      title: title,
-      message: message
+    // Realiza la solicitud POST a la API de Native Notify con los parámetros necesarios
+    const response = await axios.post(NOTIFICATION_API_URL, {
+      subID: receiverId,
+      appId: APP_ID,
+      appToken: APP_TOKEN,
+      title,
+      message,
     });
-    return res.data; // return 'Success!'
-  } catch (error) {
-    console.error("Error al enviar la notificación: ", error);
+    // Retorna la respuesta de la API (se espera que sea 'Success!' en caso de éxito)
+    return response.data;
+  } catch (error: any) {
+    console.error("Error al enviar la notificación:", error);
+    return undefined;
   }
-}
+};

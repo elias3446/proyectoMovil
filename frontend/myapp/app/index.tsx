@@ -13,15 +13,35 @@ import { auth } from "@/Config/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import "../global.css";
 
+/**
+ * SCREENS
+ * -------
+ * Mapeo de nombres de pantalla a sus respectivos componentes.
+ * Esto permite agregar o modificar pantallas fácilmente sin duplicar la lógica de renderizado.
+ */
+const SCREENS: { [key: string]: React.FC<{ setCurrentScreen: (screen: string) => void }> } = {
+  LoginScreen,
+  RegisterScreen,
+  AccountRecoveryScreen,
+  CameraCaptureScreen,
+  ChatScreen,
+  SocialNetScreen,
+  ProfileScreen,
+};
+
 export default function Index() {
-  // Registro de push notifications (Native Notify)
+  // Registro de notificaciones push usando Native Notify
   registerNNPushToken(27248, "g7bm81eIUEY0Mmtod4FmYb");
 
-  // Estado para la pantalla actual
-  const [currentScreen, setCurrentScreen] = useState("");
+  // Estado para controlar la pantalla actual. Se inicia en "LoginScreen" como valor por defecto.
+  const [currentScreen, setCurrentScreen] = useState("LoginScreen");
 
-  // Hook para detectar cambios en el estado de autenticación.
-  // Si el usuario está autenticado, se establece la pantalla de cámara como inicial.
+  /**
+   * useEffect - onAuthStateChanged
+   * ------------------------------
+   * Escucha los cambios en la autenticación.
+   * Si hay un usuario autenticado, se cambia la pantalla a "CameraCaptureScreen".
+   */
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -31,29 +51,21 @@ export default function Index() {
     return () => unsubscribe();
   }, []);
 
-  // Función que renderiza la pantalla según el estado actual
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case "LoginScreen":
-        return <LoginScreen setCurrentScreen={setCurrentScreen} />;
-      case "RegisterScreen":
-        return <RegisterScreen setCurrentScreen={setCurrentScreen} />;
-      case "AccountRecoveryScreen":
-        return <AccountRecoveryScreen setCurrentScreen={setCurrentScreen} />;
-      case "CameraCaptureScreen":
-        return <CameraCaptureScreen setCurrentScreen={setCurrentScreen} />;
-      case "ChatScreen":
-        return <ChatScreen setCurrentScreen={setCurrentScreen} />;
-      case "SocialNetScreen":
-        return <SocialNetScreen setCurrentScreen={setCurrentScreen} />;
-      case "ProfileScreen":
-        return <ProfileScreen setCurrentScreen={setCurrentScreen} />;
-      default:
-        return <LoginScreen setCurrentScreen={setCurrentScreen} />;
-    }
-  };
+  /**
+   * renderScreen
+   * ------------
+   * Selecciona el componente de pantalla basado en el estado actual.
+   * Si currentScreen no se corresponde a ninguna clave en SCREENS, se renderiza LoginScreen.
+   */
+  const ScreenComponent =
+    SCREENS[currentScreen] || SCREENS["LoginScreen"];
 
-  // La barra de pestañas se muestra solo en ciertas pantallas
+  /**
+   * shouldShowTab
+   * -------------
+   * Determina si se debe mostrar la barra de pestañas.
+   * Solo se muestra en pantallas específicas.
+   */
   const shouldShowTab = [
     "CameraCaptureScreen",
     "ChatScreen",
@@ -63,7 +75,11 @@ export default function Index() {
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>{renderScreen()}</View>
+      {/* Renderiza la pantalla actual */}
+      <View style={{ flex: 1 }}>
+        <ScreenComponent setCurrentScreen={setCurrentScreen} />
+      </View>
+      {/* Muestra la barra de pestañas si la pantalla actual lo permite */}
       {shouldShowTab && (
         <MyTab
           setCurrentScreen={setCurrentScreen}

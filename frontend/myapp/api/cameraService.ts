@@ -4,14 +4,16 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView } from 'expo-camera';
 
 /**
+ * checkCameraPermissions
+ * ------------------------
  * Verifica que se tenga acceso a la cámara.
- * En web se intenta acceder al stream de video.
- * En dispositivos móviles se solicita el permiso (si aún no ha sido concedido).
+ * - En web: intenta acceder al stream de video.
+ * - En dispositivos móviles: solicita el permiso si aún no ha sido concedido.
  *
- * @param permission - Estado actual de los permisos.
+ * @param permission - Objeto que indica el estado actual del permiso.
  * @param requestPermission - Función para solicitar el permiso.
  * @param setErrorMessage - Función para actualizar el mensaje de error.
- * @returns Promise<boolean> indicando si se cuenta con el permiso.
+ * @returns Promise<boolean> - Verdadero si se cuenta con el permiso, falso en caso contrario.
  */
 export const checkCameraPermissions = async (
   permission: { granted: boolean } | undefined,
@@ -46,12 +48,14 @@ export const checkCameraPermissions = async (
 };
 
 /**
- * Toma una foto usando la referencia de la cámara.
+ * takePicture
+ * -----------
+ * Toma una foto utilizando la referencia de la cámara.
  *
- * @param cameraRef - Referencia a la cámara.
- * @param flash - Modo de flash a utilizar ('off', 'on', 'auto' o 'torch').
- * @returns La foto tomada.
- * @throws Error si la cámara no está lista o ocurre un fallo durante la captura.
+ * @param cameraRef - Referencia a la cámara (CameraView).
+ * @param flash - Modo de flash a utilizar ('off', 'on', 'auto', 'torch').
+ * @returns Promise<any> - La foto tomada.
+ * @throws Error si la cámara no está lista o si ocurre un fallo durante la captura.
  */
 export const takePicture = async (
   cameraRef: React.RefObject<CameraView>,
@@ -76,10 +80,12 @@ export const takePicture = async (
 };
 
 /**
- * Verifica y solicita permisos para acceder a la galería.
+ * checkGalleryPermissions
+ * -------------------------
+ * Solicita y verifica permisos para acceder a la galería.
  *
  * @param setErrorMessage - Función para actualizar el mensaje de error.
- * @returns Promise<boolean> indicando si se tienen permisos para la galería.
+ * @returns Promise<boolean> - Verdadero si se tienen permisos, falso en caso contrario.
  */
 export const checkGalleryPermissions = async (
   setErrorMessage: (msg: string) => void
@@ -99,10 +105,12 @@ export const checkGalleryPermissions = async (
 };
 
 /**
- * Abre la galería, permite seleccionar y procesa la imagen elegida.
+ * openGalleryAndProcessImage
+ * ----------------------------
+ * Abre la galería para seleccionar una imagen, permite editarla y la procesa usando ImageManipulator.
  *
- * @returns La imagen procesada (manipulada).
- * @throws Error si el usuario cancela la selección o ocurre un error durante el procesamiento.
+ * @returns Promise<any> - La imagen procesada (manipulada) o null si no se selecciona una imagen.
+ * @throws Error si ocurre un fallo durante el procesamiento.
  */
 export const openGalleryAndProcessImage = async (): Promise<any> => {
   try {
@@ -112,14 +120,15 @@ export const openGalleryAndProcessImage = async (): Promise<any> => {
       base64: true,
     });
 
+    // Retorna null si el usuario cancela la selección o no se obtiene una URI válida
     if (result.canceled || !result.assets || !result.assets[0]?.uri) {
-      throw new Error('No se seleccionó ninguna imagen');
+      return null;
     }
 
     const asset = result.assets[0];
     const manipulatedImage = await ImageManipulator.manipulateAsync(
       asset.uri,
-      [],
+      [], // Sin acciones adicionales de manipulación
       { compress: 1, format: ImageManipulator.SaveFormat.JPEG, base64: true }
     );
     return manipulatedImage;

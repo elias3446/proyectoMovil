@@ -1,38 +1,61 @@
-import { 
-  collection, addDoc, getDocs, updateDoc, doc, DocumentSnapshot, query, orderBy, limit, startAfter, onSnapshot, getDoc 
-} from 'firebase/firestore';
-import { firestore } from '@/Config/firebaseConfig';
-import { Post } from '@/types/Post';
-import { UserData } from '@/types/User';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, setDoc } from 'firebase/firestore';
+/*****************************************************
+ *                Firebase Services                *
+ *  Funciones agrupadas por módulos: Posts, Usuarios, *
+ *  Autenticación, Chat y Custom Hooks.              *
+ *****************************************************/
 
-import { uploadImageToCloudinary } from "./cloudinaryService";
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+/* #region Imports */
 import {
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  doc,
+  DocumentSnapshot,
+  query,
+  orderBy,
+  limit,
+  startAfter,
+  onSnapshot,
+  getDoc,
+  setDoc,
+} from 'firebase/firestore';
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
   signOut,
   updatePassword,
   updateEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  User,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-} from "firebase/auth";
-import { auth } from '@/Config/firebaseConfig';
+  User,
+} from 'firebase/auth';
+import { firestore, auth } from '@/Config/firebaseConfig';
+import { Post } from '@/types/Post';
+import { UserData } from '@/types/User';
+import { uploadImageToCloudinary } from "./cloudinaryService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 import { registerIndieID } from 'native-notify';
+import { useState, useEffect } from "react";
+/* #endregion Imports */
+
+/* ====================================================
+   =============== POSTS SERVICES =====================
+   ==================================================== */
 
 /**
- * Obtiene los posts de manera paginada desde la colección "posts" en Firestore.
- * Se suscribe a los cambios en la consulta paginada y ejecuta el callback cada vez
- * que se actualizan los documentos.
+ * getPaginatedPosts
+ * -----------------
+ * Obtiene los posts de forma paginada.
  *
- * @param afterDoc - Último documento cargado (para paginación) o `undefined` para la primera página.
- * @param limitPosts - Número máximo de posts a cargar.
- * @param callback - Función a ejecutar al obtener nuevos documentos.
- * @returns Una función para cancelar la suscripción o `null` si ocurre un error.
+ * @param afterDoc - Último documento cargado para paginación (o undefined).
+ * @param limitPosts - Número máximo de posts a obtener.
+ * @param callback - Función a ejecutar con los nuevos documentos.
+ * @returns Función para cancelar la suscripción o null en caso de error.
  */
 export const getPaginatedPosts = (
   afterDoc: DocumentSnapshot | undefined,
@@ -47,22 +70,22 @@ export const getPaginatedPosts = (
     );
     const paginatedQuery = afterDoc ? query(baseQuery, startAfter(afterDoc)) : baseQuery;
     const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
-      const newSnapshots = snapshot.docs;
-      callback(newSnapshots);
+      callback(snapshot.docs);
     });
     return unsubscribe;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error obteniendo posts paginados:", error);
     return null;
   }
 };
 
 /**
- * Agrega un nuevo post a la colección "posts" en Firestore.
+ * addPost
+ * -------
+ * Agrega un nuevo post a la colección "posts".
  *
- * @param post - Objeto que representa el post (sin el campo 'id').
- * @returns Una promesa que se resuelve con el ID del post agregado.
- * @throws Error si ocurre algún problema al agregar el post.
+ * @param post - Objeto del post (sin el campo 'id').
+ * @returns ID del post creado.
  */
 export const addPost = async (post: Omit<Post, 'id'>): Promise<string> => {
   try {
@@ -75,74 +98,73 @@ export const addPost = async (post: Omit<Post, 'id'>): Promise<string> => {
 };
 
 /**
- * Actualiza un post existente en la colección "posts" de Firestore.
+ * updatePost
+ * ----------
+ * Actualiza un post existente.
  *
  * @param postId - ID del post a actualizar.
- * @param data - Datos a actualizar.
- * @throws Error si ocurre algún problema al actualizar el post.
+ * @param data - Datos a actualizar (Partial para mayor flexibilidad).
  */
-export const updatePost = async (postId: string, data: any): Promise<void> => {
+export const updatePost = async (postId: string, data: Partial<Post>): Promise<void> => {
   try {
     const docRef = doc(firestore, "posts", postId);
     await updateDoc(docRef, data);
   } catch (error: any) {
-    console.error('Error al actualizar el post:', error);
+    console.error("Error al actualizar el post:", error);
     throw new Error("Error al actualizar el post: " + error.message);
   }
 };
 
+/* ====================================================
+   ============== USER SERVICES =======================
+   ==================================================== */
+
 /**
- * Obtiene todos los usuarios de la colección "users" en Firestore.
- *
- * @returns Un mapa de usuarios (ID -> UserData).
+ * getAllUsers
+ * -----------
+ * Obtiene todos los usuarios de Firestore y retorna un mapa (ID → UserData).
  */
 export const getAllUsers = async (): Promise<Map<string, UserData>> => {
   const usersMap = new Map<string, UserData>();
   try {
     const snapshot = await getDocs(collection(firestore, "users"));
     snapshot.forEach((docSnap) => {
-      const userData = docSnap.data();
+      const data = docSnap.data();
       usersMap.set(docSnap.id, {
-        firstName: userData.firstName || "",
-        lastName: userData.lastName || "",
-        profileImage: userData.profileImage || null,
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+        profileImage: data.profileImage || null,
       });
     });
   } catch (error) {
-    console.error("Error al obtener los datos de los usuarios:", error);
+    console.error("Error al obtener los usuarios:", error);
   }
   return usersMap;
 };
 
 /**
- * Obtiene la URL de la imagen de perfil de un usuario a partir de su ID.
- *
- * @param userId - ID del usuario.
- * @returns La URL de la imagen de perfil o `null` si no se encuentra o hay un error.
+ * getProfileImageById
+ * -------------------
+ * Obtiene la URL de la imagen de perfil de un usuario por su ID.
  */
 export const getProfileImageById = async (userId: string): Promise<string | null> => {
   try {
-    const userRef = doc(collection(firestore, "users"), userId);
-    const userSnap = await getDoc(userRef);
+    const userSnap = await getDoc(doc(firestore, "users", userId));
     if (userSnap.exists()) {
-      const userData = userSnap.data();
-      return userData.profileImage || null;
-    } else {
-      console.warn(`Usuario con ID ${userId} no encontrado.`);
-      return null;
+      return userSnap.data().profileImage || null;
     }
+    console.warn(`Usuario con ID ${userId} no encontrado.`);
+    return null;
   } catch (error) {
-    console.error("Error al obtener la imagen de perfil:", error);
+    console.error("Error obteniendo imagen de perfil:", error);
     return null;
   }
 };
 
 /**
- * Registra un usuario en Firebase Authentication y en Firestore.
- *
- * @param userData - Datos del usuario a registrar.
- * @returns El usuario registrado.
- * @throws Error si ocurre algún problema durante el registro.
+ * registerUser
+ * ------------
+ * Registra un nuevo usuario en Firebase Authentication y almacena su información en Firestore.
  */
 export const registerUser = async (userData: {
   firstName: string;
@@ -158,10 +180,8 @@ export const registerUser = async (userData: {
   profileImage?: string | null;
 }): Promise<User> => {
   try {
-    const authInstance = getAuth();
-    const db = getFirestore();
     const userCredential = await createUserWithEmailAndPassword(
-      authInstance,
+      auth,
       userData.email.trim(),
       userData.password.trim()
     );
@@ -174,27 +194,71 @@ export const registerUser = async (userData: {
       birthMonth: userData.birthMonth,
       birthYear: userData.birthYear,
       gender: userData.gender,
-      pronoun: userData.pronoun ||
+      pronoun:
+        userData.pronoun ||
         (userData.gender === "F" ? "Femenino" : userData.gender === "M" ? "Masculino" : ""),
       customGender: userData.customGender.trim(),
       profileImage: userData.profileImage || null,
     };
-    await setDoc(doc(db, "users", user.uid), data);
+    await setDoc(doc(firestore, "users", user.uid), data);
     return user;
   } catch (error: any) {
-    console.error("Error al registrar usuario:", error);
-    throw new Error(`Error al registrar: ${error.message}`);
+    console.error("Error registrando usuario:", error);
+    throw new Error("Error al registrar: " + error.message);
   }
 };
 
 /**
- * Reautentica al usuario y actualiza su correo y/o contraseña.
+ * updateUserProfileData
+ * ---------------------
+ * Actualiza la información del perfil del usuario en Firestore.
+ */
+export const updateUserProfileData = async (
+  userId: string,
+  data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+    profileImage?: string | null;
+  }
+): Promise<void> => {
+  try {
+    await updateDoc(doc(firestore, "users", userId), data);
+  } catch (error: any) {
+    console.error("Error actualizando perfil:", error);
+    throw new Error("Error al actualizar el perfil: " + error.message);
+  }
+};
+
+/**
+ * uploadProfileImage
+ * ------------------
+ * Sube una imagen de perfil a Cloudinary y retorna la URL segura.
+ */
+export const uploadProfileImage = async (imageUri: string): Promise<string> => {
+  try {
+    const secureUrl = await uploadImageToCloudinary({ uri: imageUri }, "profile_images");
+    return secureUrl;
+  } catch (error: any) {
+    console.error("Error subiendo imagen de perfil:", error);
+    throw new Error("Error subiendo imagen: " + error.message);
+  }
+};
+
+/* ====================================================
+   ============== AUTHENTICATION SERVICES =============
+   ==================================================== */
+
+/**
+ * updateUserCredentials
+ * -----------------------
+ * Actualiza las credenciales del usuario (correo y/o contraseña) después de reautenticarse.
  *
  * @param user - Usuario autenticado.
  * @param newEmail - Nuevo correo electrónico (opcional).
  * @param newPassword - Nueva contraseña (opcional).
- * @param currentPassword - Contraseña actual (requerida para reautenticación).
- * @throws Error si ocurre algún problema durante la reautenticación o actualización.
+ * @param currentPassword - Contraseña actual para reautenticación.
  */
 export const updateUserCredentials = async (
   user: User,
@@ -203,7 +267,7 @@ export const updateUserCredentials = async (
   currentPassword: string
 ): Promise<void> => {
   if (!currentPassword) {
-    throw new Error("Debes ingresar tu contraseña actual");
+    throw new Error("La contraseña actual es requerida.");
   }
   try {
     const credential = EmailAuthProvider.credential(user.email!, currentPassword);
@@ -218,116 +282,105 @@ export const updateUserCredentials = async (
       await updatePassword(user, newPassword);
     }
   } catch (error: any) {
-    console.error("Error al actualizar las credenciales del usuario:", error);
+    console.error("Error actualizando credenciales:", error);
     throw new Error(error.message);
   }
 };
 
 /**
- * Actualiza la información del perfil de un usuario en Firestore.
- *
- * @param userId - ID del usuario.
- * @param data - Datos a actualizar (nombre, apellido, correo, teléfono y opcionalmente imagen de perfil).
- * @throws Error si ocurre algún problema al actualizar la información.
- */
-export const updateUserProfileData = async (
-  userId: string,
-  data: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phoneNumber: string;
-    profileImage?: string | null;
-  }
-): Promise<void> => {
-  try {
-    const db = getFirestore();
-    const userRef = doc(db, "users", userId);
-    await updateDoc(userRef, data);
-  } catch (error: any) {
-    console.error("Error al actualizar la información del perfil:", error);
-    throw new Error("Error al actualizar la información del perfil: " + error.message);
-  }
-};
-
-/**
- * Cierra la sesión del usuario y limpia el AsyncStorage.
- *
- * @throws Error si ocurre algún problema al cerrar sesión o limpiar el almacenamiento.
+ * signOutUser
+ * -----------
+ * Cierra la sesión del usuario y limpia el almacenamiento local.
  */
 export const signOutUser = async (): Promise<void> => {
   try {
-    const authInstance = getAuth();
-    await signOut(authInstance);
+    await signOut(auth);
     await AsyncStorage.clear();
   } catch (error: any) {
-    console.error("Error al cerrar sesión:", error);
-    throw new Error("Error al cerrar sesión: " + error.message);
+    console.error("Error cerrando sesión:", error);
+    throw new Error("Error cerrando sesión: " + error.message);
   }
 };
 
 /**
- * Sube la imagen de perfil usando Cloudinary y retorna la URL segura.
- *
- * @param imageUri - URI de la imagen a subir.
- * @returns La URL segura de la imagen.
- * @throws Error si ocurre algún problema durante la subida.
- */
-export const uploadProfileImage = async (imageUri: string): Promise<string> => {
-  try {
-    const secureUrl = await uploadImageToCloudinary({ uri: imageUri }, "profile_images");
-    return secureUrl;
-  } catch (error: any) {
-    console.error("Error al subir la imagen de perfil:", error);
-    throw new Error("Error al subir la imagen de perfil: " + error.message);
-  }
-};
-
-/**
- * Inicia sesión con correo y contraseña.
- * Además, registra al usuario para notificaciones (solo en dispositivos móviles).
- *
- * @param email - Correo electrónico del usuario.
- * @param password - Contraseña del usuario.
- * @returns Objeto de credenciales del usuario.
- * @throws Error si ocurre algún problema durante el inicio de sesión.
+ * loginUser
+ * ---------
+ * Inicia sesión con correo y contraseña, y registra notificaciones (en dispositivos móviles).
  */
 export const loginUser = async (email: string, password: string) => {
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email.trim(),
+      password
+    );
     if (Platform.OS !== 'web') {
-      // Parámetros específicos para Native Notify
       registerIndieID(userCredential.user.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
     } else {
       console.log('Registro de notificaciones omitido en web');
     }
     return userCredential;
   } catch (error: any) {
-    console.error("Error al iniciar sesión:", error);
-    throw new Error("Error al iniciar sesión: " + error.message);
+    console.error("Error iniciando sesión:", error);
+    throw new Error("Error iniciando sesión: " + error.message);
   }
 };
 
 /**
- * Se suscribe a los mensajes de un usuario en Firestore.
- *
- * @param userUid - UID del usuario del que se quieren escuchar los mensajes.
- * @param callback - Función a ejecutar al actualizarse los mensajes.
- * @param errorCallback - Función a ejecutar si ocurre un error.
- * @returns Una función para cancelar la suscripción.
+ * sendRecoveryEmail
+ * -----------------
+ * Envía un correo de recuperación de contraseña.
+ */
+export const sendRecoveryEmail = async (email: string): Promise<void> => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error: any) {
+    console.error("Error enviando correo de recuperación:", error);
+    throw new Error("Error enviando correo de recuperación: " + error.message);
+  }
+};
+
+/**
+ * getCurrentUser
+ * --------------
+ * Retorna el usuario autenticado actualmente.
+ */
+export const getCurrentUser = (): User | null => auth.currentUser;
+
+/* ====================================================
+   =================== CHAT SERVICES ==================
+   ==================================================== */
+
+/**
+ * Interfaz Message
+ * ---------------
+ * Define la estructura de un mensaje.
+ */
+export interface Message {
+  id?: string;
+  text: string;
+  sender: string;
+  receiver: string;
+  timestamp: any; // Firestore Timestamp o Date
+  isSending?: boolean;
+}
+
+/**
+ * subscribeToUserMessages
+ * -----------------------
+ * Se suscribe a los mensajes del usuario y ejecuta el callback con los mensajes actualizados.
  */
 export const subscribeToUserMessages = (
   userUid: string,
   callback: (messages: Message[]) => void,
   errorCallback: (error: any) => void
 ) => {
-  const db = getFirestore();
-  const userMessagesRef = collection(db, 'users', userUid, 'messages');
-  const q = query(userMessagesRef, orderBy('timestamp'));
+  const messagesRef = collection(firestore, 'users', userUid, 'messages');
+  const messagesQuery = query(messagesRef, orderBy('timestamp'));
   const unsubscribe = onSnapshot(
-    q,
+    messagesQuery,
     (snapshot) => {
-      const messagesData: Message[] = snapshot.docs.map((docSnap) => {
+      const messages: Message[] = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
         return {
           id: docSnap.id,
@@ -337,9 +390,9 @@ export const subscribeToUserMessages = (
           timestamp: data.timestamp,
         };
       });
-      // Aseguramos que estén ordenados cronológicamente
-      messagesData.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
-      callback(messagesData);
+      // Ordenar mensajes cronológicamente
+      messages.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+      callback(messages);
     },
     errorCallback
   );
@@ -347,14 +400,12 @@ export const subscribeToUserMessages = (
 };
 
 /**
- * Envía el mensaje del usuario y solicita la respuesta del bot.
- * Se almacena el mensaje en las colecciones de ambos usuarios (emisor y receptor).
+ * sendChatAndBotResponse
+ * -----------------------
+ * Envía un mensaje de chat y solicita la respuesta del bot a la API.
+ * Guarda el mensaje del usuario y la respuesta del bot en ambas colecciones.
  *
- * @param userUid - UID del usuario emisor.
- * @param receiverUid - UID del receptor (por ejemplo, un chatbot).
- * @param userMessageText - Texto del mensaje enviado por el usuario.
- * @returns La respuesta del bot (texto).
- * @throws Error si falla la llamada a la API o el almacenamiento.
+ * @returns La respuesta del bot.
  */
 export const sendChatAndBotResponse = async (
   userUid: string,
@@ -362,9 +413,8 @@ export const sendChatAndBotResponse = async (
   userMessageText: string
 ): Promise<string> => {
   try {
-    const db = getFirestore();
-    const userMessagesRef = collection(db, 'users', userUid, 'messages');
-    const receiverMessagesRef = collection(db, 'users', receiverUid, 'messages');
+    const userMessagesRef = collection(firestore, 'users', userUid, 'messages');
+    const receiverMessagesRef = collection(firestore, 'users', receiverUid, 'messages');
 
     // Mensaje del usuario
     const userMessage = {
@@ -380,21 +430,21 @@ export const sendChatAndBotResponse = async (
       addDoc(receiverMessagesRef, userMessage),
     ]);
 
-    // Solicita la respuesta del bot a la API
+    // Solicita respuesta del bot a la API
     const response = await fetch('https://proyectomovil-qh8q.onrender.com/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: userMessageText, user: userUid }),
     });
     if (!response.ok) {
-      throw new Error('Error al obtener la respuesta de la API');
+      throw new Error('Error obteniendo respuesta de la API');
     }
-    const responseData = await response.json();
-    const botResponseText = responseData?.response || 'No se obtuvo una respuesta válida.';
+    const { response: botResponseText } = await response.json();
+    const finalBotResponse = botResponseText || 'Respuesta no válida.';
 
     // Mensaje del bot
     const botMessage = {
-      text: botResponseText,
+      text: finalBotResponse,
       sender: receiverUid,
       receiver: userUid,
       timestamp: new Date(),
@@ -406,35 +456,17 @@ export const sendChatAndBotResponse = async (
       addDoc(receiverMessagesRef, botMessage),
     ]);
 
-    return botResponseText;
+    return finalBotResponse;
   } catch (error: any) {
-    console.error("Error en sendChatAndBotResponse:", error);
-    throw new Error("Error al enviar el mensaje y obtener la respuesta: " + error.message);
+    console.error("Error en chat y respuesta bot:", error);
+    throw new Error("Error en chat/bot: " + error.message);
   }
 };
 
 /**
- * Envía un correo electrónico para recuperación de contraseña.
- *
- * @param email - Correo electrónico al que se enviará el mensaje.
- * @throws Error si ocurre algún problema durante el envío.
- */
-export const sendRecoveryEmail = async (email: string): Promise<void> => {
-  try {
-    await sendPasswordResetEmail(auth, email);
-  } catch (error: any) {
-    console.error("Error al enviar el correo de recuperación:", error);
-    throw new Error("Error al enviar el correo de recuperación: " + error.message);
-  }
-};
-
-/**
+ * saveBotResponseMessage
+ * ----------------------
  * Guarda la respuesta del bot en ambas colecciones de mensajes.
- *
- * @param userUid - UID del receptor (usuario).
- * @param receiverUid - UID del emisor (por ejemplo, el chatbot).
- * @param responseText - Texto de la respuesta del bot.
- * @throws Error si ocurre algún problema al guardar la respuesta.
  */
 export const saveBotResponseMessage = async (
   userUid: string,
@@ -453,18 +485,15 @@ export const saveBotResponseMessage = async (
       addDoc(collection(firestore, 'users', receiverUid, 'messages'), botMessage),
     ]);
   } catch (error: any) {
-    console.error("Error al guardar la respuesta del bot:", error);
-    throw new Error("Error al guardar la respuesta del bot: " + error.message);
+    console.error("Error guardando respuesta bot:", error);
+    throw new Error("Error guardando respuesta bot: " + error.message);
   }
 };
 
 /**
- * Guarda un mensaje de foto (con la URL de la imagen) en las colecciones de mensajes de ambos usuarios.
- *
- * @param userUid - UID del usuario emisor.
- * @param receiverUid - UID del receptor.
- * @param imageUrl - URL de la imagen ya subida a Cloudinary.
- * @throws Error si ocurre algún problema al guardar el mensaje.
+ * savePhotoMessage
+ * ----------------
+ * Guarda un mensaje de foto en las colecciones de mensajes de ambos usuarios.
  */
 export const savePhotoMessage = async (
   userUid: string,
@@ -472,39 +501,84 @@ export const savePhotoMessage = async (
   imageUrl: string
 ): Promise<void> => {
   try {
-    const message = {
+    const photoMessage = {
       text: imageUrl,
       sender: userUid,
       receiver: receiverUid,
       timestamp: new Date(),
     };
     await Promise.all([
-      addDoc(collection(firestore, 'users', userUid, 'messages'), message),
-      addDoc(collection(firestore, 'users', receiverUid, 'messages'), message),
+      addDoc(collection(firestore, 'users', userUid, 'messages'), photoMessage),
+      addDoc(collection(firestore, 'users', receiverUid, 'messages'), photoMessage),
     ]);
   } catch (error: any) {
-    console.error("Error al guardar el mensaje de foto:", error);
-    throw new Error("Error al guardar el mensaje de foto: " + error.message);
+    console.error("Error guardando mensaje de foto:", error);
+    throw new Error("Error guardando mensaje de foto: " + error.message);
   }
 };
 
-/**
- * Retorna el usuario actualmente autenticado.
- *
- * @returns El usuario autenticado o `null` si no hay sesión iniciada.
- */
-export const getCurrentUser = () => {
-  return auth.currentUser;
-};
+/* ====================================================
+   ================= CUSTOM HOOKS =====================
+   ==================================================== */
 
 /**
- * Definición del tipo de mensaje.
+ * IUserData
+ * ---------
+ * Define la estructura de los datos del usuario.
  */
-export interface Message {
-  id?: string;
-  text: string;
-  sender: string;
-  receiver: string;
-  timestamp: any; // Por lo general, un Firestore Timestamp
-  isSending?: boolean;
+export interface IUserData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  profileImage: string | null;
 }
+
+/**
+ * useFirebaseProfile
+ * ------------------
+ * Hook que retorna el usuario autenticado y escucha en tiempo real
+ * los cambios en su perfil en Firestore.
+ */
+export const useFirebaseProfile = () => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<IUserData>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    profileImage: null,
+  });
+
+  // Escucha cambios en la autenticación
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, setCurrentUser);
+    return () => unsubscribeAuth();
+  }, []);
+
+  // Escucha en tiempo real el documento del usuario en Firestore
+  useEffect(() => {
+    if (currentUser) {
+      const userRef = doc(firestore, "users", currentUser.uid);
+      const unsubscribeSnapshot = onSnapshot(
+        userRef,
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setUserData({
+              firstName: data.firstName || "",
+              lastName: data.lastName || "",
+              email: data.email || "",
+              phoneNumber: data.phoneNumber || "",
+              profileImage: data.profileImage || null,
+            });
+          }
+        },
+        (error) => console.error("Error en snapshot del usuario:", error)
+      );
+      return () => unsubscribeSnapshot();
+    }
+  }, [currentUser]);
+
+  return { currentUser, userData };
+};

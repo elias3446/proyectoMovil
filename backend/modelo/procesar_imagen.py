@@ -4,14 +4,14 @@ from typing import Optional, Any
 import requests
 from PIL import Image
 import io
-from config import model
+
 
 # Configuración del logger
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def process_image_flow(image_url: str) -> str:
+def process_image_flow(model, image_url: str) -> str:
     """
     Ejecuta el flujo completo para procesar una imagen:
       1. Descarga la imagen desde la URL.
@@ -39,7 +39,7 @@ def process_image_flow(image_url: str) -> str:
         temp_file_path = save_temp_image(image)
 
         # Subir la imagen a Gemini (usando mime_type "image/png")
-        uploaded_file = upload_to_gemini(temp_file_path, mime_type="image/png")
+        uploaded_file = upload_to_gemini(model, temp_file_path, mime_type="image/png")
 
         # Iniciar una conversación con el modelo, enviando la imagen y una instrucción
         chat_session = model.start_chat(
@@ -123,7 +123,7 @@ def save_temp_image(image: Image.Image, filename: str = "uploaded_image.png") ->
     return temp_file_path
 
 
-def upload_to_gemini(path: str, mime_type: Optional[str] = None) -> Any:
+def upload_to_gemini(model, path: str, mime_type: Optional[str] = None) -> Any:
     """
     Sube el archivo especificado a Gemini utilizando el modelo provisto.
 

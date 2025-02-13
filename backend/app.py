@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 # Importar funciones y modelos del proyecto
 from modelo.chat_functions import extract_keywords, generate_response, process_chat_request
 from modelo.procesar_imagen import upload_to_gemini, clean_temp_file, download_image, save_temp_image, process_image_flow
+from config import model
 
 # Cargar variables de entorno
 load_dotenv()
@@ -26,7 +27,7 @@ CORS(app)  # Habilita CORS para todas las rutas
 # Blueprint para endpoints de procesamiento de imágenes
 
 @app.route('/process_image', methods=['POST'])
-def process_image_endpoint():
+def process_image():
     """
     Endpoint para procesar imágenes.
     
@@ -41,7 +42,7 @@ def process_image_endpoint():
 
     try:
         # Procesar la imagen mediante el flujo definido en process_image_flow
-        response_text = process_image_flow(image_url)
+        response_text = process_image_flow(model, image_url)
         
         # Verificar si la respuesta indica que no se detectaron plantas
         if "no hay plantas" in response_text.lower() or "no puedo identificar" in response_text.lower():
@@ -55,7 +56,7 @@ def process_image_endpoint():
 
 
 @app.route('/chat', methods=['POST'])
-def chat_endpoint():
+def chat():
     """
     Endpoint para manejar solicitudes de chat.
     
@@ -71,7 +72,7 @@ def chat_endpoint():
     
     try:
         # Procesar la solicitud de chat mediante process_chat_request
-        response_text = process_chat_request(user_message, user_name)
+        response_text = process_chat_request(model, user_message, user_name)
         return jsonify({"response": response_text})
     except Exception as e:
         logger.error(f"Error en la solicitud de chat: {str(e)}", exc_info=True)

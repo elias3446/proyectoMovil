@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 
 import firebase_admin
 from firebase_admin import credentials, firestore
-from config import model
 
 # =============================================================================
 # Configuración y carga de variables de entorno
@@ -65,7 +64,7 @@ db = init_firestore()
 # =============================================================================
 # Funciones de procesamiento del chat
 # =============================================================================
-def process_chat_request(user_message: str, user_name: str) -> str:
+def process_chat_request(model, user_message: str, user_name: str) -> str:
     """
     Procesa la solicitud de chat:
       1. Extrae palabras clave del mensaje del usuario.
@@ -80,13 +79,13 @@ def process_chat_request(user_message: str, user_name: str) -> str:
         str: Respuesta generada por el modelo.
     """
     # Extraer palabras clave del mensaje
-    topic_keywords = extract_keywords(user_message)
+    topic_keywords = extract_keywords(model, user_message)
     # Generar respuesta basada en el mensaje, el historial y las palabras clave
-    response_text = generate_response(user_message, user_name, topic_keywords, model)
+    response_text = generate_response(model, user_message, user_name, topic_keywords)
     logger.info(f"Usuario: {user_name}, Mensaje: {user_message}, Respuesta: {response_text}")
     return response_text
 
-def extract_keywords(message: str) -> List[str]:
+def extract_keywords(model, message: str) -> List[str]:
     """
     Extrae palabras clave del mensaje utilizando la API de Google Generative AI.
 
@@ -163,7 +162,7 @@ def build_dalia_prompt(context: str, message: str) -> str:
         "Responde de manera concisa y precisa, manteniéndote siempre en tu rol de DALIA, la asistente especializada en el cuidado de plantas:"
     )
 
-def generate_response(message: str, user_name: str, topic_keywords: List[str], model: Any) -> str:
+def generate_response(model, message: str, user_name: str, topic_keywords: List[str]) -> str:
     """
     Genera una respuesta especializada en el cuidado de plantas utilizando el modelo generativo,
     basándose en el mensaje del usuario, su historial y las palabras clave extraídas.

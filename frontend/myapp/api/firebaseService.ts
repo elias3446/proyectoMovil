@@ -1,3 +1,4 @@
+
 import { collection, addDoc, getDocs, updateDoc, doc, DocumentSnapshot, query, orderBy, limit, startAfter, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '@/Config/firebaseConfig';
 import { Post } from '@/types/Post';
@@ -43,7 +44,7 @@ export const getPaginatedPosts = (
     // y limitados al número especificado.
     const queryRef = query(
       collection(firestore, "posts"),
-      orderBy("createdAt", "desc"),
+      orderBy(sortType, "desc"),
       limit(limitPosts)
     );
 

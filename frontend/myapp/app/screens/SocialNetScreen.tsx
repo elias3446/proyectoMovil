@@ -9,7 +9,8 @@ import {
   ScrollView,
   Pressable,
 } from "react-native";
-import { DocumentSnapshot } from "firebase/firestore";
+import { collection, DocumentSnapshot, onSnapshot } from "firebase/firestore";
+import { firestore } from '@/Config/firebaseConfig';
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator"; // Para procesar la imagen
 import { getAuth } from "firebase/auth"; 
@@ -26,6 +27,8 @@ import { Post } from "@/types/Post";
 import { sendNotificationMessage } from "@/api/notificationService";
 import { UserData } from "@/types/User";
 import { uploadImageToCloudinary } from "@/api/cloudinaryService";
+import ExpandableButton from "@/Components/ExpandableButton";
+import { SortType } from "@/types/SortType";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
@@ -76,7 +79,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         });
         return Array.from(uniqueSnapshotsMap.values());
       });
-    });
+    }, sortType, false);
   };
 
   // Función común para seleccionar una imagen y mostrar el PhotoPreviewSection
@@ -252,15 +255,33 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   };
 
   useEffect(() => {
-    const unsubscribe = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
+    const unsubscribeInitial = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
       setSnapshots(newSnapshots);
-    });
+      // Escucha en tiempo real solo para actualizaciones de likes y comentarios
+      const unsubscribeRealtime = onSnapshot(collection(firestore, "posts"), (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "modified") {
+            setSnapshots((prevSnapshots) => {
+              return prevSnapshots.map((doc) => {
+                if (doc.id === change.doc.id) {
+                  return change.doc; // Actualiza el documento modificado
+                }
+                return doc;
+              });
+            });
+          }
+        });
+      });
+      return () => {
+        if (unsubscribeRealtime) unsubscribeRealtime();
+      };
+    }, sortType, false);
     return () => {
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, []);
+  }, [sortType]);
 
   useEffect(() => {
     const userId = auth.currentUser?.uid;
@@ -479,6 +500,37 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
             {loading ? "Publicando..." : "Publicar"}
           </Text>
         </TouchableOpacity>
+      </View>
+      
+      {/* Botones para ordenar publicaciones */}
+      <View className="flex flex-row justify-start gap-2 mb-4">
+        <ExpandableButton
+          id={1}
+          text="Más recientes"
+          IconComponent={Ionicons}
+          iconName="timer"
+          activeId={activeExpandableButtonId}
+          setActiveId={setActiveExpandableButtonId}
+          onPress={() => handleButtonPress(SortType.DATE)}
+        />
+        <ExpandableButton
+          id={2}
+          text="Más likeados"
+          IconComponent={FontAwesome}
+          iconName="heart"
+          activeId={activeExpandableButtonId}
+          setActiveId={setActiveExpandableButtonId}
+          onPress={() => handleButtonPress(SortType.LIKES)}
+        />
+        <ExpandableButton
+          id={3}
+          text="Más comentados"
+          IconComponent={Fontisto}
+          iconName="comment"
+          activeId={activeExpandableButtonId}
+          setActiveId={setActiveExpandableButtonId}
+          onPress={() => handleButtonPress(SortType.COMMENTS)}
+        />
       </View>
 
       {/* Lista de posts */}

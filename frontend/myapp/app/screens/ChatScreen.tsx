@@ -8,6 +8,7 @@ import {
   Image,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import CustomModal from "@/Components/MyModal";
 import {
   getFirestore,
   collection,
@@ -38,6 +39,10 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isBotTyping, setIsBotTyping] = useState(false);
+
+  // Estados para el modal de imagen
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
@@ -147,7 +152,11 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       // Activa el indicador de "escribiendo..." para simular que el chatbot está respondiendo
       setIsBotTyping(true);
 
-      const botResponseText = await processChatWithAPI(currentMessageText, user.uid, (msg: string) => setMessageText(msg));
+      const botResponseText = await processChatWithAPI(
+        currentMessageText,
+        user.uid,
+        (msg: string) => setMessageText(msg)
+      );
         
       const botResponse: Omit<Message, 'id'> = {
         text: botResponseText,
@@ -169,7 +178,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     }
   }, [messageText, user, loading, db, receiverUID]);
 
-  // Función para renderizar cada mensaje
+  // Función para renderizar cada mensaje y detectar si es una imagen para abrir el modal
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     const isMyMessage = item.sender === user?.uid;
     const isBotMessage = item.sender === receiverUID;
@@ -192,11 +201,18 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           }`}
         >
           {isCloudinaryImage && item.text.startsWith('http') ? (
-            <Image
-              source={{ uri: item.text }}
-              className="w-[200px] h-[200px] rounded-lg my-1"
-              resizeMode="cover"
-            />
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedImage(item.text);
+                setModalVisible(true);
+              }}
+            >
+              <Image
+                source={{ uri: item.text }}
+                className="w-[200px] h-[200px] rounded-lg my-1"
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
           ) : (
             <Text className="text-base text-gray-500">
               {item.isSending ? '...' : item.text}
@@ -267,6 +283,23 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           <MaterialIcons name="send" size={24} color="white" />
         </TouchableOpacity>
       </View>
+
+      {/* Modal personalizado para mostrar la imagen seleccionada */}
+      <CustomModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+      >
+        {selectedImage ? (
+          <>
+            <Image
+              source={{ uri: selectedImage }}
+              className="w-full aspect-square rounded-lg"
+            />
+          </>
+        ) : (
+          <Text className="text-gray-500">No hay imagen seleccionada</Text>
+        )}
+      </CustomModal>
     </View>
   );
 };

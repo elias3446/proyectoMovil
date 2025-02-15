@@ -9,6 +9,8 @@ import {
   Modal,
   Dimensions,
   Platform,
+  Pressable,
+  TouchableWithoutFeedback,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -46,11 +48,16 @@ const CustomModal: React.FC<CustomModalProps> = ({
   // Para web
   if (Platform.OS === "web") {
     return (
-      <View className="flex-1 justify-center items-center bg-black/50 fixed inset-0 z-[999]">
-        <View className="w-11/12 bg-white p-5 rounded-2xl shadow">
-          {children}
-        </View>
-      </View>
+      <Pressable
+        className="flex-1 justify-center items-center bg-black/50 fixed inset-0 z-[999]"
+        onPress={onRequestClose}
+      >
+        <TouchableWithoutFeedback>
+          <View className="w-11/12 bg-white p-5 rounded-2xl shadow">
+            {children}
+          </View>
+        </TouchableWithoutFeedback>
+      </Pressable>
     );
   }
   // Para native
@@ -61,11 +68,21 @@ const CustomModal: React.FC<CustomModalProps> = ({
       animationType="slide"
       onRequestClose={onRequestClose}
     >
-      <View className="flex-1 justify-center items-center bg-black/50">
-        <View className="w-11/12 bg-white p-5 rounded-2xl shadow">
-          {children}
-        </View>
-      </View>
+      <Pressable
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "rgba(0,0,0,0.5)",
+        }}
+        onPress={onRequestClose}
+      >
+        <TouchableWithoutFeedback>
+          <View style={{ width: "90%", backgroundColor: "white", padding: 20, borderRadius: 20 }}>
+            {children}
+          </View>
+        </TouchableWithoutFeedback>
+      </Pressable>
     </Modal>
   );
 };
@@ -91,6 +108,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
   // Imagen actual y nueva (para previsualización)
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [newProfileImage, setNewProfileImage] = useState<string | null>(null);
+
+  // Estado para mostrar el modal de imagen de usuario
+  const [showProfileImageModal, setShowProfileImageModal] = useState(false);
 
   // Estados para la modificación de contraseña
   const [password, setPassword] = useState(""); // Nueva contraseña
@@ -340,10 +360,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
         <View className="w-[100px] h-[100px] rounded-full bg-[#F3F4F6] self-center mb-3 justify-center items-center relative">
           {newProfileImage || profileImage ? (
-            <Image
-              source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
-              className="w-[100px] h-[100px] rounded-full"
-            />
+            <TouchableOpacity onPress={() => setShowProfileImageModal(true)}>
+              <Image
+                source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
+                className="w-[100px] h-[100px] rounded-full"
+              />
+            </TouchableOpacity>
           ) : (
             <Text className="text-[#9CA3AF]">Sin Imagen</Text>
           )}
@@ -457,6 +479,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             </TouchableOpacity>
           </View>
         </View>
+      </CustomModal>
+
+      {/* Modal para mostrar la imagen del usuario en pantalla completa */}
+      <CustomModal
+        visible={showProfileImageModal}
+        onRequestClose={() => setShowProfileImageModal(false)}
+      >
+        {newProfileImage || profileImage ? (
+          <Image
+            source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
+            className="w-full aspect-square rounded-lg" 
+          />
+        ) : (
+          <Text className="text-center">No hay imagen disponible</Text>
+        )}
       </CustomModal>
     </ScrollView>
   );

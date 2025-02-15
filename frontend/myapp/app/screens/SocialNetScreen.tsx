@@ -49,6 +49,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const POST_LIMIT = 10;
 
+  // Estados para mostrar la imagen de un post en modal
+  const [modalPostVisible, setModalPostVisible] = useState<boolean>(false);
+  const [selectedPostImage, setSelectedPostImage] = useState<string | null>(null);
+
+  // Estados para mostrar la imagen del usuario en modal
+  const [modalProfileVisible, setModalProfileVisible] = useState<boolean>(false);
+  const [selectedProfileImage, setSelectedProfileImage] = useState<string | null>(null);
+
   const auth = getAuth();
 
   // Función para obtener el último elemento de un arreglo
@@ -284,7 +292,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       <ScrollView className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
         <View className="flex flex-row items-center gap-2 px-4 pt-4">
           {userName?.profileImage ? (
-            <Image source={{ uri: userName.profileImage }} className="object-cover h-8 w-8 rounded-full" />
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedProfileImage(userName.profileImage);
+                setModalProfileVisible(true);
+              }}
+            >
+              <Image source={{ uri: userName.profileImage }} className="object-cover h-8 w-8 rounded-full" />
+            </TouchableOpacity>
           ) : (
             <FontAwesome6 name="user-circle" size={26} />
           )}
@@ -296,7 +311,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         <Text className="text-xl px-4 py-2">{item.content}</Text>
 
         {item.imageUrl && (
-          <Image source={{ uri: item.imageUrl }} className="w-auto aspect-square rounded-lg mx-2 object-cover" />
+          <TouchableOpacity
+            onPress={() => {
+              setSelectedPostImage(item.imageUrl);
+              setModalPostVisible(true);
+            }}
+          >
+            <Image source={{ uri: item.imageUrl }} className="w-auto aspect-square rounded-lg mx-2 object-cover" />
+          </TouchableOpacity>
         )}
 
         <View className="flex flex-row items-center justify-start gap-2 px-4 pt-3 pb-2">
@@ -319,7 +341,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               return (
                 <View className="flex flex-row items-center gap-2" key={index}>
                   {commentUser?.profileImage ? (
-                    <Image source={{ uri: commentUser.profileImage }} className="object-cover h-8 w-8 rounded-full" />
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedProfileImage(commentUser.profileImage);
+                        setModalProfileVisible(true);
+                      }}
+                    >
+                      <Image source={{ uri: commentUser.profileImage }} className="object-cover h-8 w-8 rounded-full" />
+                    </TouchableOpacity>
                   ) : (
                     <FontAwesome6 name="user-circle" size={27} />
                   )}
@@ -386,7 +415,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       {/* Sección para crear post */}
       <View className="flex flex-row items-center rounded-full gap-2">
         {profileImage ? (
-          <Image source={{ uri: profileImage }} className="object-cover h-11 w-11 rounded-full" />
+          <TouchableOpacity
+            onPress={() => {
+              setSelectedProfileImage(profileImage);
+              setModalProfileVisible(true);
+            }}
+          >
+            <Image source={{ uri: profileImage }} className="object-cover h-11 w-11 rounded-full" />
+          </TouchableOpacity>
         ) : (
           <FontAwesome6 name="user-circle" size={38} />
         )}
@@ -409,7 +445,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         )}
       </View>
 
-      {/* Modal para vista previa de imagen */}
+      {/* Modal para vista previa de imagen en la creación del post */}
       <CustomModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -457,6 +493,30 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         onEndReached={() => fetchMorePosts()}
         onEndReachedThreshold={0.5}
       />
+
+      {/* Modal para mostrar la imagen de un post (sin opción para elegir otra imagen) */}
+      <CustomModal
+        visible={modalPostVisible}
+        onClose={() => setModalPostVisible(false)}
+      >
+        {selectedPostImage ? (
+          <Image source={{ uri: selectedPostImage }} className="w-full aspect-square rounded-lg" />
+        ) : (
+          <Text className="text-gray-500">No hay imagen seleccionada</Text>
+        )}
+      </CustomModal>
+
+      {/* Modal para mostrar la imagen del usuario */}
+      <CustomModal
+        visible={modalProfileVisible}
+        onClose={() => setModalProfileVisible(false)}
+      >
+        {selectedProfileImage ? (
+          <Image source={{ uri: selectedProfileImage }} className="w-full aspect-square rounded-lg" />
+        ) : (
+          <Text className="text-gray-500">No hay imagen seleccionada</Text>
+        )}
+      </CustomModal>
     </View>
   );
 };

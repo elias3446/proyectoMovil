@@ -1,150 +1,121 @@
 import os
-import asyncio
 import logging
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from dotenv import load_dotenv
-import httpx
 import google.generativeai as genai
-# Importamos las funciones modulares (ajustándolas si es necesario para async)
 from modelo.chat_functions import extract_keywords, generate_response
-from modelo.procesar_imagen import download_image, save_temp_image, upload_to_gemini, clean_temp_file
+from modelo.procesar_imagen import upload_to_gemini, clean_temp_file,download_image,save_temp_image
 from config import model
 
 # Cargar variables de entorno
 load_dotenv()
 
-# Configuración de FastAPI y CORS
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Ajusta esto según tus necesidades de seguridad
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = Flask(__name__)
+CORS(app)  # Habilita CORS para todas las rutas
 
-# Configuración del logger
+# Configuración del registro de interacciones
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-@app.get("/ping")
-async def ping():
-    """
-    Endpoint simple para mantener la aplicación activa.
-    """
-    return {"status": "alive"}
-
-
-@app.post("/process_image")
-async def process_image_endpoint(request: Request):
+@app.route('/process_image', methods=['POST'])
+def process_image_endpoint():
     """
     Endpoint para procesar imágenes.
-
-    Recibe un JSON con la clave 'image_url', descarga y guarda la imagen temporalmente,
-    la sube a Gemini y envía una solicitud al modelo para analizar la imagen en busca de
-    información sobre plantas.
+    
+    Recibe en JSON la clave 'image_url', descarga y guarda la imagen, la procesa con Gemini
+    y establece una conversación para obtener información sobre plantas. Si no se detectan plantas,
+    retorna un mensaje informativo.
     """
-    data = await request.json()
+    data = request.get_json() or {}
     image_url = data.get("image_url", "").strip()
-
+    
     if not image_url:
-        raise HTTPException(status_code=400, detail="No se encontró URL de imagen.")
+        return jsonify({'error': 'No se encontró URL de imagen.'}), 400
 
     temp_file_path = None
     try:
-        # Descargar y guardar la imagen de forma sincrónica (puedes adaptar download_image para async)
+        # Descargar y guardar la imagen en un archivo temporal
         image = download_image(image_url)
         temp_file_path = save_temp_image(image)
 
-        # Subir la imagen a Gemini (manteniendo la llamada síncrona o envolviéndola en un executor)
+        # Procesar la imagen con Gemini
         uploaded_file = upload_to_gemini(genai, temp_file_path, mime_type="image/png")
-
-        # Configurar el historial del chat para analizar la imagen
-        chat_history = [{
-            "role": "user",
-            "parts": [
-                uploaded_file,
-                (
-                    "Analiza esta imagen y proporciona información concisa sobre las plantas. "
-                    "La respuesta debe ser corta e incluir únicamente lo siguiente:\n"
-                    "1. Tipo de planta.\n"
-                    "2. Frecuencia de riego recomendada.\n"
-                    "3. Tipo de tierra adecuado.\n"
-                    "4. Cantidad de luz solar.\n"
-                    "5. Otros datos relevantes.\n"
-                    "Si la imagen no contiene ninguna planta, responde únicamente 'no hay plantas'."
-                )
-            ]
-        }]
-
-        chat_session = model.start_chat(history=chat_history)
+        
+        # Iniciar una conversación con el modelo enfocada en el análisis de plantas
+        chat_session = model.start_chat(
+            history=[{
+                "role": "user",
+                "parts": [
+                    uploaded_file,
+                    (
+                        "Analiza esta imagen y proporciona información concisa sobre las plantas. "
+                        "La respuesta debe ser corta e incluir únicamente lo siguiente:\n"
+                        "1. Tipo de planta.\n"
+                        "2. Frecuencia de riego recomendada.\n"
+                        "3. Tipo de tierra adecuado.\n"
+                        "4. Cantidad de luz solar.\n"
+                        "5. Otros datos relevantes.\n"
+                        "Si la imagen no contiene ninguna planta, responde únicamente 'no hay plantas'."
+                    )
+                ],
+            }]
+        )
+        
         response_message = chat_session.send_message(
-            "Describe la imagen de forma breve con la información solicitada. Si no hay plantas, responde 'no hay plantas'."
+             "Describe la imagen de forma breve, clara, precisa y corta con la información solicitada. Si no hay plantas, responde 'no hay plantas'."
         )
         response_text = response_message.text
 
+        # Si la respuesta indica que no se detectaron plantas, se informa al usuario
         if "no hay plantas" in response_text.lower() or "no puedo identificar" in response_text.lower():
-            return JSONResponse(content={'respuesta': "no hay plantas"})
-
-        return JSONResponse(content={'respuesta': response_text})
+            return jsonify({'respuesta': "no hay plantas"}) 
+               
+        return jsonify({'respuesta': response_text})
 
     except Exception as e:
         logger.error(f"Error al procesar la imagen: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error al procesar la imagen: {str(e)}")
+        return jsonify({'error': f'Error al procesar la imagen: {str(e)}'}), 500
+
     finally:
-        if temp_file_path:
+        # Asegurarse de limpiar el archivo temporal, incluso en caso de error
+        if temp_file_path and os.path.exists(temp_file_path):
             try:
                 clean_temp_file(temp_file_path)
             except Exception as cleanup_error:
                 logger.error(f"Error limpiando el archivo temporal: {cleanup_error}", exc_info=True)
 
 
-@app.post("/chat")
-async def chat_endpoint(request: Request):
+@app.route("/chat", methods=["POST"])
+def chat_endpoint():
     """
     Endpoint para manejar solicitudes de chat.
-
-    Recibe un JSON con 'message' y 'user'. Extrae palabras clave, consulta el historial
-    y genera una respuesta especializada en el cuidado de plantas.
+    
+    Recibe en JSON los campos 'message' y 'user'. Se valida que el mensaje no esté vacío,
+    se extraen palabras clave (opcional) y se genera una respuesta utilizando el modelo.
     """
-    data = await request.json()
+    data = request.get_json() or {}
     user_message = data.get("message", "").strip()
     user_name = data.get("user", "").strip()
-
+    
     if not user_message:
-        raise HTTPException(status_code=400, detail="El mensaje del usuario no puede estar vacío.")
+        return jsonify({"error": "El mensaje del usuario no puede estar vacío."}), 400
 
     try:
+        # Extraer palabras clave del mensaje del usuario (opcional)
         topic_keywords = extract_keywords(user_message, model)
+        # Generar la respuesta utilizando el historial y el modelo
         response_text = generate_response(user_message, user_name, topic_keywords, model)
 
+        # Registrar la interacción
         logger.info(f"Usuario: {user_name}, Mensaje: {user_message}, Respuesta: {response_text}")
-        return JSONResponse(content={"response": response_text})
+        
+        return jsonify({"response": response_text})
     except Exception as e:
         logger.error(f"Error en la solicitud de chat: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error en la solicitud de chat: {str(e)}")
+        return jsonify({"error": f"Error en la solicitud de chat: {str(e)}"}), 500
 
 
-async def keep_alive():
-    """
-    Realiza un self-ping periódico para mantener la instancia activa.
-    Se hace una solicitud GET al endpoint /ping cada 5 minutos.
-    """
-    async with httpx.AsyncClient() as client:
-        while True:
-            try:
-                url = os.getenv("SELF_PING_URL", "http://localhost:8000/ping")
-                response = await client.get(url)
-                logger.info("Self-ping exitoso, estado: %s", response.status_code)
-            except Exception as e:
-                logger.error("Error durante el self-ping: %s", e)
-            await asyncio.sleep(300)  # 5 minutos
-
-
-# Inicia la tarea de self-ping cuando arranca la aplicación.
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(keep_alive())
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))  # Usa 5000 como valor predeterminado si no se encuentra PORT en las variables de entorno
+    app.run(host="0.0.0.0", port=port)

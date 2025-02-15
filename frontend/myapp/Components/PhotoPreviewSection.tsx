@@ -1,6 +1,5 @@
-// PhotoPreviewSection.tsx
 import Fontisto from "@expo/vector-icons/Fontisto";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState } from "react";
 import {
   TouchableOpacity,
   SafeAreaView,
@@ -8,141 +7,149 @@ import {
   View,
   Text,
   ActivityIndicator,
-  Keyboard,
+  Alert,
 } from "react-native";
+import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import NotificationBanner from "@/Components/NotificationBanner";
-// Importa la función del servicio para enviar el mensaje con la imagen
-import { sendPhotoMessage } from "@/api/photoService";
+import { uploadImageToCloudinary } from "@/api/cloudinaryService";
+import { processImageWithAPI } from "@/api/processWithAPIService";
 
 interface PhotoPreviewSectionProps {
   photo: { uri: string };
   handleRetakePhoto: () => void;
-  setCurrentScreen: (screen: string) => void;
+  setCurrentScreen?: (screen: string) => void;
+  onConfirm?: () => void; // Si se define, se usará en lugar de la lógica por defecto
 }
 
-/**
- * ImagePreview:
- * Muestra la vista previa de la imagen en un contenedor con estilos definidos.
- * También muestra un banner de notificación en caso de error.
- */
-const ImagePreview: React.FC<{ photo: { uri: string }; errorMessage: string }> = ({
-  photo,
-  errorMessage,
-}) => (
-  <View className="w-full h-[300px] bg-[#F3F4F6] justify-center items-center rounded-[16px] mb-8">
-    <NotificationBanner message={errorMessage} type="error" />
-    {photo?.uri ? (
-      <Image
-        className="w-full h-full rounded-[15px] bg-white"
-        source={{ uri: photo.uri }}
-        resizeMode="contain"
-      />
-    ) : (
-      <Text className="text-red-500 text-base text-center mt-2">
-        No image available
-      </Text>
-    )}
-  </View>
-);
-
-/**
- * ActionButtons:
- * Renderiza dos botones para retomar o enviar la foto.
- */
-interface ActionButtonsProps {
-  onRetake: () => void;
-  onSend: () => void;
-  disabled: boolean;
-}
-
-const ActionButtons: React.FC<ActionButtonsProps> = ({
-  onRetake,
-  onSend,
-  disabled,
-}) => (
-  <View className="flex-row justify-center items-center">
-    <TouchableOpacity
-      className="bg-[#5CB868] rounded-full p-3 m-2.5 justify-center items-center"
-      onPress={onRetake}
-      accessibilityLabel="Re-take photo"
-      accessibilityRole="button"
-    >
-      <Fontisto name="trash" size={36} color="white" />
-    </TouchableOpacity>
-    <TouchableOpacity
-      className="bg-[#5CB868] rounded-full p-3 m-2.5 justify-center items-center"
-      onPress={onSend}
-      disabled={disabled}
-      accessibilityLabel="Send photo"
-      accessibilityRole="button"
-    >
-      <Fontisto name="check" size={36} color="white" />
-    </TouchableOpacity>
-  </View>
-);
-
-/**
- * PhotoPreviewSection:
- * Componente principal que permite al usuario revisar la imagen tomada,
- * retomar la toma o enviarla. Además, maneja estados de carga y errores.
- */
 const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
   photo,
   handleRetakePhoto,
   setCurrentScreen,
+  onConfirm,
 }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const auth = getAuth();
+  const db = getFirestore();
 
-  /**
-   * handleSendPhoto:
-   * Cierra el teclado y envía la imagen mediante el servicio.
-   */
-  const handleSendPhoto = useCallback(async () => {
-    Keyboard.dismiss();
+  const handleSendPhoto = async () => {
+
+    
+    // Lógica por defecto (flujo de chat)
+    const user = auth.currentUser;
+    if (!user) {
+      setErrorMessage("Usuario no autenticado.");
+      return;
+    }
     if (!photo?.uri) {
       setErrorMessage("No hay imagen para enviar.");
       return;
     }
     setIsLoading(true);
+
     try {
-      await sendPhotoMessage(photo, setCurrentScreen);
-    } catch (error: any) {
+      const imageUrl = await uploadImageToCloudinary(photo.uri, "user_messages");
+      if (!imageUrl) {
+        throw new Error("Image URL is null");
+      }
+      const botResponseText = await processImageWithAPI(
+        imageUrl,
+        (msg: string) => setErrorMessage(msg)
+      );
+      if (botResponseText && botResponseText.toLowerCase() === "no hay plantas") {
+        Alert.alert(
+          "Atención",
+          botResponseText,
+          [
+            {
+              text: "OK",
+              onPress: handleRetakePhoto,
+            },
+          ],
+          { cancelable: false }
+        );
+        return;
+      }
+          // Si se provee onConfirm, simplemente lo llamamos
+    if (onConfirm) {
+      onConfirm();
+      return;
+    }
+    
+      const receiverUID = "receiverUID"; // TODO: Reemplazar por el ID real del receptor
+      const userMessagesRef = collection(db, "users", user.uid, "messages");
+      const receiverMessagesRef = collection(db, "users", receiverUID, "messages");
+
+      await addDoc(userMessagesRef, {
+        text: imageUrl,
+        sender: user.uid,
+        receiver: receiverUID,
+        timestamp: new Date(),
+      });
+
+      const botMessage = {
+        text: botResponseText,
+        sender: receiverUID,
+        receiver: user.uid,
+        timestamp: new Date(),
+      };
+
+      await addDoc(userMessagesRef, botMessage);
+      await addDoc(receiverMessagesRef, botMessage);
+
+      if (setCurrentScreen) {
+        setCurrentScreen("ChatScreen");
+      } else {
+        Alert.alert("Éxito", "La imagen ha sido procesada y enviada.");
+      }
+    } catch (error) {
       console.error("Error al enviar la imagen:", error);
-      setErrorMessage(error.message || "Error al enviar la imagen.");
+      setErrorMessage("Error al enviar la imagen.");
     } finally {
       setIsLoading(false);
     }
-  }, [photo, setCurrentScreen]);
-
-  // Auto-limpieza del mensaje de error después de 3 segundos
-  useEffect(() => {
-    if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(""), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMessage]);
+  };
 
   return (
     <SafeAreaView className="flex-1 relative bg-white justify-center items-center p-5">
-      {/* Vista previa de la imagen */}
-      <ImagePreview photo={photo} errorMessage={errorMessage} />
+      <View className="w-full h-[300px] bg-[#F3F4F6] justify-center items-center rounded-[16px] mb-8">
+        <NotificationBanner message={errorMessage} type="error" />
+        {photo?.uri ? (
+          <Image
+            className="w-full h-full rounded-[15px] bg-white"
+            source={{ uri: photo.uri }}
+            resizeMode="contain"
+          />
+        ) : (
+          <Text className="text-red-500 text-base text-center mt-2">
+            No image available
+          </Text>
+        )}
+      </View>
 
-      {/* Botones para retomar o enviar la imagen */}
-      <ActionButtons
-        onRetake={handleRetakePhoto}
-        onSend={handleSendPhoto}
-        disabled={isLoading || !photo?.uri}
-      />
+      <View className="flex-row justify-center items-center">
+        <TouchableOpacity
+          className="bg-[#5CB868] rounded-full p-3 m-2.5 justify-center items-center"
+          onPress={handleRetakePhoto}
+        >
+          <Fontisto name="trash" size={36} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="bg-[#5CB868] rounded-full p-3 m-2.5 justify-center items-center"
+          onPress={handleSendPhoto}
+          disabled={isLoading || !photo?.uri}
+        >
+          <Fontisto name="check" size={36} color="white" />
+        </TouchableOpacity>
+      </View>
 
-      {/* Indicador de carga */}
       {isLoading && (
         <View className="absolute inset-0 justify-center items-center">
           <ActivityIndicator size="large" color="#5CB868" />
         </View>
       )}
 
-      {/* Mensaje de error */}
       {errorMessage ? (
         <Text className="text-red-500 text-base text-center mt-2">
           {errorMessage}

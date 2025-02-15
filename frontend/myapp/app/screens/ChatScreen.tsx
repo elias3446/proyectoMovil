@@ -17,6 +17,7 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { processChatWithAPI } from '@/api/processWithAPIService';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -146,22 +147,8 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       // Activa el indicador de "escribiendo..." para simular que el chatbot está respondiendo
       setIsBotTyping(true);
 
-      const response = await fetch('https://proyectomovil-qh8q.onrender.com/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: currentMessageText, user: user.uid }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al obtener la respuesta de la API');
-      }
-
-      const responseData = await response.json();
-      const botResponseText =
-        responseData?.response || 'No se obtuvo una respuesta válida.';
-
+      const botResponseText = await processChatWithAPI(currentMessageText, user.uid, (msg: string) => setMessageText(msg));
+        
       const botResponse: Omit<Message, 'id'> = {
         text: botResponseText,
         sender: receiverUID,

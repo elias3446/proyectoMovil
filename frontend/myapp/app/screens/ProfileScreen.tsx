@@ -28,6 +28,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import NotificationBanner from "@/Components/NotificationBanner";
 import { FontAwesome } from "@expo/vector-icons";
+import { uploadImageToCloudinary } from "@/api/cloudinaryService";
 
 // Componente Modal personalizado para compatibilidad en web y native
 interface CustomModalProps {
@@ -185,38 +186,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
   }, [showError]);
 
-  // Función auxiliar para subir imagen a Cloudinary
-  const uploadProfileImage = useCallback(async (imageUri: string) => {
-    const formData = new FormData();
-    if (Platform.OS === "web") {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      formData.append("file", blob, "profile.jpg");
-    } else {
-      formData.append("file", {
-        uri: imageUri,
-        type: "image/jpeg",
-        name: "profile.jpg",
-      } as any);
-    }
-    formData.append("upload_preset", "my_upload_preset2");
-    formData.append("folder", "profile_images");
-
-    const cloudinaryResponse = await fetch(
-      "https://api.cloudinary.com/v1_1/dwhl67ka5/image/upload",
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-    const data = await cloudinaryResponse.json();
-    if (data.secure_url) {
-      return data.secure_url;
-    } else {
-      throw new Error("Error al obtener la URL de la imagen.");
-    }
-  }, []);
-
   // Función para guardar los cambios del perfil
   const handleSaveChanges = useCallback(async () => {
     if (!currentUser) {
@@ -287,7 +256,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
       let finalProfileImage = profileImage;
       if (newProfileImage) {
         try {
-          finalProfileImage = await uploadProfileImage(newProfileImage);
+          finalProfileImage = await uploadImageToCloudinary(newProfileImage);
         } catch (uploadError: any) {
           showError(uploadError.message);
           setLoading(false);
@@ -336,7 +305,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     profileImage,
     newProfileImage,
     db,
-    uploadProfileImage,
+    uploadImageToCloudinary,
     showError,
     showSuccess,
   ]);

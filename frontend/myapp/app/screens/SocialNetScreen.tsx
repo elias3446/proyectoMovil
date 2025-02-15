@@ -9,7 +9,8 @@ import {
   ScrollView,
   Pressable,
 } from "react-native";
-import { DocumentSnapshot } from "firebase/firestore";
+import { collection, DocumentSnapshot, onSnapshot } from "firebase/firestore";
+import { firestore } from '@/Config/firebaseConfig';
 import * as ImagePicker from "expo-image-picker";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -80,7 +81,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         });
         return Array.from(uniqueSnapshotsMap.values());
       });
-    });
+    }, false);
   };
 
   /**
@@ -241,11 +242,29 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
   // Carga inicial de posts
   useEffect(() => {
-    const unsubscribe = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
+    const unsubscribeInitial = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
       setSnapshots(newSnapshots);
-    });
+      // Escucha en tiempo real solo para actualizaciones de likes y comentarios
+      const unsubscribeRealtime = onSnapshot(collection(firestore, "posts"), (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "modified") {
+            setSnapshots((prevSnapshots) => {
+              return prevSnapshots.map((doc) => {
+                if (doc.id === change.doc.id) {
+                  return change.doc; // Actualiza el documento modificado
+                }
+                return doc;
+              });
+            });
+          }
+        });
+      });
+      return () => {
+        if (unsubscribeRealtime) unsubscribeRealtime();
+      };
+    }, false);
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeInitial) unsubscribeInitial();
     };
   }, []);
 
@@ -265,62 +284,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     fetchUserData();
     fetchUserProfileImage();
   }, []);
-
-  /* ================= SUBCOMPONENTE: CreatePostSection =================
-     Se encarga de mostrar el área para crear un nuevo post, incluyendo
-     el campo de texto, la imagen (si se seleccionó) y el botón de publicación.
-  */
-  const CreatePostSection: React.FC = () => (
-    <View className="flex flex-row items-center rounded-full gap-2">
-      {profileImage ? (
-        <Image source={{ uri: profileImage }} className="object-cover h-11 w-11 rounded-full" />
-      ) : (
-        <FontAwesome6 name="user-circle" size={38} />
-      )}
-      <TextInput
-        className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
-        placeholder="¿Qué estás pensando?"
-        value={content}
-        onChangeText={setContent}
-        multiline
-        placeholderTextColor="#9095A1"
-      />
-      {image ? (
-        <Pressable onPress={() => setModalVisible(true)}>
-          <Image source={{ uri: image }} className="w-11 h-11 rounded-lg" />
-        </Pressable>
-      ) : (
-        <Feather name="image" size={40} onPress={handlePickImage} />
-      )}
-    </View>
-  );
-
-  /* ================= SUBCOMPONENTE: ImagePreviewModal =================
-     Muestra una vista previa de la imagen seleccionada con opción de elegir otra.
-  */
-  const ImagePreviewModal: React.FC = () => (
-    <CustomModal
-      visible={modalVisible}
-      onClose={() => setModalVisible(false)}
-      width="w-3/4"
-      height="h-[41%]"
-    >
-      {image ? (
-        <>
-          <Image source={{ uri: image }} className="w-full aspect-square rounded-lg" />
-          <TouchableOpacity
-            className="flex-row gap-2 items-center mt-4 px-4 py-2 bg-[#A5D6A7] rounded-lg"
-            onPress={handlePickImage}
-          >
-            <Feather name="image" size={20} color="#142C15" />
-            <Text className="text-[#142C15] font-bold">Elegir otra imagen</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <Text className="text-gray-500">No hay imagen seleccionada</Text>
-      )}
-    </CustomModal>
-  );
 
   /* ================= SUBCOMPONENTE: PostItem =================
      Renderiza cada publicación, mostrando información del usuario, contenido,
@@ -459,8 +422,41 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       </View>
 
       {/* Sección para crear un nuevo post */}
-      <CreatePostSection />
-      <ImagePreviewModal />
+      <View className="flex flex-row items-center rounded-full gap-2">
+        {profileImage ? (
+          <Image source={{ uri: profileImage }} className="object-cover h-11 w-11 rounded-full" />
+        ) : (
+          <FontAwesome6 name="user-circle" size={38} />
+        )}
+        <TextInput
+          className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
+          placeholder="¿Qué estás pensando?"
+          value={content}
+          onChangeText={setContent}
+          multiline
+          placeholderTextColor="#9095A1"
+        />
+        {image ? (
+          <Pressable onPress={() => setModalVisible(true)}>
+            <Image source={{ uri: image }} className="w-11 h-11 rounded-lg" />
+          </Pressable>
+        ) : <Feather name="image" size={40} onPress={handlePickImage} />}
+
+        {/* Modal para mostrar la imagen seleccionada */}
+        <CustomModal visible={modalVisible} onClose={() => setModalVisible(false)} width="w-3/4" height="h-[41%]">
+          {image ? (
+            <>
+              <Image source={{ uri: image }} className="w-full aspect-square rounded-lg" />
+              <TouchableOpacity className="flex-row gap-2 items-center mt-4 px-4 py-2 bg-[#A5D6A7] rounded-lg" onPress={handlePickImage}>
+                <Feather name="image" size={20} color="#142C15" />
+                <Text className="text-[#142C15] font-bold">Elegir otra imagen</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text className="text-gray-500">No hay imagen seleccionada</Text>
+          )}
+        </CustomModal>
+      </View>
 
       {/* Botón para publicar */}
       <View className="my-3">

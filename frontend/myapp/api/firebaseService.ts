@@ -60,19 +60,37 @@ import { useState, useEffect } from "react";
 export const getPaginatedPosts = (
   afterDoc: DocumentSnapshot | undefined,
   limitPosts: number,
-  callback: (newSnapshots: DocumentSnapshot[]) => void
+  callback: (newSnapshots: DocumentSnapshot[]) => void,
+  realtime: boolean = false
 ): (() => void) | null => {
   try {
     const baseQuery = query(
       collection(firestore, "posts"),
-      orderBy("createdAt", "desc"),
+      //orderBy("createdAt", "desc"),
+      orderBy("likesCount", "desc"),
+      //orderBy("commentsCount", "desc"),
       limit(limitPosts)
     );
     const paginatedQuery = afterDoc ? query(baseQuery, startAfter(afterDoc)) : baseQuery;
-    const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
-      callback(snapshot.docs);
-    });
-    return unsubscribe;
+
+    if (realtime) {
+      // Escucha en tiempo real
+      const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
+        callback(snapshot.docs);
+      });
+      return unsubscribe;
+    } else {
+      // Consulta única
+      getDocs(paginatedQuery)
+        .then((snapshot) => {
+          callback(snapshot.docs);
+        })
+        .catch((error) => {
+          console.error("Error obteniendo posts paginados:", error);
+        });
+
+      return () => {}; // Devuelve una función vacía para mantener la firma
+    }
   } catch (error: any) {
     console.error("Error obteniendo posts paginados:", error);
     return null;

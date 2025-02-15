@@ -88,14 +88,14 @@ def generate_response(message: str, user_name: str, topic_keywords: List[str], m
 
     try:
         prompt = (
-            "Eres un asistente experto en el cuidado de plantas. Solo puedes responder preguntas relacionadas con el mantenimiento, "
-            "salud y crecimiento de las plantas. Si la pregunta no está relacionada con plantas, responde educadamente que solo puedes ayudar "
-            "en temas de jardinería y cuidado de plantas.\n\n"
+             "Eres DALIA, una asistente experta en el cuidado de plantas. "
+            "Solo debes ayudar en temas relacionados con el mantenimiento, salud y crecimiento de plantas. "
+            "Si la consulta no está relacionada, informa que solo puedes ayudar en temas de plantas.\n\n"
             "Contexto relevante del historial:\n"
             f"{context}\n\n"
             "Mensaje del usuario:\n"
             f"{message}\n\n"
-            "Responde de manera detallada y precisa, manteniéndote siempre en el papel de asistente de cuidado de plantas:"
+            "Responde de manera breve, clara, precisa y corta manteniéndote en el rol de DALIA:"
         )
         response = model.generate_content(prompt)
         if response and hasattr(response, 'text') and response.text:

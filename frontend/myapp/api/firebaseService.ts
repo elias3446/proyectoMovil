@@ -337,6 +337,13 @@ export const getCurrentUser = (): User | null => {
   return getAuth().currentUser;
 };
 
+/**
+ * Se suscribe a los mensajes del usuario en Firestore.
+ * @param userId - ID del usuario.
+ * @param setMessages - Función callback que recibe el arreglo de mensajes.
+ * @param setError - Función callback que se ejecuta en caso de error.
+ * @returns Función para cancelar la suscripción.
+ */
 export const subscribeToChatMessages = (
   userId: string,
   setMessages: (messages: Message[]) => void,
@@ -369,4 +376,25 @@ export const subscribeToChatMessages = (
             setError('Error al cargar mensajes.');
           }
         );
+};
+
+/**
+ * Envía un mensaje a Firestore.
+ * Guarda el mensaje en la subcolección "messages" del remitente y del receptor.
+ * @param senderId - ID del remitente.
+ * @param receiverId - ID del receptor.
+ * @param messageText - Texto del mensaje.
+ */
+export const sendChatMessage = async (
+  senderId: string,
+  receiverId: string,
+  senderMessage: Omit<Message, 'id'>,
+) => {
+  const db = getFirestore();
+  const userMessagesRef = collection(db, 'users', senderId, 'messages');
+  const receiverMessagesRef = collection(db, 'users', receiverId, 'messages');
+  await Promise.all([
+    addDoc(userMessagesRef, senderMessage),
+    addDoc(receiverMessagesRef, senderMessage),
+  ]);
 };

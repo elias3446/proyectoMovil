@@ -42,7 +42,7 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
     try {
       setErrorMessage("");
       const response = await fetch(
-        "https://proyectomovil-1.onrender.com/process_image",
+        "https://proyectomovil-qh8q.onrender.com/process_image",
         {
           method: "POST",
           headers: {

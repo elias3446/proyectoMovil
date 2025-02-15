@@ -11,8 +11,9 @@ import {
   Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { auth } from "@/Config/firebaseConfig";
+import { sendPasswordResetEmail } from "firebase/auth";
 import NotificationBanner from "@/Components/NotificationBanner";
-import { resetUserPassword } from "@/api/firebaseService";
 
 interface AccountRecoveryScreenProps {
   setCurrentScreen: (screen: string) => void;
@@ -51,7 +52,7 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
 
     setLoading(true);
     try {
-      await resetUserPassword(trimmedEmail);
+      await sendPasswordResetEmail(auth, trimmedEmail);
       setSuccessMessage("Correo de recuperación enviado exitosamente.");
       // Redirige al login después de 1.5 segundos
       setTimeout(() => setCurrentScreen("LoginScreen"), 1500);

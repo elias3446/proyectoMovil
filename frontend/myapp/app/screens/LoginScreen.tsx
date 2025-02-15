@@ -13,7 +13,8 @@ import {
   Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { loginWithEmailAndPassword } from "@/api/firebaseService";
+import { auth } from '@/Config/firebaseConfig';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import NotificationBanner from '@/Components/NotificationBanner';
 import { registerIndieID } from 'native-notify';
 
@@ -84,12 +85,15 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
     setLoading(true);
     try {
-      const userCredential = await loginWithEmailAndPassword(email.trim(), password);
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       setNotification({ message: 'Inicio de sesión exitoso', type: 'success' });
 
       // Registro para notificaciones solo en dispositivos móviles (Android/iOS)
       if (Platform.OS !== 'web') {
         registerIndieID(userCredential.user.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
+      } else {
+        // En web se podría usar el API de Notificaciones del navegador si se desea
+        console.log('Registro de notificaciones omitido en web');
       }
 
       // Se espera un instante para mostrar el mensaje de éxito antes de cambiar de pantalla

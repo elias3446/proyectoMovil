@@ -146,7 +146,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       // Activa el indicador de "escribiendo..." para simular que el chatbot está respondiendo
       setIsBotTyping(true);
 
-      const response = await fetch('https://proyectomovil-1.onrender.com/chat', {
+      const response = await fetch('https://proyectomovil-qh8q.onrender.com/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

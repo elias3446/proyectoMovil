@@ -460,10 +460,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           <Text className="text-lg font-bold mb-5 text-center">
             ¿Seguro que deseas cerrar sesión?
           </Text>
-          <View className="flex-row justify-center space-x-6">
+          {/* Botones alineados verticalmente con separación */}
+          <View className="flex flex-col items-center">
             <TouchableOpacity
               className="w-[140px] p-3 rounded-[25px] items-center bg-gray-300"
               onPress={() => setShowSignOutModal(false)}
+              style={{ marginBottom: 10 }}  // Separación entre botones
             >
               <Text className="w-full text-white text-base font-bold text-center">
                 Cancelar

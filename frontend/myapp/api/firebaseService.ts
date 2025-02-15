@@ -1,9 +1,9 @@
-
 import { collection, addDoc, getDocs, updateDoc, doc, DocumentSnapshot, query, orderBy, limit, startAfter, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '@/Config/firebaseConfig';
 import { Post } from '@/types/Post';
 import { UserData } from '@/types/User';
 import { User, onAuthStateChanged } from 'firebase/auth';
+import { SortType } from '@/types/SortType';
 
 /**
  * Se suscribe a los cambios en la autenticación del usuario.
@@ -35,9 +35,11 @@ export const subscribeToAuthChanges = (callback: (user: User | null) => void) =>
  *                  posts o cuando se desee detener la consulta paginada. Retorna null si ocurre un error.
  */
 export const getPaginatedPosts = (
-  afterDoc: DocumentSnapshot | undefined, // último documento cargado
-  limitPosts: number, // Límite de posts a cargar por cada página
-  callback: (newSnapshots: DocumentSnapshot[]) => void // Función de callback para manejar los nuevos documentos cargados
+  afterDoc: DocumentSnapshot | undefined,
+  limitPosts: number,
+  callback: (newSnapshots: DocumentSnapshot[]) => void,
+  sortType: SortType,
+  realtime: boolean = false
 ): (() => void) | null => {
   try {
     // Crea una consulta base para obtener los posts, ordenados por fecha de creación de manera descendente,
@@ -52,14 +54,27 @@ export const getPaginatedPosts = (
     // y continuar cargando después del último documento de la página anterior.
     const paginatedQuery = afterDoc ? query(queryRef, startAfter(afterDoc)) : queryRef;
 
+    if (realtime) {
     // Se suscribe a los cambios en la consulta paginada utilizando 'onSnapshot'.
     const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
       const newSnapshots = snapshot.docs; // Obtiene los documentos nuevos del snapshot
       callback(newSnapshots); // Llama a la función callback pasando los nuevos documentos
-    })
+    });
 
     // Retorna la función para cancelar la suscripción cuando sea necesario.
     return unsubscribe;
+    
+  } else {
+    // Consulta única
+    getDocs(paginatedQuery)
+      .then((snapshot) => {
+        callback(snapshot.docs);
+      })
+      .catch((error) => {
+        console.error("Error obteniendo posts paginados:", error);
+      });
+      return () => {}; // Devuelve una función vacía para mantener la firma
+    }
   } catch (error) {
     console.error("Error obteniendo posts paginados:", error);
     return null;

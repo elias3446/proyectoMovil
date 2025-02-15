@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect , useCallback } from "react";
 import {
   View,
   Text,
@@ -27,13 +27,27 @@ import { Post } from "@/types/Post";
 import { sendNotificationMessage } from "@/api/notificationService";
 import { UserData } from "@/types/User";
 import { uploadImageToCloudinary } from "@/api/cloudinaryService";
-import ExpandableButton from "@/Components/ExpandableButton";
 import { SortType } from "@/types/SortType";
+import ExpandableButton from "@/Components/ExpandableButton";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+const POST_LIMIT = 10;
+
+/**
+ * getLastItem: Retorna el último elemento de un arreglo.
+ */
+function getLastItem<T>(arr: T[]): T | undefined {
+  return arr.slice(-1)[0];
+}
+
+/**
+ * SocialNet:
+ * Pantalla principal de la red social, donde el usuario puede crear publicaciones,
+ * ver las publicaciones de otros, dar like, comentar, y cargar más publicaciones de forma paginada.
+ */
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
   const [users, setUsers] = useState<Map<string, UserData>>(new Map());
@@ -51,6 +65,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const POST_LIMIT = 10;
+
+  const [activeExpandableButtonId, setActiveExpandableButtonId] = useState<number | null>(1);
+  const [sortType, setSortType] = useState<SortType>(SortType.DATE);
 
   // Estados para mostrar la imagen de un post en modal
   const [modalPostVisible, setModalPostVisible] = useState<boolean>(false);
@@ -254,6 +271,10 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }));
   };
 
+  const handleButtonPress = (newSortType: SortType) => {
+    setSortType(newSortType);
+  };
+
   useEffect(() => {
     const unsubscribeInitial = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
       setSnapshots(newSnapshots);
@@ -272,16 +293,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           }
         });
       });
-      return () => {
-        if (unsubscribeRealtime) unsubscribeRealtime();
-      };
-    }, sortType, false);
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      if (unsubscribeRealtime) unsubscribeRealtime();
     };
-  }, [sortType]);
+  }, sortType, false);
+  return () => {
+    if (unsubscribeInitial) unsubscribeInitial();
+  };
+}, [sortType]);
 
   useEffect(() => {
     const userId = auth.currentUser?.uid;
@@ -301,55 +320,61 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     fetchUserProfileImage();
   }, []);
 
-  const renderPost = ({ item }: { item: Post }) => {
-    const userName = users.get(item.userId);
-    const showComments = visibleComments[item.id];
-    const commentsLimit = commentsToShow[item.id] || 0;
-    const userId = auth.currentUser?.uid;
-    const userHasLiked = userId && Array.isArray(item.likes) && item.likes.includes(userId);
-    const createdTimeAgo = timeAgo(item.createdAt);
-
+  interface PostItemProps {
+    post: Post;
+  }
+  const PostItem: React.FC<PostItemProps> = ({ post }) => {
+    
+    const postUser = users.get(post.userId);
+    const showComments = visibleComments[post.id];
+    const commentsLimit = commentsToShow[post.id] || 0;
+    const currentUserId = auth.currentUser?.uid;
+    const userHasLiked = currentUserId && Array.isArray(post.likes) && post.likes.includes(currentUserId);
+    const createdTimeAgo = timeAgo(post.createdAt);
+    // Estado local para el comentario que se agregará a este post
+    const [newComment, setNewComment] = useState("");
+   
     return (
       <ScrollView className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
         <View className="flex flex-row items-center gap-2 px-4 pt-4">
-          {userName?.profileImage ? (
+          {postUser?.profileImage ? (
             <TouchableOpacity
               onPress={() => {
-                setSelectedProfileImage(userName.profileImage);
+                setSelectedProfileImage(postUser?.profileImage);
                 setModalProfileVisible(true);
               }}
             >
-              <Image source={{ uri: userName.profileImage }} className="object-cover h-8 w-8 rounded-full" />
+              <Image source={{ uri: postUser?.profileImage }} className="object-cover h-8 w-8 rounded-full" />
             </TouchableOpacity>
           ) : (
             <FontAwesome6 name="user-circle" size={26} />
           )}
           <Text className="color-[#5CB868] font-extrabold text-2xl">
-            {userName ? `${userName.firstName.trim()} ${userName.lastName.trim()}` : "Usuario Anónimo"}
+          {postUser ? `${postUser.firstName.trim()} ${postUser.lastName.trim()}` : "Usuario Anónimo"}
           </Text>
         </View>
 
-        <Text className="text-xl px-4 py-2">{item.content}</Text>
+        <Text className="text-xl px-4 py-2">{post.content}</Text>
 
-        {item.imageUrl && (
+        {post.imageUrl && (
           <TouchableOpacity
             onPress={() => {
-              setSelectedPostImage(item.imageUrl);
+              setSelectedPostImage(post.imageUrl);
               setModalPostVisible(true);
             }}
           >
-            <Image source={{ uri: item.imageUrl }} className="w-auto aspect-square rounded-lg mx-2 object-cover" />
+            <Image source={{ uri: post.imageUrl }} className="w-auto aspect-square rounded-lg mx-2 object-cover" />
           </TouchableOpacity>
         )}
 
         <View className="flex flex-row items-center justify-start gap-2 px-4 pt-3 pb-2">
-          <TouchableOpacity onPress={() => handleLike(item.id, item.likes)} className="flex flex-row items-center gap-2 w-12">
+          <TouchableOpacity onPress={() => handleLike(post.id, post.likes)} className="flex flex-row items-center gap-2 w-12">
             <FontAwesome name={userHasLiked ? "heart" : "heart-o"} size={24} color="#5CB868" />
-            <Text>{Array.isArray(item.likes) ? item.likes.length : 0}</Text>
+            <Text>{Array.isArray(post.likes) ? post.likes.length : 0}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => toggleCommentsVisibility(item.id)} className="flex flex-row items-center gap-2 w-12">
+          <TouchableOpacity onPress={() => toggleCommentsVisibility(post.id)} className="flex flex-row items-center gap-2 w-12">
             <Fontisto name="comment" size={24} color="#5CB868" />
-            <Text>{Array.isArray(item.comments) ? item.comments.length : 0}</Text>
+            <Text>{Array.isArray(post.comments) ? post.comments.length : 0}</Text>
           </TouchableOpacity>
         </View>
         
@@ -357,7 +382,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
         {showComments && (
           <View className="flex gap-4 pb-4 px-5">
-            {item.comments.slice(0, commentsLimit).map((comment, index) => {
+            {post.comments.slice(0, commentsLimit).map((comment, index) => {
               const commentUser = users.get(comment.userId);
               return (
                 <View className="flex flex-row items-center gap-2" key={index}>
@@ -385,8 +410,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               );
             })}
 
-            {commentsLimit < item.comments.length && (
-              <TouchableOpacity onPress={() => loadMoreComments(item.id)}>
+            {commentsLimit < post.comments.length && (
+              <TouchableOpacity onPress={() => loadMoreComments(post.id)}>
                 <Text>Cargar más comentarios</Text>
               </TouchableOpacity>
             )}
@@ -403,7 +428,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
                 name={comment.trim() ? "paper-plane" : "paper-plane-outline"}
                 size={24}
                 color="#5CB868"
-                onPress={() => handleAddComment(item.id, comment.trim(), item.comments)}
+                onPress={() => handleAddComment(post.id, comment.trim(), post.comments)}
                 className="w-7"
                 disabled={comment.trim() === ""}
               />
@@ -425,6 +450,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       />
     );
   }
+
+    // Conversión de snapshots a objetos Post para la FlatList
+    const postsData: Post[] = snapshots.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Post[];
+  
+    const renderPost = ({ item }: { item: Post }) => <PostItem post={item} />;
 
   return (
     <View className="p-4 flex-1">
@@ -501,7 +534,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           </Text>
         </TouchableOpacity>
       </View>
-      
+
       {/* Botones para ordenar publicaciones */}
       <View className="flex flex-row justify-start gap-2 mb-4">
         <ExpandableButton
@@ -532,13 +565,10 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           onPress={() => handleButtonPress(SortType.COMMENTS)}
         />
       </View>
-
+      
       {/* Lista de posts */}
       <FlatList
-        data={snapshots.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Post[]}
+        data={postsData}
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
         showsVerticalScrollIndicator={false}

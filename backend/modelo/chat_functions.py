@@ -1,62 +1,50 @@
-"""
-Funciones para el manejo del chat e integración con el modelo generativo.
-
-Incluye:
-  - Extracción de palabras clave del mensaje.
-  - Generación de respuestas en base al historial y palabras clave.
-  - Obtención y construcción de contexto a partir del historial de Firebase.
-"""
-
 import os
 import logging
 from typing import List, Dict, Any
+import firebase_admin
+from firebase_admin import credentials, firestore
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-# Inicialización de Firebase
-import firebase_admin
-from firebase_admin import credentials, firestore
+# Cargar las variables de entorno
+load_dotenv()
 
+# Configuración del registro de interacciones
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def initialize_firebase() -> Any:
-    """
-    Inicializa Firebase utilizando las credenciales definidas en FIREBASE_CREDENTIALS_PATH.
-    
-    Returns:
-        firestore.Client: Cliente de Firestore o None si falla la inicialización.
-    """
-    firebase_credentials_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
-    if not firebase_credentials_path:
-        logger.error("No se encontró la ruta de credenciales de Firebase en las variables de entorno.")
-        return None
+# Inicializar Firebase solo si no ha sido inicializado previamente
+firebase_credentials_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+if not firebase_credentials_path:
+    logger.error("No se encontró la ruta de credenciales de Firebase en las variables de entorno.")
+else:
     try:
+        # Verificar que el archivo de credenciales exista
         if not os.path.exists(firebase_credentials_path):
             raise FileNotFoundError(f"El archivo de credenciales no existe: {firebase_credentials_path}")
         if not firebase_admin._apps:
             cred = credentials.Certificate(firebase_credentials_path)
             firebase_admin.initialize_app(cred)
             logger.info("Firebase inicializado correctamente.")
-        return firestore.client()
     except Exception as e:
         logger.error(f"Error al inicializar Firebase: {e}", exc_info=True)
-        return None
 
-
-# Cliente de Firestore (singleton)
-db = initialize_firebase()
+# Acceder a Firestore (si la inicialización fue exitosa)
+try:
+    db = firestore.client()
+except Exception as e:
+    logger.error("Error al acceder a Firestore.", exc_info=True)
+    db = None
 
 
 def extract_keywords(message: str, model: Any) -> List[str]:
     """
-    Extrae palabras clave del mensaje utilizando la API del modelo generativo.
+    Extrae palabras clave del mensaje utilizando la API de Google Generative AI.
 
     Args:
-        message (str): Mensaje de entrada.
+        message (str): El mensaje del cual extraer palabras clave.
         model (Any): Instancia del modelo generativo.
-        
+
     Returns:
         List[str]: Lista de palabras clave extraídas.
     """
@@ -66,23 +54,68 @@ def extract_keywords(message: str, model: Any) -> List[str]:
         prompt = f"Extrae las palabras clave del siguiente mensaje:\n{message}\n\nPalabras clave:"
         response = model.generate_content(prompt)
         if response and hasattr(response, 'text') and response.text:
-            keywords = [kw.strip() for kw in response.text.split(",") if kw.strip()]
+            keywords = [keyword.strip() for keyword in response.text.split(",") if keyword.strip()]
             return keywords if keywords else ["Sin palabras clave detectadas"]
-        return ["Sin palabras clave detectadas"]
+        else:
+            return ["Sin palabras clave detectadas"]
     except Exception as e:
         logger.error(f"Error al extraer palabras clave: {e}", exc_info=True)
         return ["Error al extraer palabras clave"]
 
 
+def generate_response(message: str, user_name: str, topic_keywords: List[str], model: Any) -> str:
+    """
+    Genera una respuesta especializada en el cuidado de plantas, utilizando el modelo
+    basado en el mensaje, el historial y las palabras clave.
+
+    Args:
+        message (str): Mensaje del usuario.
+        user_name (str): Nombre del usuario (para identificar su historial).
+        topic_keywords (List[str]): Lista de palabras clave extraídas del mensaje.
+        model (Any): Instancia del modelo generativo.
+
+    Returns:
+        str: Respuesta generada o mensaje de error en caso de fallo.
+    """
+    if not message.strip():
+        return "Por favor, escribe tu consulta sobre el cuidado de plantas para que pueda ayudarte."
+
+    # Recuperar el historial de Firebase
+    history = get_extended_history_from_firebase(user_name)
+
+    # Construir el contexto con el historial y las palabras clave
+    context = build_context_from_history(history, topic_keywords)
+
+    try:
+        prompt = (
+            "Eres un asistente experto en el cuidado de plantas. Solo puedes responder preguntas relacionadas con el mantenimiento, "
+            "salud y crecimiento de las plantas. Si la pregunta no está relacionada con plantas, responde educadamente que solo puedes ayudar "
+            "en temas de jardinería y cuidado de plantas.\n\n"
+            "Contexto relevante del historial:\n"
+            f"{context}\n\n"
+            "Mensaje del usuario:\n"
+            f"{message}\n\n"
+            "Responde de manera detallada y precisa, manteniéndote siempre en el papel de asistente de cuidado de plantas:"
+        )
+        response = model.generate_content(prompt)
+        if response and hasattr(response, 'text') and response.text:
+            return response.text.strip()
+        else:
+            return "No pude generar una respuesta en este momento."
+    except Exception as e:
+        logger.error(f"Error al generar respuesta: {e}", exc_info=True)
+        return "Lo siento, ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo."
+
+
 def get_extended_history_from_firebase(user_name: str) -> List[Dict[str, Any]]:
     """
-    Obtiene el historial de mensajes de un usuario desde Firebase Firestore.
+    Obtiene todo el historial de mensajes de un usuario desde Firebase Firestore.
 
     Args:
         user_name (str): Nombre del usuario.
-        
+
     Returns:
-        List[Dict[str, Any]]: Lista de mensajes del historial.
+        List[Dict[str, Any]]: Lista de mensajes del historial o una lista vacía en caso de error.
     """
     if db is None:
         logger.error("Firestore no está disponible.")
@@ -95,20 +128,20 @@ def get_extended_history_from_firebase(user_name: str) -> List[Dict[str, Any]]:
             logger.info(f"No se encontró historial para el usuario: {user_name}")
         return history
     except Exception as e:
-        logger.error(f"Error al obtener historial de Firebase para {user_name}: {e}", exc_info=True)
+        logger.error(f"Error al obtener historial extendido de Firebase para el usuario {user_name}: {e}", exc_info=True)
         return []
 
 
 def build_context_from_history(history: List[Dict[str, Any]], topic_keywords: List[str]) -> str:
     """
-    Construye el contexto para el prompt basado en el historial y las palabras clave.
+    Construye el contexto para el modelo basado en el historial y opcionalmente en las palabras clave.
 
     Args:
-        history (List[Dict[str, Any]]): Historial de mensajes.
-        topic_keywords (List[str]): Lista de palabras clave.
-        
+        history (List[Dict[str, Any]]): Historial de mensajes del usuario.
+        topic_keywords (List[str]): Palabras clave extraídas del mensaje.
+
     Returns:
-        str: Contexto construido.
+        str: Contexto construido para el prompt.
     """
     context_lines = []
     if history:
@@ -121,46 +154,8 @@ def build_context_from_history(history: List[Dict[str, Any]], topic_keywords: Li
         context_lines.append("No hay historial disponible.")
 
     if topic_keywords:
+        # Se añade un resumen de las palabras clave si no están ya presentes en el contexto
         keywords_context = "Palabras clave relevantes: " + ", ".join(topic_keywords)
         context_lines.append(keywords_context)
 
     return "\n".join(context_lines)
-
-
-def generate_response(message: str, user_name: str, topic_keywords: List[str], model: Any) -> str:
-    """
-    Genera una respuesta especializada en el cuidado de plantas utilizando el modelo generativo.
-
-    Args:
-        message (str): Mensaje del usuario.
-        user_name (str): Nombre del usuario.
-        topic_keywords (List[str]): Palabras clave extraídas.
-        model (Any): Instancia del modelo generativo.
-        
-    Returns:
-        str: Respuesta generada.
-    """
-    if not message.strip():
-        return "Por favor, escribe tu consulta sobre el cuidado de plantas para que pueda ayudarte."
-
-    history = get_extended_history_from_firebase(user_name)
-    context = build_context_from_history(history, topic_keywords)
-
-    try:
-        prompt = (
-            "Eres DALIA, una asistente experta en el cuidado de plantas. "
-            "Solo debes ayudar en temas relacionados con el mantenimiento, salud y crecimiento de plantas. "
-            "Si la consulta no está relacionada, informa que solo puedes ayudar en temas de plantas.\n\n"
-            "Contexto relevante del historial:\n"
-            f"{context}\n\n"
-            "Mensaje del usuario:\n"
-            f"{message}\n\n"
-            "Responde de manera detallada y precisa manteniéndote en el rol de DALIA:"
-        )
-        response = model.generate_content(prompt)
-        if response and hasattr(response, 'text') and response.text:
-            return response.text.strip()
-        return "No pude generar una respuesta en este momento."
-    except Exception as e:
-        logger.error(f"Error al generar respuesta: {e}", exc_info=True)
-        return "Lo siento, ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo."

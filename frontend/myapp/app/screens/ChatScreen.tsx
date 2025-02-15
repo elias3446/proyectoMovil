@@ -8,27 +8,11 @@ import {
   Image,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  onSnapshot,
-} from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { Message }from '@/interfaces/Message';
+import { getCurrentUser, sendChatMessage, subscribeToChatMessages } from '@/api/firebaseService';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
-}
-
-interface Message {
-  id: string;
-  text: string;
-  sender: string;
-  receiver: string;
-  timestamp: any;
-  isSending?: boolean;
 }
 
 const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
@@ -39,43 +23,20 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const [isBotTyping, setIsBotTyping] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
-  const auth = getAuth();
-  const user = auth.currentUser;
-  const db = getFirestore();
+  const user = getCurrentUser();
   const receiverUID = 'receiverUID'; // Reemplaza con el UID real del receptor
 
   // Escucha en tiempo real los mensajes desde Firestore
   useEffect(() => {
     if (user) {
-      const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-      const q = query(userMessagesRef, orderBy('timestamp'));
-      const unsubscribe = onSnapshot(
-        q,
-        (querySnapshot) => {
-          const messagesData: Message[] = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              text: data.text,
-              sender: data.sender,
-              receiver: data.receiver,
-              timestamp: data.timestamp,
-            } as Message;
-          });
-          // Ordena por timestamp (por seguridad, aunque el query ya lo ordene)
-          messagesData.sort(
-            (a, b) => a.timestamp.toMillis() - b.timestamp.toMillis()
-          );
-          setMessages(messagesData);
-        },
-        (err) => {
-          console.error('Error al cargar mensajes:', err);
-          setError('Error al cargar mensajes.');
-        }
-      );
+      const unsubscribe = subscribeToChatMessages(user.uid, (newMessages: Message[]) => {
+        setMessages(newMessages);
+      }, (error: string) => {
+        setError(error);
+      });
       return () => unsubscribe();
     }
-  }, [db, user]);
+  }, [user?.uid]);
 
   // Auto-scroll al final cuando se agregan nuevos mensajes o aparece el indicador de "escribiendo..."
   useEffect(() => {
@@ -134,19 +95,13 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     setError('');
 
     try {
-      const userMessagesRef = collection(db, 'users', user.uid, 'messages');
-      const receiverMessagesRef = collection(db, 'users', receiverUID, 'messages');
 
-      // Guarda el mensaje del usuario en ambas colecciones
-      await Promise.all([
-        addDoc(userMessagesRef, senderMessage),
-        addDoc(receiverMessagesRef, senderMessage),
-      ]);
+      await sendChatMessage(user.uid, receiverUID, senderMessage);
 
       // Activa el indicador de "escribiendo..." para simular que el chatbot está respondiendo
       setIsBotTyping(true);
 
-      const response = await fetch('https://proyectomovil-qh8q.onrender.com/chat', {
+      const response = await fetch('https://proyectomovil-1.onrender.com/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,10 +124,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         timestamp: new Date(),
       };
 
-      await Promise.all([
-        addDoc(userMessagesRef, botResponse),
-        addDoc(receiverMessagesRef, botResponse),
-      ]);
+      await sendChatMessage(receiverUID, user.uid, botResponse);
     } catch (err) {
       console.error('Error al enviar el mensaje:', err);
       setError('No se pudo enviar el mensaje. Inténtalo de nuevo.');
@@ -180,7 +132,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       setIsBotTyping(false);
       setLoading(false);
     }
-  }, [messageText, user, loading, db, receiverUID]);
+  }, [messageText, user?.uid, loading, receiverUID]);
 
   // Función para renderizar cada mensaje
   const renderMessage = useCallback(({ item }: { item: Message }) => {

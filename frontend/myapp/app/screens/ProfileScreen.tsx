@@ -11,20 +11,7 @@ import {
   Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  getAuth,
-  signOut,
-  updatePassword,
-  updateEmail,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-} from "firebase/auth";
-import {
-  getFirestore,
-  doc,
-  updateDoc,
-  onSnapshot,
-} from "firebase/firestore";
+import { getCurrentUser, reauthenticateUser, signOutUser, subscribeToAuthChanges, subscribeToUserDoc, updateUserEmail, updateUserPassword, updateUserProfile } from "@/api/firebaseService";
 import * as ImagePicker from "expo-image-picker";
 import NotificationBanner from "@/Components/NotificationBanner";
 import { FontAwesome } from "@expo/vector-icons";
@@ -110,9 +97,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     profileImage: null,
   });
 
-  const [currentUser, setCurrentUser] = useState(getAuth().currentUser);
-  const auth = getAuth();
-  const db = getFirestore();
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
 
   // Helper para mostrar mensajes de error que se limpian automáticamente
   const showError = useCallback((msg: string, timeout = 1500) => {
@@ -128,35 +113,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
   // Escucha en tiempo real el estado de autenticación
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = subscribeToAuthChanges((user) => {
       setCurrentUser(user);
     });
     return unsubscribe;
-  }, [auth]);
+  }, []);
 
   // Listener en tiempo real del documento del usuario en Firestore
   useEffect(() => {
     if (currentUser) {
-      const userRef = doc(db, "users", currentUser.uid);
-      const unsubscribe = onSnapshot(
-        userRef,
-        (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setFirstName(data.firstName || "");
-            setLastName(data.lastName || "");
-            setEmail(data.email || "");
-            setPhoneNumber(data.phoneNumber || "");
-            setProfileImage(data.profileImage || null);
-            setOriginalUserData({
-              firstName: data.firstName || "",
-              lastName: data.lastName || "",
-              email: data.email || "",
-              phoneNumber: data.phoneNumber || "",
-              profileImage: data.profileImage || null,
-            });
-            AsyncStorage.setItem("userData", JSON.stringify(data));
-          }
+      const unsubscribe = subscribeToUserDoc(
+        currentUser.uid,
+        (data) => {
+          setFirstName(data.firstName || "");
+          setLastName(data.lastName || "");
+          setEmail(data.email || "");
+          setPhoneNumber(data.phoneNumber || "");
+          setProfileImage(data.profileImage || null);
+          setOriginalUserData({
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            email: data.email || "",
+            phoneNumber: data.phoneNumber || "",
+            profileImage: data.profileImage || null,
+          });
+          AsyncStorage.setItem("userData", JSON.stringify(data));
         },
         (error) => {
           showError("Error al escuchar los cambios del usuario: " + error.message);
@@ -166,8 +147,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     } else {
       showError("No estás autenticado. Por favor, inicia sesión.");
     }
-  }, [currentUser, db, showError]);
-
+  }, [currentUser, showError]);
+  
   // Función para seleccionar imagen usando expo-image-picker
   const handleImagePick = useCallback(async () => {
     try {
@@ -243,8 +224,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           return;
         }
         try {
-          const credential = EmailAuthProvider.credential(currentUser.email!, currentPassword);
-          await reauthenticateWithCredential(currentUser, credential);
+          await reauthenticateUser(currentUser, currentPassword);
         } catch (error: any) {
           if (error.code === "auth/wrong-password") {
             showError("La contraseña actual no coincide.");
@@ -256,7 +236,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         }
         if (isEmailChanged) {
           try {
-            await updateEmail(currentUser, email);
+            await updateUserEmail(currentUser, email);
           } catch (error: any) {
             if (error.code === "auth/email-already-in-use") {
               showError("El correo electrónico ya está en uso por otro usuario.");
@@ -274,7 +254,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             return;
           }
           try {
-            await updatePassword(currentUser, password);
+            await updateUserPassword(currentUser, password);
             showSuccess("Contraseña actualizada con éxito");
           } catch (error: any) {
             showError("Error al actualizar la contraseña: " + error.message);
@@ -295,8 +275,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         }
       }
 
-      const userRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userRef, {
+      await updateUserProfile(currentUser.uid, {
         firstName,
         lastName,
         email,
@@ -335,8 +314,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     phoneNumber,
     profileImage,
     newProfileImage,
-    db,
-    uploadProfileImage,
     showError,
     showSuccess,
   ]);
@@ -344,7 +321,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
   // Función para cerrar sesión
   const handleSignOut = useCallback(async () => {
     try {
-      await signOut(auth);
+      await signOutUser();
       await AsyncStorage.clear();
       showSuccess("Sesión cerrada correctamente");
       setTimeout(() => {
@@ -353,7 +330,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     } catch (error) {
       showError("Error al cerrar sesión.");
     }
-  }, [auth, setCurrentScreen, showError, showSuccess]);
+  }, [setCurrentScreen, showError, showSuccess]);
 
   const { width } = Dimensions.get("window");
 

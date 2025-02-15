@@ -9,11 +9,11 @@ import {
   Image,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
+
 import NotificationBanner from "@/Components/NotificationBanner";
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
+import { registerUser } from "@/api/firebaseService";
 
 interface RegisterScreenProps {
   setCurrentScreen: (screen: string) => void;
@@ -94,14 +94,6 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
 
     setLoading(true);
     try {
-      const auth = getAuth();
-      const db = getFirestore();
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password.trim()
-      );
-      const user = userCredential.user;
       const userData = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -116,8 +108,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
         customGender: customGender.trim(),
         profileImage: profileImage || null,
       };
-      await setDoc(doc(db, "users", user.uid), userData);
-      setSuccessMessage("Usuario registrado exitosamente.");
+
+      await registerUser(email.trim(), password.trim(), userData);      setSuccessMessage("Usuario registrado exitosamente.");
       setCurrentScreen("LoginScreen");
     } catch (error: unknown) {
       if (error instanceof Error) {

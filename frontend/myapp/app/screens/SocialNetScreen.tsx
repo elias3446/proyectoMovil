@@ -31,6 +31,8 @@ import { Post } from "@/types/Post";
 import { sendNotificationMessage } from "@/api/notificationService";
 import { UserData } from "@/types/User";
 import { uploadImageToCloudinary } from "@/api/cloudinaryService";
+import ExpandableButton from "@/Components/ExpandableButton";
+import { SortType } from "@/types/SortType";
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
@@ -66,6 +68,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
 
+  const [activeExpandableButtonId, setActiveExpandableButtonId] = useState<number | null>(1);
+  const [sortType, setSortType] = useState<SortType>(SortType.DATE);
+
   /**
    * fetchMorePosts: Carga más publicaciones de forma paginada usando el último post cargado.
    */
@@ -81,7 +86,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         });
         return Array.from(uniqueSnapshotsMap.values());
       });
-    }, false);
+    }, sortType, false);
   };
 
   /**
@@ -240,6 +245,10 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }));
   };
 
+  const handleButtonPress = (newSortType: SortType) => {
+    setSortType(newSortType);
+  };
+
   // Carga inicial de posts
   useEffect(() => {
     const unsubscribeInitial = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
@@ -262,11 +271,11 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       return () => {
         if (unsubscribeRealtime) unsubscribeRealtime();
       };
-    }, false);
+    }, sortType, false);
     return () => {
       if (unsubscribeInitial) unsubscribeInitial();
     };
-  }, []);
+  }, [sortType]);
 
   // Carga datos de usuarios y la imagen de perfil del usuario actual
   useEffect(() => {
@@ -469,6 +478,37 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
             {loading ? "Publicando..." : "Publicar"}
           </Text>
         </TouchableOpacity>
+      </View>
+      
+      {/* Botones para ordenar publicaciones */}
+      <View className="flex flex-row justify-start gap-2 mb-4">
+        <ExpandableButton
+          id={1}
+          text="Más recientes"
+          IconComponent={Ionicons}
+          iconName="timer"
+          activeId={activeExpandableButtonId}
+          setActiveId={setActiveExpandableButtonId}
+          onPress={() => handleButtonPress(SortType.DATE)}
+        />
+        <ExpandableButton
+          id={2}
+          text="Más likeados"
+          IconComponent={FontAwesome}
+          iconName="heart"
+          activeId={activeExpandableButtonId}
+          setActiveId={setActiveExpandableButtonId}
+          onPress={() => handleButtonPress(SortType.LIKES)}
+        />
+        <ExpandableButton
+          id={3}
+          text="Más comentados"
+          IconComponent={Fontisto}
+          iconName="comment"
+          activeId={activeExpandableButtonId}
+          setActiveId={setActiveExpandableButtonId}
+          onPress={() => handleButtonPress(SortType.COMMENTS)}
+        />
       </View>
 
       {/* Lista de posts */}

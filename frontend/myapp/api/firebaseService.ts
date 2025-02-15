@@ -21,7 +21,6 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import {
-  getAuth,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
@@ -41,6 +40,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { registerIndieID } from 'native-notify';
 import { useState, useEffect } from "react";
+import { SortType } from '@/types/SortType';
 /* #endregion Imports */
 
 /* ====================================================
@@ -51,24 +51,25 @@ import { useState, useEffect } from "react";
  * getPaginatedPosts
  * -----------------
  * Obtiene los posts de forma paginada.
- *
+ * 
  * @param afterDoc - Último documento cargado para paginación (o undefined).
  * @param limitPosts - Número máximo de posts a obtener.
  * @param callback - Función a ejecutar con los nuevos documentos.
+ * @param sortType - Define el campo por el cual se ordenarán los posts.
+ * @param realtime - Indica si se debe escuchar en tiempo real o no.
  * @returns Función para cancelar la suscripción o null en caso de error.
  */
 export const getPaginatedPosts = (
   afterDoc: DocumentSnapshot | undefined,
   limitPosts: number,
   callback: (newSnapshots: DocumentSnapshot[]) => void,
+  sortType: SortType,
   realtime: boolean = false
 ): (() => void) | null => {
   try {
     const baseQuery = query(
       collection(firestore, "posts"),
-      //orderBy("createdAt", "desc"),
-      orderBy("likesCount", "desc"),
-      //orderBy("commentsCount", "desc"),
+      orderBy(sortType, "desc"),
       limit(limitPosts)
     );
     const paginatedQuery = afterDoc ? query(baseQuery, startAfter(afterDoc)) : baseQuery;

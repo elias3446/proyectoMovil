@@ -49,6 +49,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
   const user = auth.currentUser;
+  const currentUser = getAuth().currentUser;
   const db = getFirestore();
   const receiverUID = 'receiverUID'; // Reemplaza con el UID real del receptor
 
@@ -86,27 +87,18 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   }, [db, user]);
 
   useEffect(() => {
-    if (user) {
-      const fetchProfileImage = async () => {
-        try {
-          // Obtén la referencia al documento del usuario en Firestore
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            if (userData?.profileImage) {
-              setProfileImage(userData.profileImage); // Guarda la URL de la imagen de perfil
-            }
-          }
-        } catch (error) {
-          console.error('Error al obtener la imagen de perfil:', error);
+    if (currentUser) {
+      const userRef = doc(db, "users", currentUser.uid);
+      const unsubscribe = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setProfileImage(data.profileImage || null); // Update profile image
         }
-      };
+      });
 
-      fetchProfileImage();
+      return () => unsubscribe();
     }
-  }, [user, db]);
+  }, [currentUser, db]);
 
   // Auto-scroll al final cuando se agregan nuevos mensajes o aparece el indicador de "escribiendo..."
   useEffect(() => {
@@ -249,7 +241,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           profileImage ? (
             <Image
               source={{ uri: profileImage }}
-              className="w-16 h-16 rounded-full overflow-hidden justify-center items-center mx-2"
+              className="w-16 h-16 rounded-full justify-center items-center mx-2"
               resizeMode="cover"
             />
           ) : (

@@ -34,15 +34,6 @@ interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const POST_LIMIT = 10;
-
-/**
- * getLastItem: Retorna el último elemento de un arreglo.
- */
-function getLastItem<T>(arr: T[]): T | undefined {
-  return arr.slice(-1)[0];
-}
-
 /**
  * SocialNet:
  * Pantalla principal de la red social, donde el usuario puede crear publicaciones,
@@ -416,21 +407,26 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               </TouchableOpacity>
             )}
 
+            {/* Sección para agregar un comentario */}
             <View className="flex flex-row gap-2 items-center">
               <TextInput
                 className="flex-1 px-4 rounded-full text-xl bg-white"
                 placeholder="Añadir un comentario..."
-                value={comment}
-                onChangeText={setComment}
+                value={newComment}
+                onChangeText={setNewComment}
                 placeholderTextColor="#9095A1"
               />
               <Ionicons
-                name={comment.trim() ? "paper-plane" : "paper-plane-outline"}
+                name={newComment.trim() ? "paper-plane" : "paper-plane-outline"}
                 size={24}
                 color="#5CB868"
-                onPress={() => handleAddComment(post.id, comment.trim(), post.comments)}
+                onPress={() => {
+                  if (newComment.trim()) {
+                    handleAddComment(post.id, newComment.trim(), post.comments);
+                    setNewComment("");
+                  }
+                }}
                 className="w-7"
-                disabled={comment.trim() === ""}
               />
             </View>
           </View>

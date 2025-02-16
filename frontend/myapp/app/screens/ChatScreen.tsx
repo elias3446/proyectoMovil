@@ -17,6 +17,7 @@ import {
   orderBy,
   onSnapshot,
 } from 'firebase/firestore';
+import { getDoc, doc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { processChatWithAPI } from '@/api/processWithAPIService';
 
@@ -43,6 +44,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   // Estados para el modal de imagen
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const auth = getAuth();
@@ -82,6 +84,29 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       return () => unsubscribe();
     }
   }, [db, user]);
+
+  useEffect(() => {
+    if (user) {
+      const fetchProfileImage = async () => {
+        try {
+          // Obtén la referencia al documento del usuario en Firestore
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData?.profileImage) {
+              setProfileImage(userData.profileImage); // Guarda la URL de la imagen de perfil
+            }
+          }
+        } catch (error) {
+          console.error('Error al obtener la imagen de perfil:', error);
+        }
+      };
+
+      fetchProfileImage();
+    }
+  }, [user, db]);
 
   // Auto-scroll al final cuando se agregan nuevos mensajes o aparece el indicador de "escribiendo..."
   useEffect(() => {
@@ -220,18 +245,28 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           )}
         </View>
         {isMyMessage && (
-          <MaterialIcons
-            name="account-circle"
-            size={64}
-            color="#B8E6B9"
-            style={{
-              alignSelf: 'center',
-              textAlign: 'center',
-              textAlignVertical: 'center',
-              lineHeight: 64,
-              marginHorizontal: 8,
-            }}
-          />
+          
+          profileImage ? (
+            <Image
+              source={{ uri: profileImage }}
+              className="w-16 h-16 rounded-full overflow-hidden justify-center items-center mx-2"
+              resizeMode="cover"
+            />
+          ) : (
+            <MaterialIcons
+              name="account-circle"
+              size={64}
+              color="#B8E6B9"
+              style={{
+                alignSelf: 'center',
+                textAlign: 'center',
+                textAlignVertical: 'center',
+                lineHeight: 64,
+                marginHorizontal: 8,
+              }}
+            />
+          )
+        
         )}
       </View>
     );

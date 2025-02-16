@@ -159,6 +159,17 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       createdAt: new Date().toISOString(),
     });
 
+    // Al publicar, forzamos el refresco a "más recientes"
+    if (sortType !== SortType.DATE) {
+      setSortType(SortType.DATE);
+      setActiveExpandableButtonId(1);
+    } else {
+      // Si ya está en "más recientes", forzamos una recarga de los posts
+      getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
+        setSnapshots(newSnapshots);
+      }, SortType.DATE, false);
+    }
+
     setContent("");
     setImage(null);
     setLoading(false);
@@ -347,7 +358,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
             <FontAwesome6 name="user-circle" size={26} />
           )}
           <Text className="color-[#5CB868] font-bold text-xl">
-          {postUser ? `${postUser.firstName.trim()} ${postUser.lastName.trim()}` : "Usuario Anónimo"}
+            {postUser ? `${postUser.firstName.trim()} ${postUser.lastName.trim()}` : "Usuario Anónimo"}
           </Text>
         </View>
 

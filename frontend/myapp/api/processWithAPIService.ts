@@ -7,7 +7,7 @@ export const processImageWithAPI = async (
   try {
     // Reiniciamos el mensaje de error
     setErrorMessage("");
-    const response = await fetch("https://proyectomovil-1.onrender.com/process_image", {
+    const response = await fetch("http://3.84.59.94:5000/process_image", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -34,7 +34,7 @@ export const processChatWithAPI = async (
   try {
     // Reiniciamos el mensaje de error
     setErrorMessage("");
-    const response = await fetch("https://proyectomovil-1.onrender.com/chat", {
+    const response = await fetch("http://3.84.59.94:5000/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

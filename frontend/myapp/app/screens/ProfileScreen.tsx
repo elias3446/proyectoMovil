@@ -11,6 +11,7 @@ import {
   Platform,
   Pressable,
   TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -28,13 +29,13 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import * as ImagePicker from "expo-image-picker";
+import { Picker } from "@react-native-picker/picker";
 import NotificationBanner from "@/Components/NotificationBanner";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { uploadImageToCloudinary } from "@/api/cloudinaryService";
 import { unregisterIndieDevice } from "native-notify";
 import { APP_ID, APP_TOKEN } from "@/api/notificationService";
 
-// Componente Modal personalizado para compatibilidad en web y native
 interface CustomModalProps {
   visible: boolean;
   onRequestClose: () => void;
@@ -47,7 +48,6 @@ const CustomModal: React.FC<CustomModalProps> = ({
   children,
 }) => {
   if (!visible) return null;
-  // Para web
   if (Platform.OS === "web") {
     return (
       <Pressable
@@ -62,7 +62,6 @@ const CustomModal: React.FC<CustomModalProps> = ({
       </Pressable>
     );
   }
-  // Para native
   return (
     <Modal
       transparent={true}
@@ -80,7 +79,14 @@ const CustomModal: React.FC<CustomModalProps> = ({
         onPress={onRequestClose}
       >
         <TouchableWithoutFeedback>
-          <View style={{ width: "90%", backgroundColor: "white", padding: 20, borderRadius: 20 }}>
+          <View
+            style={{
+              width: "90%",
+              backgroundColor: "white",
+              padding: 20,
+              borderRadius: 20,
+            }}
+          >
             {children}
           </View>
         </TouchableWithoutFeedback>
@@ -99,57 +105,70 @@ interface IUserData {
   email: string;
   phoneNumber: string;
   profileImage: string | null;
+  birthDay: string;
+  birthMonth: string;
+  birthYear: string;
+  gender: string;
+  pronoun: string;
+  customGender: string;
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
-  // Estados para los datos del usuario
+  // Estados básicos
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  // Imagen actual y nueva (para previsualización)
+  // Imagen de perfil
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [newProfileImage, setNewProfileImage] = useState<string | null>(null);
-
-  // Estado para mostrar el modal de imagen de usuario
+  // Fecha de nacimiento y género (desde RegisterScreen)
+  const [birthDay, setBirthDay] = useState("1");
+  const [birthMonth, setBirthMonth] = useState("1");
+  const [birthYear, setBirthYear] = useState(new Date().getFullYear().toString());
+  const [gender, setGender] = useState("");
+  const [pronoun, setPronoun] = useState("");
+  const [customGender, setCustomGender] = useState("");
+  // Contraseña
+  const [password, setPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  // Modal imagen de perfil y mensajes
   const [showProfileImageModal, setShowProfileImageModal] = useState(false);
-
-  // Estados para la modificación de contraseña
-  const [password, setPassword] = useState(""); // Nueva contraseña
-  const [currentPassword, setCurrentPassword] = useState(""); // Para reautenticación
-
-  // Estados para mensajes y carga
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
 
-  // Datos originales del usuario (para comparar cambios)
+  // Datos originales para comparar cambios
   const [originalUserData, setOriginalUserData] = useState<IUserData>({
     firstName: "",
     lastName: "",
     email: "",
     phoneNumber: "",
     profileImage: null,
+    birthDay: "1",
+    birthMonth: "1",
+    birthYear: new Date().getFullYear().toString(),
+    gender: "",
+    pronoun: "",
+    customGender: "",
   });
 
   const [currentUser, setCurrentUser] = useState(getAuth().currentUser);
   const auth = getAuth();
   const db = getFirestore();
+  const { width } = Dimensions.get("window");
 
-  // Helper para mostrar mensajes de error que se limpian automáticamente
   const showError = useCallback((msg: string, timeout = 1500) => {
     setErrorMessage(msg);
     setTimeout(() => setErrorMessage(""), timeout);
   }, []);
 
-  // Helper para mostrar mensajes de éxito
   const showSuccess = useCallback((msg: string, timeout = 2000) => {
     setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(""), timeout);
   }, []);
 
-  // Escucha en tiempo real el estado de autenticación
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
@@ -157,7 +176,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     return unsubscribe;
   }, [auth]);
 
-  // Listener en tiempo real del documento del usuario en Firestore
   useEffect(() => {
     if (currentUser) {
       const userRef = doc(db, "users", currentUser.uid);
@@ -171,12 +189,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             setEmail(data.email || "");
             setPhoneNumber(data.phoneNumber || "");
             setProfileImage(data.profileImage || null);
+            setBirthDay(data.birthDay || "1");
+            setBirthMonth(data.birthMonth || "1");
+            setBirthYear(data.birthYear || new Date().getFullYear().toString());
+            setGender(data.gender || "");
+            setPronoun(data.pronoun || "");
+            setCustomGender(data.customGender || "");
             setOriginalUserData({
               firstName: data.firstName || "",
               lastName: data.lastName || "",
               email: data.email || "",
               phoneNumber: data.phoneNumber || "",
               profileImage: data.profileImage || null,
+              birthDay: data.birthDay || "1",
+              birthMonth: data.birthMonth || "1",
+              birthYear: data.birthYear || new Date().getFullYear().toString(),
+              gender: data.gender || "",
+              pronoun: data.pronoun || "",
+              customGender: data.customGender || "",
             });
             AsyncStorage.setItem("userData", JSON.stringify(data));
           }
@@ -191,7 +221,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
   }, [currentUser, db, showError]);
 
-  // Función para seleccionar imagen usando expo-image-picker
   const handleImagePick = useCallback(async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -208,7 +237,27 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
   }, [showError]);
 
-  // Función para guardar los cambios del perfil
+  const renderDayItems = useCallback(() => {
+    return [...Array(31).keys()].map((day) => (
+      <Picker.Item key={day + 1} label={(day + 1).toString()} value={(day + 1).toString()} />
+    ));
+  }, []);
+
+  const renderMonthItems = useCallback(() => {
+    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    return months.map((month, index) => (
+      <Picker.Item key={index} label={month} value={(index + 1).toString()} />
+    ));
+  }, []);
+
+  const renderYearItems = useCallback(() => {
+    const currentYear = new Date().getFullYear();
+    return [...Array(100).keys()].map((year) => {
+      const y = currentYear - year;
+      return <Picker.Item key={y} label={y.toString()} value={y.toString()} />;
+    });
+  }, []);
+
   const handleSaveChanges = useCallback(async () => {
     if (!currentUser) {
       showError("No estás autenticado. Por favor, inicia sesión.");
@@ -217,14 +266,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     setLoading(true);
     try {
       const isEmailChanged = email !== originalUserData.email;
-      if (isEmailChanged) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-          showError("Ingresa un correo electrónico válido.");
-          setLoading(false);
-          return;
-        }
-      }
       const isPasswordChanged = password !== "";
       const needReauth = isEmailChanged || isPasswordChanged;
       if (needReauth) {
@@ -234,7 +275,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           return;
         }
         try {
-          const credential = EmailAuthProvider.credential(currentUser.email!, currentPassword);
+          const credential = EmailAuthProvider.credential(
+            currentUser.email!,
+            currentPassword
+          );
           await reauthenticateWithCredential(currentUser, credential);
         } catch (error: any) {
           if (error.code === "auth/wrong-password") {
@@ -291,8 +335,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         firstName,
         lastName,
         email,
-        profileImage: finalProfileImage || null,
         phoneNumber,
+        profileImage: finalProfileImage || null,
+        birthDay,
+        birthMonth,
+        birthYear,
+        gender,
+        pronoun,
+        customGender,
       });
 
       const updatedUserData: IUserData = {
@@ -301,13 +351,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         email,
         phoneNumber,
         profileImage: finalProfileImage || null,
+        birthDay,
+        birthMonth,
+        birthYear,
+        gender,
+        pronoun,
+        customGender,
       };
       await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
       setOriginalUserData(updatedUserData);
       setProfileImage(finalProfileImage);
       setNewProfileImage(null);
       showSuccess("Cambios guardados exitosamente");
-      // Limpiar campos de contraseña
       setPassword("");
       setCurrentPassword("");
     } catch (error: any) {
@@ -326,13 +381,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     phoneNumber,
     profileImage,
     newProfileImage,
+    birthDay,
+    birthMonth,
+    birthYear,
+    gender,
+    pronoun,
+    customGender,
     db,
-    uploadImageToCloudinary,
     showError,
     showSuccess,
   ]);
 
-  // Función para cerrar sesión
   const handleSignOut = useCallback(async () => {
     try {
       await signOut(auth);
@@ -347,43 +406,103 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
   }, [auth, setCurrentScreen, showError, showSuccess]);
 
-  const { width } = Dimensions.get("window");
-
   return (
-    <ScrollView
-      className="bg-[#E5FFE6] flex-grow bg-white mt-[-20px] py-5"
-      contentContainerStyle={{ justifyContent: "center", alignItems: "center" }}
-    >
-      {/* Contenedor externo sin bordes, centrado y con maxWidth definido */}
-      <View
-        className="w-full p-5 bg-white self-center"
-        style={{ maxWidth: width > 400 ? 400 : width - 40 }}
-      >
-        <Text className="text-3xl font-extrabold text-center mb-4 text-[#5CB868] ">Editar Perfil</Text>
-
-        <View className="w-[100px] h-[100px] rounded-full bg-[#F3F4F6] self-center mb-3 justify-center items-center relative">
-          {newProfileImage || profileImage ? (
-            <TouchableOpacity onPress={() => setShowProfileImageModal(true)}>
-              <Image
-                source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
-                className="w-[100px] h-[100px] rounded-full"
+    <View className="flex-1 bg-white">
+      {/* Encabezado fijo: toca en cualquier parte para descartar el teclado */}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View className="p-5 relative">
+          <Text
+            style={{
+              fontSize: 24,
+              fontWeight: "800",
+              textAlign: "center",
+              marginBottom: 16,
+              color: "#5CB868",
+            }}
+          >
+            Editar Perfil
+          </Text>
+          <View
+            style={{
+              width: 100,
+              height: 100,
+              borderRadius: 50,
+              backgroundColor: "#F3F4F6",
+              alignSelf: "center",
+              marginBottom: 12,
+              justifyContent: "center",
+              alignItems: "center",
+              position: "relative",
+            }}
+          >
+            {newProfileImage || profileImage ? (
+              <TouchableOpacity onPress={() => setShowProfileImageModal(true)}>
+                <Image
+                  source={{
+                    uri: newProfileImage ? newProfileImage : profileImage!,
+                  }}
+                  style={{ width: 100, height: 100, borderRadius: 50 }}
+                />
+              </TouchableOpacity>
+            ) : (
+              <Text style={{ color: "#9CA3AF" }}>Sin Imagen</Text>
+            )}
+            <TouchableOpacity
+              onPress={handleImagePick}
+              style={{
+                position: "absolute",
+                bottom: 0,
+                right: 0,
+                padding: 8,
+              }}
+            >
+              <FontAwesome
+                name="camera"
+                size={18}
+                color="#fff"
+                style={{
+                  backgroundColor: "#5CB868",
+                  borderRadius: 20,
+                  padding: 4,
+                }}
               />
             </TouchableOpacity>
-          ) : (
-            <Text className="text-[#9CA3AF]">Sin Imagen</Text>
-          )}
-          <TouchableOpacity
-            onPress={handleImagePick}
-            className="absolute bottom-0 right-0 bg-[#5CB868] p-2 rounded-[20px]"
+          </View>
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: "bold",
+              textAlign: "center",
+              color: "black",
+            }}
           >
-            <FontAwesome name="camera" size={18} color="#fff" />
+            {`${firstName} ${lastName}`.trim()}
+          </Text>
+          {/* Botón Cerrar Sesión: icono arriba, leyenda debajo; sin fondo */}
+          <TouchableOpacity
+            onPress={() => setShowSignOutModal(true)}
+            style={{
+              position: "absolute",
+              right: 20,
+              top: 110, // Aproximadamente a la altura del centro de la imagen
+            }}
+          >
+            <View style={{ alignItems: "center" }}>
+              <FontAwesome name="sign-out" size={30} color="#5CB868" />
+              <Text style={{ color: "#5CB868", fontSize: 16 }}>
+                Cerrar Sesión
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
+      </TouchableWithoutFeedback>
 
-        <Text className="text-xl text-black font-bold text-center mb-3">
-          {`${firstName} ${lastName}`.trim()}
-        </Text>
-        <Text className="text-base text-black font-bold mb-[6px] px-1 color-[#5CB868] ">
+      {/* Contenido scrollable */}
+      <ScrollView
+        className="flex-grow"
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+      >
+        <Text className="text-base text-black font-bold mb-[6px] px-1" style={{ color: "#5CB868" }}>
           Nombre
         </Text>
         <TextInput
@@ -393,7 +512,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           onChangeText={setFirstName}
           placeholderTextColor="#9CA3AF"
         />
-        <Text className="text-base text-black font-bold mb-[6px] px-1 color-[#5CB868] ">
+        <Text className="text-base text-black font-bold mb-[6px] px-1" style={{ color: "#5CB868" }}>
           Apellido
         </Text>
         <TextInput
@@ -403,7 +522,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           onChangeText={setLastName}
           placeholderTextColor="#9CA3AF"
         />
-        <Text className="text-base text-black font-bold mb-[6px] px-1 color-[#5CB868] ">
+        <Text className="text-base text-black font-bold mb-[6px] px-1" style={{ color: "#5CB868" }}>
           Correo Electrónico
         </Text>
         <TextInput
@@ -415,7 +534,127 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           placeholderTextColor="#9CA3AF"
         />
 
-        <Text className="text-base text-black font-bold mb-[6px] color-[#5CB868] ">
+        <Text className="text-base text-black font-bold mb-2" style={{ color: "#5CB868" }}>
+          Fecha de nacimiento
+        </Text>
+        <View className="flex-row justify-between mb-3">
+          <Picker
+            selectedValue={birthDay}
+            style={{
+              width: "33.33%",
+              height: 50,
+              paddingHorizontal: 15,
+              marginBottom: 12,
+              backgroundColor: "#F3F4F6",
+              borderRadius: 12,
+              color: "#000",
+            }}
+            onValueChange={(itemValue) => setBirthDay(itemValue)}
+            accessibilityLabel="Día de nacimiento"
+          >
+            {renderDayItems()}
+          </Picker>
+          <Picker
+            selectedValue={birthMonth}
+            style={{
+              width: "33.33%",
+              height: 50,
+              paddingHorizontal: 15,
+              marginBottom: 12,
+              backgroundColor: "#F3F4F6",
+              borderRadius: 12,
+              color: "#000",
+            }}
+            onValueChange={(itemValue) => setBirthMonth(itemValue)}
+            accessibilityLabel="Mes de nacimiento"
+          >
+            {renderMonthItems()}
+          </Picker>
+          <Picker
+            selectedValue={birthYear}
+            style={{
+              width: "33.33%",
+              height: 50,
+              paddingHorizontal: 15,
+              marginBottom: 12,
+              backgroundColor: "#F3F4F6",
+              borderRadius: 12,
+              color: "#000",
+            }}
+            onValueChange={(itemValue) => setBirthYear(itemValue)}
+            accessibilityLabel="Año de nacimiento"
+          >
+            {renderYearItems()}
+          </Picker>
+        </View>
+
+        <Text className="text-base text-black font-bold mb-2" style={{ color: "#5CB868" }}>
+          Género
+        </Text>
+        <Picker
+          selectedValue={gender}
+          style={{
+            width: "100%",
+            height: 50,
+            paddingHorizontal: 15,
+            marginBottom: 12,
+            backgroundColor: "#F3F4F6",
+            borderRadius: 12,
+            color: "#000",
+          }}
+          onValueChange={(itemValue) => {
+            setGender(itemValue);
+            if (itemValue !== "O") setPronoun("");
+          }}
+          accessibilityLabel="Género"
+        >
+          <Picker.Item label="Selecciona tu género" value="" />
+          <Picker.Item label="Mujer" value="F" />
+          <Picker.Item label="Hombre" value="M" />
+          <Picker.Item label="Personalizado" value="O" />
+        </Picker>
+        {gender === "O" && (
+          <>
+            <Text className="text-base text-black mb-2 font-bold" style={{ color: "#5CB868" }}>
+              Selecciona tu pronombre
+            </Text>
+            <Picker
+              selectedValue={pronoun}
+              style={{
+                height: 50,
+                paddingHorizontal: 15,
+                marginBottom: 12,
+                backgroundColor: "#F3F4F6",
+                borderRadius: 12,
+                color: "#000",
+              }}
+              onValueChange={(itemValue) => setPronoun(itemValue)}
+              accessibilityLabel="Pronombre"
+            >
+              <Picker.Item label="Selecciona tu pronombre" value="" />
+              <Picker.Item label='Femenino: "Salúdala por su cumpleaños"' value="Femenino" />
+              <Picker.Item label='Masculino: "Salúdalo por su cumpleaños"' value="Masculino" />
+              <Picker.Item label='Neutro: "Salúdalo(a) por su cumpleaños"' value="Neutro" />
+            </Picker>
+            <Text className="text-xs text-[#666] mb-3">
+              Tu pronombre será visible para todos.
+            </Text>
+            <Text className="text-base text-black mb-2 font-bold" style={{ color: "#5CB868" }}>
+              Género (opcional)
+            </Text>
+            <TextInput
+              className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${
+                customGender ? "text-black" : "text-[#9CA3AF]"
+              }`}
+              placeholder="Escribe tu género"
+              value={customGender}
+              onChangeText={setCustomGender}
+              accessibilityLabel="Género personalizado"
+            />
+          </>
+        )}
+
+        <Text className="text-base text-black font-bold mb-[6px]" style={{ color: "#5CB868" }}>
           Modificar contraseña:
         </Text>
         <TextInput
@@ -434,7 +673,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           secureTextEntry
           placeholderTextColor="#9CA3AF"
         />
+      </ScrollView>
 
+      {/* Pie de página fijo */}
+      <View className="p-5">
         <TouchableOpacity
           className="p-[12px] rounded-[20px] items-center my-1 bg-[#5CB868]"
           onPress={handleSaveChanges}
@@ -444,24 +686,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             {loading ? "Guardando..." : "Guardar Cambios"}
           </Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          className="p-[12px] rounded-[20px] items-center my-1 bg-[#5CB868]"
-          onPress={() => setShowSignOutModal(true)}
-        >
-          <View className="flex-row items-center">
-            <FontAwesome name="sign-out" size={20} color="#fff" className="mr-2" />
-            <Text className="text-white text-base font-bold">Cerrar Sesión</Text>
-          </View>
-        </TouchableOpacity>
       </View>
-
-      {errorMessage !== "" && (
-        <NotificationBanner message={errorMessage} type="error" />
-      )}
-      {successMessage !== "" && (
-        <NotificationBanner message={successMessage} type="success" />
-      )}
 
       <CustomModal
         visible={showSignOutModal}
@@ -471,12 +696,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           <Text className="text-lg font-bold mb-5 text-center">
             ¿Seguro que deseas cerrar sesión?
           </Text>
-          {/* Botones alineados verticalmente con separación */}
           <View className="flex flex-col items-center">
             <TouchableOpacity
               className="w-[140px] p-3 rounded-[25px] items-center bg-gray-300"
               onPress={() => setShowSignOutModal(false)}
-              style={{ marginBottom: 10 }}  // Separación entre botones
+              style={{ marginBottom: 10 }}
             >
               <Text className="w-full text-white text-base font-bold text-center">
                 Cancelar
@@ -494,7 +718,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         </View>
       </CustomModal>
 
-      {/* Modal para mostrar la imagen del usuario en pantalla completa */}
       <CustomModal
         visible={showProfileImageModal}
         onRequestClose={() => setShowProfileImageModal(false)}
@@ -502,13 +725,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         {newProfileImage || profileImage ? (
           <Image
             source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
-            className="w-full aspect-square rounded-lg" 
+            className="w-full aspect-square rounded-lg"
           />
         ) : (
           <Text className="text-center">No hay imagen disponible</Text>
         )}
       </CustomModal>
-    </ScrollView>
+
+      {errorMessage !== "" && (
+        <NotificationBanner message={errorMessage} type="error" />
+      )}
+      {successMessage !== "" && (
+        <NotificationBanner message={successMessage} type="success" />
+      )}
+    </View>
   );
 };
 

@@ -18,6 +18,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Fontisto from '@expo/vector-icons/Fontisto';
 import { timeAgo } from "../../utils/utils";
 import CustomModal from "@/Components/MyModal";
@@ -331,7 +332,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     const [newComment, setNewComment] = useState("");
    
     return (
-      <ScrollView className="bg-[#E5FFE6] mb-2 rounded-lg flex gap-3">
+      <ScrollView className="bg-[#F3F4F6] mb-2 rounded-lg flex gap-3">
         <View className="flex flex-row items-center gap-2 px-4 pt-4">
           {postUser?.profileImage ? (
             <TouchableOpacity
@@ -345,7 +346,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           ) : (
             <FontAwesome6 name="user-circle" size={26} />
           )}
-          <Text className="color-[#5CB868] font-extrabold text-2xl">
+          <Text className="color-[#5CB868] font-bold text-xl">
           {postUser ? `${postUser.firstName.trim()} ${postUser.lastName.trim()}` : "Usuario Anónimo"}
           </Text>
         </View>
@@ -374,7 +375,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           </TouchableOpacity>
         </View>
         
-        <Text className="color-[#565a63] px-4 pb-4">Hace {createdTimeAgo}</Text>
+        <Text className="text-[#565a63] px-4 pb-4">Hace {createdTimeAgo}</Text>
 
         {showComments && (
           <View className="flex gap-4 pb-4 px-5">
@@ -464,7 +465,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     <View className="p-4 flex-1">
       {/* Título */}
       <View className="py-4">
-        <Text className="text-5xl font-extrabold text-[#323743]">Mi mundo</Text>
+        <Text className="text-4xl font-extrabold text-[#5CB868]">Mi mundo</Text>
       </View>
 
       {/* Sección para crear post */}
@@ -479,7 +480,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
             <Image source={{ uri: profileImage }} className="object-cover h-11 w-11 rounded-full" />
           </TouchableOpacity>
         ) : (
-          <FontAwesome6 name="user-circle" size={38} />
+          <MaterialIcons name="person" size={35} />
         )}
         <TextInput
           className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
@@ -496,7 +497,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           </Pressable>
         ) : (
           // Si aún no hay imagen, se llama a pickImageAndPreview para la selección inicial
-          <Feather name="image" size={40} onPress={pickImageAndPreview} />
+          <MaterialIcons name="photo-library" size={35} color="#616161" onPress={pickImageAndPreview}/>
         )}
       </View>
 
@@ -526,11 +527,11 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       {/* Botón para publicar */}
       <View className="my-3">
         <TouchableOpacity
-          className="bg-[#A5D6A7] py-3 px-4 rounded-lg"
+          className="bg-[#5CB868] py-3 px-4 rounded-[20px]"
           onPress={handleCreatePost}
           disabled={loading}
         >
-          <Text className="text-[#142C15] text-center text-xl">
+          <Text className="text-[#fff] text-center text-xl font-medium">
             {loading ? "Publicando..." : "Publicar"}
           </Text>
         </TouchableOpacity>

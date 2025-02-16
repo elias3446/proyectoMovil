@@ -37,7 +37,7 @@ const ExpandableButton = ({
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
       <Animated.View
-        className="flex-row items-center justify-start rounded-[25px] py-2.5 px-4 h-12 overflow-hidden"
+        className="flex-row items-center justify-start rounded-[20px] py-2.5 px-4 h-12 overflow-hidden"
         style={[
           { width: widthAnim, backgroundColor: isActive ? "#5CB868" : "#F3F4F6" },
         ]}

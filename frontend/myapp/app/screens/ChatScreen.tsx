@@ -197,7 +197,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         )}
         <View
           className={`p-2 rounded-lg max-w-[70%] flex-row items-center ${
-            isBotMessage ? 'bg-gray-300' : 'bg-green-300 ml-auto'
+            isBotMessage ? 'bg-gray-300' : 'bg-[#B8E6B9] ml-auto'
           }`}
         >
           {isCloudinaryImage && item.text.startsWith('http') ? (
@@ -273,7 +273,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         />
         <TouchableOpacity
           className={`w-14 h-14 rounded-full justify-center items-center ${
-            loading ? 'bg-green-300' : 'bg-green-600'
+            loading ? 'bg-green-300' : 'bg-[#5CB868]'
           }`}
           onPress={sendMessage}
           disabled={loading}

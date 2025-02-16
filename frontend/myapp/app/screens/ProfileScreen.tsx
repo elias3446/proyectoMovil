@@ -351,7 +351,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
   return (
     <ScrollView
-      className="flex-grow bg-white mt-[-20px] py-5"
+      className="bg-[#E5FFE6] flex-grow bg-white mt-[-20px] py-5"
       contentContainerStyle={{ justifyContent: "center", alignItems: "center" }}
     >
       {/* Contenedor externo sin bordes, centrado y con maxWidth definido */}
@@ -359,7 +359,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         className="w-full p-5 bg-white self-center"
         style={{ maxWidth: width > 400 ? 400 : width - 40 }}
       >
-        <Text className="text-2xl font-bold text-center mb-5">Editar Perfil</Text>
+        <Text className="text-3xl font-extrabold text-center mb-4 text-[#5CB868] ">Editar Perfil</Text>
 
         <View className="w-[100px] h-[100px] rounded-full bg-[#F3F4F6] self-center mb-3 justify-center items-center relative">
           {newProfileImage || profileImage ? (
@@ -380,26 +380,34 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           </TouchableOpacity>
         </View>
 
-        <Text className="text-sm text-black font-bold text-center mb-5">
+        <Text className="text-xl text-black font-bold text-center mb-3">
           {`${firstName} ${lastName}`.trim()}
         </Text>
-
+        <Text className="text-base text-black font-bold mb-[6px] px-1 color-[#5CB868] ">
+          Nombre
+        </Text>
         <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+          className="w-full h-[40px] px-[15px] mb-2 bg-[#F3F4F6] rounded-[12px] text-base text-black"
           placeholder="Nombre"
           value={firstName}
           onChangeText={setFirstName}
           placeholderTextColor="#9CA3AF"
         />
+        <Text className="text-base text-black font-bold mb-[6px] px-1 color-[#5CB868] ">
+          Apellido
+        </Text>
         <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+          className="w-full h-[40px] px-[15px] mb-2 bg-[#F3F4F6] rounded-[12px] text-base text-black"
           placeholder="Apellido"
           value={lastName}
           onChangeText={setLastName}
           placeholderTextColor="#9CA3AF"
         />
+        <Text className="text-base text-black font-bold mb-[6px] px-1 color-[#5CB868] ">
+          Correo Electrónico
+        </Text>
         <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+          className="w-full h-[40px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
           placeholder="Correo Electrónico"
           value={email}
           onChangeText={setEmail}
@@ -407,11 +415,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           placeholderTextColor="#9CA3AF"
         />
 
-        <Text className="text-sm text-black font-bold mb-[6px]">
+        <Text className="text-base text-black font-bold mb-[6px] color-[#5CB868] ">
           Modificar contraseña:
         </Text>
         <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+          className="w-full h-[40px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
           placeholder="Ingresa tu contraseña actual"
           value={currentPassword}
           onChangeText={setCurrentPassword}
@@ -419,7 +427,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           placeholderTextColor="#9CA3AF"
         />
         <TextInput
-          className="w-full h-[50px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
+          className="w-full h-[40px] px-[15px] mb-3 bg-[#F3F4F6] rounded-[12px] text-base text-black"
           placeholder="Ingresa la nueva contraseña"
           value={password}
           onChangeText={setPassword}
@@ -428,7 +436,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         />
 
         <TouchableOpacity
-          className="p-[15px] rounded-[25px] items-center my-1 bg-[#5CB868]"
+          className="p-[12px] rounded-[20px] items-center my-1 bg-[#5CB868]"
           onPress={handleSaveChanges}
           disabled={loading}
         >
@@ -438,7 +446,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          className="p-[15px] rounded-[25px] items-center my-1 bg-[#5CB868]"
+          className="p-[12px] rounded-[20px] items-center my-1 bg-[#5CB868]"
           onPress={() => setShowSignOutModal(true)}
         >
           <View className="flex-row items-center">

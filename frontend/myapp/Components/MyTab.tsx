@@ -1,14 +1,24 @@
 import React, { memo } from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
+/**
+ * Propiedades del componente MyTab.
+ */
 interface MyTabProps {
+  /** Función para cambiar la pantalla actual */
   setCurrentScreen: (screen: string) => void;
+  /** Pantalla actualmente activa */
   currentScreen: string;
 }
 
+/**
+ * MyTab:
+ * Componente que renderiza una barra de navegación inferior con íconos.
+ * Cada ícono cambia de color cuando la pantalla asociada está activa.
+ */
 const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
-  // Arreglo de pestañas con sus propiedades
+  // Arreglo de pestañas con sus propiedades: nombre de pantalla, ícono y etiqueta de accesibilidad.
   const tabs = [
     {
       screen: 'CameraCaptureScreen',
@@ -32,24 +42,31 @@ const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
     },
   ];
 
-  // Cambia la pantalla actual al presionar un ícono
-  const handleTabPress = (screen: string) => {
+  /**
+   * Cambia la pantalla actual cuando se presiona un botón de la pestaña.
+   * @param screen - Nombre de la pantalla a activar.
+   */
+  const handleTabPress = (screen: string): void => {
     setCurrentScreen(screen);
   };
 
-  // Determina el color del ícono según si es la pantalla activa
-  const getIconColor = (screen: string) => {
+  /**
+   * Retorna el color del ícono dependiendo de si la pantalla está activa.
+   * @param screen - Nombre de la pantalla asociada al ícono.
+   * @returns Color en formato hexadecimal.
+   */
+  const getIconColor = (screen: string): string => {
     return currentScreen === screen ? '#5cb868' : '#616161';
   };
 
   return (
-    <View className="flex-row justify-around bg-white py-3">
+    <View style={styles.tabContainer}>
       {tabs.map((tab) => (
         <TouchableOpacity
           key={tab.screen}
-          className="items-center p-3"
+          style={styles.tabButton}
           onPress={() => handleTabPress(tab.screen)}
-          accessible={true}
+          accessible
           accessibilityLabel={tab.accessibilityLabel}
           accessibilityRole="button"
         >
@@ -59,5 +76,19 @@ const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
     </View>
   );
 };
+
+// Estilos para el componente MyTab.
+const styles = StyleSheet.create({
+  tabContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+  },
+  tabButton: {
+    alignItems: 'center',
+    padding: 12,
+  },
+});
 
 export default memo(MyTab);

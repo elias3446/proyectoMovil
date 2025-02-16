@@ -1,5 +1,4 @@
-import Fontisto from "@expo/vector-icons/Fontisto";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   TouchableOpacity,
   SafeAreaView,
@@ -8,7 +7,9 @@ import {
   Text,
   ActivityIndicator,
   Alert,
+  StyleSheet,
 } from "react-native";
+import Fontisto from "@expo/vector-icons/Fontisto";
 import { getFirestore, collection, addDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import NotificationBanner from "@/Components/NotificationBanner";
@@ -16,27 +17,47 @@ import { uploadImageToCloudinary } from "@/api/cloudinaryService";
 import { processImageWithAPI } from "@/api/processWithAPIService";
 
 interface PhotoPreviewSectionProps {
+  /** Objeto que contiene la URI de la foto a previsualizar */
   photo: { uri: string };
+  /** Función para reintentar la captura (retomar la foto) */
   handleRetakePhoto: () => void;
+  /** Función opcional para cambiar de pantalla después de confirmar el envío */
   setCurrentScreen?: (screen: string) => void;
-  onConfirm?: () => void; // Si se define, se usará en lugar de la lógica por defecto
+  /** Función opcional que se ejecuta en lugar de la lógica por defecto al confirmar */
+  onConfirm?: () => void;
 }
 
+/**
+ * PhotoPreviewSection:
+ * Componente para previsualizar una imagen capturada o seleccionada, y proceder a enviarla.
+ * Permite retomar la captura o enviar la imagen, procesándola con una API externa y actualizando
+ * los mensajes en Firestore.
+ */
 const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
   photo,
   handleRetakePhoto,
   setCurrentScreen,
   onConfirm,
 }) => {
+  // Estado para almacenar mensajes de error y controlar el indicador de carga.
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Instancias de autenticación y Firestore.
   const auth = getAuth();
   const db = getFirestore();
 
-  const handleSendPhoto = async () => {
-
-    
-    // Lógica por defecto (flujo de chat)
+  /**
+   * handleSendPhoto:
+   * Función asíncrona que gestiona el envío de la imagen.
+   * - Verifica que el usuario esté autenticado y que exista una imagen.
+   * - Sube la imagen a Cloudinary.
+   * - Procesa la imagen mediante una API externa para obtener una respuesta del bot.
+   * - Si la respuesta indica "no hay plantas", muestra una alerta y permite retomar la foto.
+   * - Si se proporciona la función onConfirm, se ejecuta y se omite el flujo por defecto.
+   * - De lo contrario, almacena los mensajes en Firestore y cambia a la pantalla de Chat.
+   */
+  const handleSendPhoto = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) {
       setErrorMessage("Usuario no autenticado.");
@@ -46,17 +67,23 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
       setErrorMessage("No hay imagen para enviar.");
       return;
     }
+
     setIsLoading(true);
 
     try {
+      // Sube la imagen a Cloudinary en la carpeta "user_messages"
       const imageUrl = await uploadImageToCloudinary(photo.uri, "user_messages");
       if (!imageUrl) {
         throw new Error("Image URL is null");
       }
+
+      // Procesa la imagen y obtiene la respuesta del bot
       const botResponseText = await processImageWithAPI(
         imageUrl,
         (msg: string) => setErrorMessage(msg)
       );
+
+      // Si la respuesta es "no hay plantas", muestra una alerta y permite retomar la foto
       if (botResponseText && botResponseText.toLowerCase() === "no hay plantas") {
         Alert.alert(
           "Atención",
@@ -71,16 +98,21 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
         );
         return;
       }
-          // Si se provee onConfirm, simplemente lo llamamos
-    if (onConfirm) {
-      onConfirm();
-      return;
-    }
-    
-      const receiverUID = "receiverUID"; // TODO: Reemplazar por el ID real del receptor
+
+      // Si se ha definido onConfirm, se utiliza esa lógica en lugar de la predeterminada
+      if (onConfirm) {
+        onConfirm();
+        return;
+      }
+
+      // Definir el ID del receptor (reemplazar "receiverUID" por el valor real en producción)
+      const receiverUID = "receiverUID";
+
+      // Referencias a las colecciones de mensajes para el usuario y el receptor.
       const userMessagesRef = collection(db, "users", user.uid, "messages");
       const receiverMessagesRef = collection(db, "users", receiverUID, "messages");
 
+      // Agrega el mensaje del usuario con la imagen subida
       await addDoc(userMessagesRef, {
         text: imageUrl,
         sender: user.uid,
@@ -88,6 +120,7 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
         timestamp: new Date(),
       });
 
+      // Prepara el mensaje de respuesta del bot
       const botMessage = {
         text: botResponseText,
         sender: receiverUID,
@@ -95,9 +128,11 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
         timestamp: new Date(),
       };
 
+      // Agrega el mensaje del bot en ambas colecciones
       await addDoc(userMessagesRef, botMessage);
       await addDoc(receiverMessagesRef, botMessage);
 
+      // Cambia la pantalla a "ChatScreen" si se proporciona la función; de lo contrario, muestra un mensaje de éxito.
       if (setCurrentScreen) {
         setCurrentScreen("ChatScreen");
       } else {
@@ -109,34 +144,31 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [auth, photo, onConfirm, setCurrentScreen, handleRetakePhoto, db]);
 
   return (
-    <SafeAreaView className="flex-1 relative bg-white justify-center items-center p-5">
-      <View className="w-full h-[300px] bg-[#F3F4F6] justify-center items-center rounded-[16px] mb-8">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.imageContainer}>
+        {/* Muestra un banner de notificación en caso de error */}
         <NotificationBanner message={errorMessage} type="error" />
         {photo?.uri ? (
           <Image
-            className="w-full h-full rounded-[15px] bg-white"
             source={{ uri: photo.uri }}
+            style={styles.image}
             resizeMode="contain"
           />
         ) : (
-          <Text className="text-red-500 text-base text-center mt-2">
-            No image available
-          </Text>
+          <Text style={styles.noImageText}>No image available</Text>
         )}
       </View>
 
-      <View className="flex-row justify-center items-center">
-        <TouchableOpacity
-          className="bg-[#5CB868] rounded-full p-3 m-2.5 justify-center items-center"
-          onPress={handleRetakePhoto}
-        >
+      {/* Botones para retomar la foto o enviarla */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.button} onPress={handleRetakePhoto}>
           <Fontisto name="trash" size={36} color="white" />
         </TouchableOpacity>
         <TouchableOpacity
-          className="bg-[#5CB868] rounded-full p-3 m-2.5 justify-center items-center"
+          style={[styles.button, (isLoading || !photo?.uri) && styles.disabledButton]}
           onPress={handleSendPhoto}
           disabled={isLoading || !photo?.uri}
         >
@@ -144,19 +176,82 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
         </TouchableOpacity>
       </View>
 
+      {/* Indicador de carga: se muestra de forma superpuesta si se está procesando */}
       {isLoading && (
-        <View className="absolute inset-0 justify-center items-center">
+        <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#5CB868" />
         </View>
       )}
 
+      {/* Muestra mensaje de error debajo de los botones, si existe */}
       {errorMessage ? (
-        <Text className="text-red-500 text-base text-center mt-2">
-          {errorMessage}
-        </Text>
+        <Text style={styles.errorText}>{errorMessage}</Text>
       ) : null}
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: "relative",
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  imageContainer: {
+    width: "100%",
+    height: 300,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 15,
+    backgroundColor: "#ffffff",
+  },
+  noImageText: {
+    color: "#ff4d4f",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  button: {
+    backgroundColor: "#5CB868",
+    borderRadius: 50,
+    padding: 12,
+    margin: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#ff4d4f",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 8,
+  },
+});
 
 export default PhotoPreviewSection;

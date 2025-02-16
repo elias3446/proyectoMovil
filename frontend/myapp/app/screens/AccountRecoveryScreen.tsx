@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"; 
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,46 +13,69 @@ import { Ionicons } from "@expo/vector-icons";
 import { auth } from "@/Config/firebaseConfig";
 import { sendPasswordResetEmail } from "firebase/auth";
 import NotificationBanner from "@/Components/NotificationBanner";
-import { styles } from "@/assets/styles/AccountRecoveryStyles"; // Asegúrate de ajustar la ruta según corresponda
+import { styles } from "@/assets/styles/AccountRecoveryStyles";
 
+// Definición de propiedades para la pantalla de recuperación de cuenta
 interface AccountRecoveryScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+/**
+ * Componente que permite a los usuarios recuperar su cuenta ingresando su correo electrónico.
+ * Realiza la validación del correo, envía la solicitud de recuperación a Firebase y muestra notificaciones.
+ */
 const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
   setCurrentScreen,
 }) => {
-  const [emailOrPhone, setEmailOrPhone] = useState("");
-  const [loading, setLoading] = useState(false);
+  // Estados para almacenar el correo, el estado de carga y los mensajes de error/exito.
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  /**
+   * Valida que el formato del correo electrónico sea correcto.
+   * @param email - Correo electrónico a validar.
+   * @returns {boolean} - True si el formato es válido, de lo contrario false.
+   */
   const validateEmail = useCallback((email: string): boolean => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
   }, []);
 
+  /**
+   * Maneja el envío del correo de recuperación.
+   * Realiza las validaciones correspondientes y utiliza Firebase para enviar el correo.
+   */
   const handleSubmit = useCallback(async () => {
+    // Reinicia los mensajes de error y éxito
     setErrorMessage("");
     setSuccessMessage("");
     Keyboard.dismiss();
 
-    const trimmedEmail = emailOrPhone.trim();
+    const trimmedEmail = email.trim();
+
+    // Verifica que se haya ingresado un correo
     if (trimmedEmail === "") {
       setErrorMessage("Por favor, ingresa tu correo electrónico.");
       return;
     }
+
+    // Verifica que el formato del correo sea correcto
     if (!validateEmail(trimmedEmail)) {
       setErrorMessage("Ingresa un correo electrónico válido.");
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
     try {
+      // Envía el correo de recuperación a través de Firebase
       await sendPasswordResetEmail(auth, trimmedEmail);
       setSuccessMessage("Correo de recuperación enviado exitosamente.");
+      // Redirige a la pantalla de login después de un breve retraso
       setTimeout(() => setCurrentScreen("LoginScreen"), 1500);
     } catch (error: any) {
+      // Maneja los errores específicos y generales
       if (error.code === "auth/user-not-found") {
         setErrorMessage("No se encontró un usuario con ese correo electrónico.");
       } else {
@@ -61,10 +84,13 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
         );
       }
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [emailOrPhone, setCurrentScreen, validateEmail]);
+  }, [email, setCurrentScreen, validateEmail]);
 
+  /**
+   * Limpia los mensajes de error y éxito después de 3 segundos.
+   */
   useEffect(() => {
     if (errorMessage || successMessage) {
       const timer = setTimeout(() => {
@@ -90,18 +116,15 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
         }}
       >
         <View className={styles.container}>
-          <Text className={styles.title}>
-            Recupera tu cuenta
-          </Text>
+          {/* Título y subtítulo de la pantalla */}
+          <Text className={styles.title}>Recupera tu cuenta</Text>
           <Text className={styles.subtitle}>
             Ingresa tu correo electrónico para buscar tu cuenta.
           </Text>
 
-          {/* Campo de correo electrónico */}
+          {/* Campo de entrada para el correo electrónico */}
           <View className={styles.emailContainer}>
-            <Text className={styles.emailLabel}>
-              Correo Electrónico
-            </Text>
+            <Text className={styles.emailLabel}>Correo Electrónico</Text>
             <View className={styles.inputContainer}>
               <Ionicons
                 name="mail-outline"
@@ -113,8 +136,8 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
                 className={styles.emailInput}
                 placeholder="Ingresa tu correo"
                 placeholderTextColor="gray"
-                value={emailOrPhone}
-                onChangeText={setEmailOrPhone}
+                value={email}
+                onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoFocus
@@ -122,32 +145,31 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
             </View>
           </View>
 
-          {/* Botones de Cancelar y Buscar */}
+          {/* Botones de acción: Cancelar y Buscar */}
           <View className={styles.buttonsContainer}>
             <TouchableOpacity
               className={styles.cancelButton}
               onPress={() => setCurrentScreen("LoginScreen")}
-              disabled={loading}
+              disabled={isLoading}
               accessibilityLabel="Cancelar"
             >
-              <Text className={styles.buttonText}>
-                Cancelar
-              </Text>
+              <Text className={styles.buttonText}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className={styles.searchButton}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={isLoading}
               accessibilityLabel="Buscar"
             >
               <Text className={styles.buttonText}>
-                {loading ? "Cargando..." : "Buscar"}
+                {isLoading ? "Cargando..." : "Buscar"}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
+      {/* Notificaciones para mostrar mensajes de error y éxito */}
       <NotificationBanner message={errorMessage} type="error" />
       <NotificationBanner message={successMessage} type="success" />
     </KeyboardAvoidingView>

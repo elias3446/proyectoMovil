@@ -49,20 +49,17 @@ const CustomModal: React.FC<CustomModalProps> = ({
   children,
 }) => {
   if (!visible) return null;
+
   if (Platform.OS === "web") {
     return (
-      <Pressable
-        className={styles.customModalWebPressable}
-        onPress={onRequestClose}
-      >
+      <Pressable className={styles.customModalWebPressable} onPress={onRequestClose}>
         <TouchableWithoutFeedback>
-          <View className={styles.customModalWebView}>
-            {children}
-          </View>
+          <View className={styles.customModalWebView}>{children}</View>
         </TouchableWithoutFeedback>
       </Pressable>
     );
   }
+
   return (
     <Modal
       transparent={true}
@@ -115,32 +112,36 @@ interface IUserData {
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
-  // Estados básicos
+  // Estados para datos básicos del usuario
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  // Imagen de perfil
+
+  // Estados para imagen de perfil
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [newProfileImage, setNewProfileImage] = useState<string | null>(null);
-  // Fecha de nacimiento y género
+
+  // Estados para fecha de nacimiento y género
   const [birthDay, setBirthDay] = useState("1");
   const [birthMonth, setBirthMonth] = useState("1");
   const [birthYear, setBirthYear] = useState(new Date().getFullYear().toString());
   const [gender, setGender] = useState("");
   const [pronoun, setPronoun] = useState("");
   const [customGender, setCustomGender] = useState("");
-  // Contraseña
+
+  // Estados para contraseña y reautenticación
   const [password, setPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
-  // Modal imagen de perfil y mensajes
+
+  // Estados para manejo de modales y mensajes
   const [showProfileImageModal, setShowProfileImageModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
 
-  // Datos originales para comparar cambios
+  // Guarda los datos originales para detectar cambios
   const [originalUserData, setOriginalUserData] = useState<IUserData>({
     firstName: "",
     lastName: "",
@@ -155,9 +156,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     customGender: "",
   });
 
-  const [currentUser, setCurrentUser] = useState(getAuth().currentUser);
   const auth = getAuth();
   const db = getFirestore();
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const { width } = Dimensions.get("window");
 
   const showError = useCallback((msg: string, timeout = 1500) => {
@@ -240,12 +241,29 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
   const renderDayItems = useCallback(() => {
     return [...Array(31).keys()].map((day) => (
-      <Picker.Item key={day + 1} label={(day + 1).toString()} value={(day + 1).toString()} />
+      <Picker.Item
+        key={day + 1}
+        label={(day + 1).toString()}
+        value={(day + 1).toString()}
+      />
     ));
   }, []);
 
   const renderMonthItems = useCallback(() => {
-    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const months = [
+      "Ene",
+      "Feb",
+      "Mar",
+      "Abr",
+      "May",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dic",
+    ];
     return months.map((month, index) => (
       <Picker.Item key={index} label={month} value={(index + 1).toString()} />
     ));
@@ -479,7 +497,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           >
             {`${firstName} ${lastName}`.trim()}
           </Text>
-          {/* Botón Cerrar Sesión: icono arriba, leyenda debajo; sin fondo */}
+          {/* Botón Cerrar Sesión */}
           <TouchableOpacity
             onPress={() => setShowSignOutModal(true)}
             style={{
@@ -490,7 +508,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           >
             <View style={{ alignItems: "center" }}>
               <FontAwesome name="sign-out" size={30} color="#5CB868" />
-              <Text style={{ color: "#5CB868", fontSize: 16 }}>Cerrar Sesión</Text>
+              <Text style={{ color: "#5CB868", fontSize: 16 }}>
+                Cerrar Sesión
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -501,12 +521,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         className={styles.scrollView}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
       >
-        <Text
-          className={styles.labelSmall}
-          style={{ color: "#5CB868" }}
-        >
-          Nombre
-        </Text>
+        <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Nombre</Text>
         <TextInput
           className={styles.inputName}
           placeholder="Nombre"
@@ -514,12 +530,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           onChangeText={setFirstName}
           placeholderTextColor="#9CA3AF"
         />
-        <Text
-          className={styles.labelSmall}
-          style={{ color: "#5CB868" }}
-        >
-          Apellido
-        </Text>
+        <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Apellido</Text>
         <TextInput
           className={styles.inputName}
           placeholder="Apellido"
@@ -527,10 +539,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           onChangeText={setLastName}
           placeholderTextColor="#9CA3AF"
         />
-        <Text
-          className={styles.labelSmall}
-          style={{ color: "#5CB868" }}
-        >
+        <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>
           Correo Electrónico
         </Text>
         <TextInput
@@ -594,12 +604,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           </Picker>
         </View>
 
-        <Text
-          className={styles.genderLabel}
-          style={{ color: "#5CB868" }}
-        >
-          Género
-        </Text>
+        <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Género</Text>
         <Picker
           selectedValue={gender}
           style={{
@@ -624,10 +630,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         </Picker>
         {gender === "O" && (
           <>
-            <Text
-              className={styles.pronounLabel}
-              style={{ color: "#5CB868" }}
-            >
+            <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>
               Selecciona tu pronombre
             </Text>
             <Picker
@@ -660,10 +664,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             <Text className={styles.pronounDescription}>
               Tu pronombre será visible para todos.
             </Text>
-            <Text
-              className={styles.customGenderLabel}
-              style={{ color: "#5CB868" }}
-            >
+            <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>
               Género (opcional)
             </Text>
             <TextInput
@@ -676,10 +678,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           </>
         )}
 
-        <Text
-          className={styles.passwordLabel}
-          style={{ color: "#5CB868" }}
-        >
+        <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>
           Modificar contraseña:
         </Text>
         <TextInput
@@ -700,7 +700,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         />
       </ScrollView>
 
-      {/* Pie de página fijo */}
       <View className={styles.footerContainer}>
         <TouchableOpacity
           className={styles.saveButton}
@@ -726,7 +725,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
               className={styles.modalCancelButton}
               onPress={() => setShowSignOutModal(false)}
               style={{ marginBottom: 10 }}
-            >
+              >
               <Text className={styles.modalButtonText}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity

@@ -18,12 +18,21 @@ import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "@/assets/styles/RegisterStyles"; // Ajusta la ruta según corresponda
 
+/**
+ * Propiedades del componente RegisterScreen.
+ */
 interface RegisterScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+/**
+ * Componente RegisterScreen:
+ * Permite al usuario crear una cuenta proporcionando datos personales, fecha de nacimiento, género,
+ * correo, contraseña y aceptando los Términos y Condiciones. Realiza validaciones y registra al usuario
+ * en Firebase Authentication y Firestore.
+ */
 const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => {
-  // Estados para datos del usuario
+  // Estados para los datos del usuario
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -43,9 +52,12 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Dimensiones de la pantalla (se pueden usar para ajustar diseños responsivos)
   const { width } = Dimensions.get("window");
 
-  // Limpia mensajes de error o éxito después de 3 segundos
+  /**
+   * Efecto para limpiar los mensajes de error y éxito automáticamente después de 3 segundos.
+   */
   useEffect(() => {
     if (errorMessage || successMessage) {
       const timer = setTimeout(() => {
@@ -56,13 +68,22 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
     }
   }, [errorMessage, successMessage]);
 
-  // Helper para validar formato de correo electrónico
+  /**
+   * Función para validar el formato del correo electrónico.
+   * @param email - Correo electrónico a validar.
+   * @returns {boolean} - Devuelve true si el formato es válido.
+   */
   const validateEmail = useCallback((email: string): boolean => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
   }, []);
 
-  // Función para registrar al usuario
+  /**
+   * Función para registrar al usuario.
+   * Realiza validaciones de campos, valida el formato del correo y verifica que se hayan aceptado
+   * los Términos y Condiciones. Luego crea el usuario en Firebase Authentication y almacena los datos
+   * en Firestore.
+   */
   const handleRegister = useCallback(async () => {
     // Validaciones iniciales
     if (
@@ -83,9 +104,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
       return;
     }
     if (gender === "O" && !pronoun) {
-      setErrorMessage(
-        "Por favor, selecciona un pronombre para el género personalizado."
-      );
+      setErrorMessage("Por favor, selecciona un pronombre para el género personalizado.");
       return;
     }
     if (!acceptTerms) {
@@ -94,15 +113,20 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
     }
 
     setLoading(true);
+
     try {
       const auth = getAuth();
       const db = getFirestore();
+
+      // Registra al usuario en Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email.trim(),
         password.trim()
       );
       const user = userCredential.user;
+
+      // Crea el objeto con los datos del usuario
       const userData = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -117,7 +141,10 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
         customGender: customGender.trim(),
         profileImage: profileImage || null,
       };
+
+      // Guarda los datos del usuario en Firestore
       await setDoc(doc(db, "users", user.uid), userData);
+
       setSuccessMessage("Usuario registrado exitosamente.");
       setCurrentScreen("LoginScreen");
     } catch (error: unknown) {
@@ -126,6 +153,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
       } else {
         setErrorMessage("Error al registrar el usuario.");
       }
+    } finally {
       setLoading(false);
     }
   }, [
@@ -145,7 +173,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
     validateEmail,
   ]);
 
-  // Funciones helper para generar ítems de los Pickers
+  /**
+   * Función para renderizar los elementos del Picker para el día (1-31).
+   */
   const renderDayItems = useCallback(() => {
     return [...Array(31).keys()].map((day) => (
       <Picker.Item
@@ -156,6 +186,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
     ));
   }, []);
 
+  /**
+   * Función para renderizar los elementos del Picker para el mes.
+   */
   const renderMonthItems = useCallback(() => {
     const months = [
       "Ene",
@@ -180,6 +213,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
     ));
   }, []);
 
+  /**
+   * Función para renderizar los elementos del Picker para el año (últimos 100 años).
+   */
   const renderYearItems = useCallback(() => {
     const currentYear = new Date().getFullYear();
     return [...Array(100).keys()].map((year) => {
@@ -190,7 +226,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
 
   return (
     <View className={styles.registerScreenRoot}>
-      {/* Encabezado fijo (toca para cerrar el teclado) */}
+      {/* Encabezado fijo: toca en cualquier parte para cerrar el teclado */}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View className={styles.headerContainer}>
           <Image
@@ -198,13 +234,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
             className={styles.headerImage}
             resizeMode="contain"
           />
-          <Text className={styles.headerTitle}>
-            Crea una cuenta
-          </Text>
+          <Text className={styles.headerTitle}>Crea una cuenta</Text>
         </View>
       </TouchableWithoutFeedback>
 
-      {/* Contenido scrollable (solo el formulario) con contenedor intermedio */}
+      {/* Contenido scrollable: formulario de registro */}
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -232,10 +266,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
               accessibilityLabel="Apellido"
             />
           </View>
+
           {/* Fecha de Nacimiento */}
-          <Text className={styles.birthDateLabel}>
-            Fecha de nacimiento
-          </Text>
+          <Text className={styles.birthDateLabel}>Fecha de nacimiento</Text>
           <View className={styles.birthDateContainer}>
             <Picker
               selectedValue={birthDay}
@@ -286,6 +319,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
               {renderYearItems()}
             </Picker>
           </View>
+
           {/* Género */}
           <Text className={styles.genderLabel}>Género</Text>
           <Picker
@@ -312,9 +346,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
           </Picker>
           {gender === "O" && (
             <>
-              <Text className={styles.pronounLabel}>
-                Selecciona tu pronombre
-              </Text>
+              <Text className={styles.pronounLabel}>Selecciona tu pronombre</Text>
               <Picker
                 selectedValue={pronoun}
                 style={{
@@ -345,9 +377,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
               <Text className={styles.pronounDescription}>
                 Tu pronombre será visible para todos.
               </Text>
-              <Text className={styles.customGenderLabel}>
-                Género (opcional)
-              </Text>
+              <Text className={styles.customGenderLabel}>Género (opcional)</Text>
               <TextInput
                 className={styles.inputCustomGender}
                 placeholder="Escribe tu género"
@@ -357,6 +387,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
               />
             </>
           )}
+
           {/* Correo Electrónico */}
           <TextInput
             className={styles.inputEmail}
@@ -366,6 +397,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
             keyboardType="email-address"
             accessibilityLabel="Correo electrónico"
           />
+
           {/* Contraseña */}
           <View className={styles.passwordContainer}>
             <TextInput
@@ -392,7 +424,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
         </View>
       </ScrollView>
 
-      {/* Pie de página fijo (toca para cerrar el teclado) */}
+      {/* Pie de página fijo: incluye términos y botón de registro */}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View className={styles.footerContainer}>
           <View className={styles.termsContainer}>
@@ -434,6 +466,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
           </TouchableOpacity>
         </View>
       </TouchableWithoutFeedback>
+
+      {/* Notificaciones para mensajes de error y éxito */}
       <NotificationBanner message={errorMessage} type="error" />
       <NotificationBanner message={successMessage} type="success" />
     </View>

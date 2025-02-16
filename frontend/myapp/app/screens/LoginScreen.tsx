@@ -20,18 +20,33 @@ import { registerIndieID } from 'native-notify';
 import { APP_ID, APP_TOKEN } from '@/api/notificationService';
 import { styles } from '@/assets/styles/LoginStyles'; // Asegúrate de ajustar la ruta según corresponda
 
+/**
+ * Propiedades que recibe el componente LoginScreen.
+ */
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+/**
+ * Tipo para el banner de notificaciones.
+ */
 type NotificationType = 'error' | 'success';
 
+/**
+ * Estado para el banner de notificaciones.
+ */
 interface NotificationState {
   message: string;
   type: NotificationType | null;
 }
 
+/**
+ * Componente LoginScreen
+ * Permite iniciar sesión utilizando correo y contraseña.
+ * Se realiza la validación del formato del correo, se muestran notificaciones y se registra el dispositivo para notificaciones.
+ */
 const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
+  // Estados de la pantalla
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -41,10 +56,12 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   });
   const [passwordVisible, setPasswordVisible] = useState<boolean>(false);
 
-  // Ref para el input de contraseña (para gestionar el enfoque)
+  // Referencia para el TextInput de la contraseña, para gestionar el enfoque
   const passwordInputRef = useRef<TextInput>(null);
 
-  // Función para limpiar notificaciones después de 3 segundos
+  /**
+   * Función para limpiar la notificación después de 3 segundos.
+   */
   const clearNotification = useCallback(() => {
     setNotification({ message: '', type: null });
   }, []);
@@ -59,22 +76,36 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     };
   }, [notification, clearNotification]);
 
-  // Validación básica del formato de correo
+  /**
+   * Valida el formato del correo utilizando una expresión regular.
+   * @param email - Correo electrónico a validar.
+   * @returns {boolean} - True si el formato es correcto, de lo contrario false.
+   */
   const validateEmail = (email: string): boolean => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
   };
 
-  // Alterna la visibilidad de la contraseña
+  /**
+   * Alterna la visibilidad de la contraseña.
+   */
   const togglePasswordVisibility = () => {
     setPasswordVisible((prev) => !prev);
   };
 
+  /**
+   * Maneja el inicio de sesión:
+   * - Valida que se hayan completado los campos y que el formato del correo sea correcto.
+   * - Intenta iniciar sesión con Firebase Authentication.
+   * - Registra el dispositivo para notificaciones en dispositivos móviles.
+   * - Muestra notificaciones de éxito o error.
+   */
   const handleLogin = async () => {
     // Oculta el teclado (en web no afecta)
     Keyboard.dismiss();
     clearNotification();
 
+    // Validación básica de campos
     if (!email.trim() || !password) {
       setNotification({ message: 'Por favor, completa ambos campos.', type: 'error' });
       return;
@@ -87,10 +118,11 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
     setLoading(true);
     try {
+      // Intenta iniciar sesión con Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       setNotification({ message: 'Inicio de sesión exitoso', type: 'success' });
 
-      // Registro para notificaciones solo en dispositivos móviles (Android/iOS)
+      // Registro para notificaciones en dispositivos móviles (Android/iOS)
       if (Platform.OS !== 'web') {
         registerIndieID(userCredential.user.uid, APP_ID, APP_TOKEN);
       } else {
@@ -127,7 +159,9 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     }
   };
 
-  // Permite pasar del input de correo al de contraseña
+  /**
+   * Permite pasar del input de correo al de contraseña al enviar el formulario.
+   */
   const onEmailSubmitEditing = () => {
     passwordInputRef.current?.focus();
   };
@@ -137,8 +171,12 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className={styles.keyboardAvoidingView}
     >
-      <ScrollView contentContainerStyle={localStyles.scrollContainer} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={localStyles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
         <View className={styles.mainContainer}>
+          {/* Logo de la aplicación */}
           <Image
             source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
             style={localStyles.logoImage}
@@ -223,7 +261,7 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         </View>
       </ScrollView>
 
-      {/* Notificaciones */}
+      {/* Banner de notificaciones */}
       {notification.message !== '' && notification.type && (
         <NotificationBanner message={notification.message} type={notification.type} />
       )}
@@ -231,6 +269,9 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   );
 };
 
+/**
+ * Estilos locales para algunos componentes específicos.
+ */
 const localStyles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,

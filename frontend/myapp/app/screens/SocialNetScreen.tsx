@@ -237,6 +237,11 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       if (post.length > 0 && post[0].userId !== userId) {
         sendPostNotification(post, userId, "Nuevo Comentario!", "ha comentado tu publicación:");
       }
+
+      // Recargar los posts después de agregar el comentario
+      getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
+        setSnapshots(newSnapshots); // Actualiza el estado con los posts recargados
+      }, sortType, false);
     } catch (error) {
       console.error("Error al agregar el comentario al post:", error);
     }
@@ -284,14 +289,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           }
         });
       });
+      return () => {
+        if (unsubscribeRealtime) unsubscribeRealtime();
+      };
+    }, sortType, false);
     return () => {
-      if (unsubscribeRealtime) unsubscribeRealtime();
+      if (unsubscribeInitial) unsubscribeInitial();
     };
-  }, sortType, false);
-  return () => {
-    if (unsubscribeInitial) unsubscribeInitial();
-  };
-}, [sortType]);
+  }, [sortType]);
 
   useEffect(() => {
     const userId = auth.currentUser?.uid;

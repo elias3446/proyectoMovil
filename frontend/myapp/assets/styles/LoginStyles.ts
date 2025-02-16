@@ -1,0 +1,22 @@
+export const styles = {
+    keyboardAvoidingView: "flex-1 bg-white",
+    mainContainer: "flex-1 w-full max-w-[25rem] bg-white justify-center items-center mt-10 px-5",
+    emailFieldContainer: "w-full mb-4",
+    emailLabel: "font-bold text-left mb-1 text-black text-lg",
+    emailInputContainer: "w-full flex-row items-center bg-[#F3F4F6] rounded-xl relative",
+    emailIcon: "absolute left-3 z-20",
+    emailInput: "flex-1 h-12 pl-11 pr-12 text-base text-black bg-[#F3F4F6] rounded-xl border-0",
+    passwordFieldContainer: "w-full mb-4",
+    passwordLabel: "font-bold text-left mb-1 text-black text-lg",
+    passwordInputContainer: "w-full flex-row items-center bg-[#F3F4F6] rounded-xl relative",
+    passwordIcon: "absolute left-3 z-20",
+    passwordInput: "flex-1 h-12 pl-11 pr-12 text-base text-black bg-[#F3F4F6] rounded-xl border-0",
+    passwordToggleButton: "absolute items-center right-4 z-20",
+    forgotPasswordContainer: "w-full items-end mb-5",
+    forgotPasswordText: "text-[#5CB868]",
+    loginButton: "w-full h-12 bg-[#5CB868] justify-center items-center rounded-xl mb-5",
+    loginButtonText: "font-bold text-white text-lg",
+    registerText: "text-base text-center mt-7 text-black",
+    registerTextHighlight: "font-bold text-[#5CB868]",
+  };
+  

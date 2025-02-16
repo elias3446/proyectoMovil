@@ -16,6 +16,7 @@ import { getFirestore, doc, setDoc } from "firebase/firestore";
 import NotificationBanner from "@/Components/NotificationBanner";
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
+import { styles } from "@/assets/styles/RegisterStyles"; // Ajusta la ruta según corresponda
 
 interface RegisterScreenProps {
   setCurrentScreen: (screen: string) => void;
@@ -188,16 +189,16 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
   }, []);
 
   return (
-    <View className="flex-1 bg-white">
+    <View className={styles.registerScreenRoot}>
       {/* Encabezado fijo (toca para cerrar el teclado) */}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View className="p-5">
+        <View className={styles.headerContainer}>
           <Image
             source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
-            className="w-3/5 aspect-square self-center mb-[-40px]"
+            className={styles.headerImage}
             resizeMode="contain"
           />
-          <Text className="font-bold text-2xl text-center mb-5">
+          <Text className={styles.headerTitle}>
             Crea una cuenta
           </Text>
         </View>
@@ -211,28 +212,20 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
           justifyContent: "center",
           alignItems: "center",
         }}
-        className="flex-grow"
+        className={styles.scrollView}
       >
-        <View
-          className={`w-full bg-white rounded-xl relative ${
-            width > 400 ? "max-w-[25rem]" : "max-w-[calc(100%-40px)]"
-          }`}
-        >
+        <View className={styles.formContainer}>
           {/* Nombre y Apellido */}
-          <View className="flex-row justify-between mb-3">
+          <View className={styles.rowInputContainer}>
             <TextInput
-              className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${
-                firstName ? "text-black" : "text-[#9CA3AF]"
-              }`}
+              className={styles.inputFirstName}
               placeholder="Nombre"
               value={firstName}
               onChangeText={setFirstName}
               accessibilityLabel="Nombre"
             />
             <TextInput
-              className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${
-                lastName ? "text-black" : "text-[#9CA3AF]"
-              }`}
+              className={styles.inputLastName}
               placeholder="Apellido"
               value={lastName}
               onChangeText={setLastName}
@@ -240,10 +233,10 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
             />
           </View>
           {/* Fecha de Nacimiento */}
-          <Text className="text-base text-black mb-2 font-bold">
+          <Text className={styles.birthDateLabel}>
             Fecha de nacimiento
           </Text>
-          <View className="flex-row justify-between mb-3">
+          <View className={styles.birthDateContainer}>
             <Picker
               selectedValue={birthDay}
               style={{
@@ -294,9 +287,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
             </Picker>
           </View>
           {/* Género */}
-          <Text className="text-base text-black mb-2 font-bold">
-            Género
-          </Text>
+          <Text className={styles.genderLabel}>Género</Text>
           <Picker
             selectedValue={gender}
             style={{
@@ -321,7 +312,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
           </Picker>
           {gender === "O" && (
             <>
-              <Text className="text-base text-black mb-2 font-bold">
+              <Text className={styles.pronounLabel}>
                 Selecciona tu pronombre
               </Text>
               <Picker
@@ -351,16 +342,14 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
                   value="Neutro"
                 />
               </Picker>
-              <Text className="text-xs text-[#666] mb-3">
+              <Text className={styles.pronounDescription}>
                 Tu pronombre será visible para todos.
               </Text>
-              <Text className="text-base text-black mb-2 font-bold">
+              <Text className={styles.customGenderLabel}>
                 Género (opcional)
               </Text>
               <TextInput
-                className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${
-                  customGender ? "text-black" : "text-[#9CA3AF]"
-                }`}
+                className={styles.inputCustomGender}
                 placeholder="Escribe tu género"
                 value={customGender}
                 onChangeText={setCustomGender}
@@ -370,9 +359,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
           )}
           {/* Correo Electrónico */}
           <TextInput
-            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${
-              email ? "text-black" : "text-[#9CA3AF]"
-            }`}
+            className={styles.inputEmail}
             placeholder="Correo electrónico"
             value={email}
             onChangeText={setEmail}
@@ -380,18 +367,16 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
             accessibilityLabel="Correo electrónico"
           />
           {/* Contraseña */}
-          <View className="relative">
+          <View className={styles.passwordContainer}>
             <TextInput
-              className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${
-                password ? "text-black" : "text-[#9CA3AF]"
-              }`}
+              className={styles.inputPassword}
               placeholder="Contraseña nueva"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               accessibilityLabel="Contraseña nueva"
             />
-            <View className="absolute z-20 right-4 top-3">
+            <View className={styles.passwordToggleContainer}>
               <TouchableOpacity
                 onPress={() => setShowPassword((prev) => !prev)}
                 accessibilityLabel="Mostrar u ocultar contraseña"
@@ -409,19 +394,19 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
 
       {/* Pie de página fijo (toca para cerrar el teclado) */}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View className="p-5">
-          <View className="flex-row items-center mb-3">
+        <View className={styles.footerContainer}>
+          <View className={styles.termsContainer}>
             <Checkbox
               value={acceptTerms}
               onValueChange={setAcceptTerms}
-              className="mr-2"
+              className={styles.checkboxMargin}
               accessibilityLabel="Aceptar Términos y Condiciones"
             />
             <TouchableOpacity onPress={() => {}}>
-              <Text className="text-base text-black">
+              <Text className={styles.termsText}>
                 Acepto los{" "}
                 <Text
-                  className="text-[#5CB868]"
+                  className={styles.termsLink}
                   onPress={() => {}}
                   accessibilityLabel="Ver Términos y Condiciones"
                 >
@@ -431,20 +416,20 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
             </TouchableOpacity>
           </View>
           <TouchableOpacity
-            className="items-center my-3 p-4 rounded-xl bg-[#5CB868]"
+            className={styles.registerButton}
             onPress={handleRegister}
             disabled={loading}
             accessibilityLabel="Registrar cuenta"
             accessibilityRole="button"
           >
-            <Text className="text-white font-bold text-lg">
+            <Text className={styles.registerButtonText}>
               {loading ? "Cargando..." : "Registrar"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setCurrentScreen("LoginScreen")}>
-            <Text className="text-black text-center mt-3 text-base">
-              <Text className="text-black">¿Ya tienes cuenta?</Text>
-              <Text className="text-[#5CB868]"> Iniciar sesión</Text>
+            <Text className={styles.loginLinkContainer}>
+              <Text className={styles.loginLinkText}>¿Ya tienes cuenta?</Text>
+              <Text className={styles.loginLinkHighlight}> Iniciar sesión</Text>
             </Text>
           </TouchableOpacity>
         </View>

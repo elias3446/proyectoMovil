@@ -1,0 +1,16 @@
+export const styles = {
+  keyboardAvoidingView: "flex-1 bg-white justify-center items-center",
+  scrollView: "bg-white w-full",
+  container: "w-full bg-white rounded-xl relative max-w-[25rem] px-5 mt-10",
+  title: "font-bold text-3xl text-center text-black mb-3",
+  subtitle: "text-lg text-[#666] text-center mb-5",
+  emailContainer: "w-full mb-5",
+  emailLabel: "text-black text-base mb-2 text-left font-bold",
+  inputContainer: "flex-row items-center bg-[#F3F4F6] rounded-xl relative w-full",
+  emailIcon: "absolute z-20 left-3",
+  emailInput: "flex-1 h-11 pl-11 pr-4 text-lg text-black bg-[#F3F4F6] rounded-xl",
+  buttonsContainer: "flex-row w-full mt-5 justify-between",
+  cancelButton: "bg-[#CCCCCC] py-3 px-5 rounded-xl w-[48%] items-center",
+  searchButton: "bg-[#5CB868] py-3 px-5 rounded-xl w-[48%] items-center",
+  buttonText: "text-white font-bold text-lg text-center",
+};

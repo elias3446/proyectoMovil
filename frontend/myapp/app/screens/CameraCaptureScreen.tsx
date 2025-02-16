@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
 import NotificationBanner from '@/Components/NotificationBanner';
+import { styles } from '@/assets/styles/CameraCaptureStyles'; // Ajusta la ruta según corresponda
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -141,8 +142,8 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   // Muestra un mensaje si no hay permisos (para plataformas móviles)
   if (!permission?.granted && Platform.OS !== 'web') {
     return (
-      <View className="flex-1 justify-center items-center p-5">
-        <Text className="text-center mb-5 text-base text-black">
+      <View className={styles.permissionView}>
+        <Text className={styles.permissionText}>
           Solicitando acceso a la cámara...
         </Text>
       </View>
@@ -150,7 +151,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   }
 
   return (
-    <View className="flex-1 bg-white justify-center">
+    <View className={styles.rootView}>
       {/* La cámara se monta siempre, de modo que su estado se conserva */}
       <CameraView
         style={{ flex: 1 }}
@@ -160,11 +161,11 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         flash={flash}
         onCameraReady={() => setIsCameraReady(true)}
       >
-        <View className="absolute inset-0 border border-white opacity-60" />
+        <View className={styles.cameraOverlay} />
       </CameraView>
 
       {Platform.OS !== 'web' && (
-        <View className="absolute bottom-32 left-0 right-0 flex-row justify-center items-center space-x-1">
+        <View className={styles.zoomControls}>
           {/* Botón para disminuir zoom */}
           <TouchableOpacity
             onPress={() =>
@@ -206,9 +207,9 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       )}
 
       {/* Botón de captura */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white h-[100px] flex-row justify-center items-center">
+      <View className={styles.captureContainer}>
         <TouchableOpacity
-          className="rounded-full"
+          className={styles.captureButton}
           onPress={handleTakePhoto}
           disabled={!permission?.granted || !isCameraReady}
           style={{
@@ -217,15 +218,15 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           accessibilityLabel="Tomar foto"
           accessibilityRole="button"
         >
-          <View className="border-4 border-[#A5D6A7] rounded-full p-1">
-            <View className="bg-[#5CB868] rounded-full w-[60px] h-[60px]" />
+          <View className={styles.captureBorder}>
+            <View className={styles.captureInner} />
           </View>
         </TouchableOpacity>
       </View>
 
       {/* Botón para abrir la galería */}
       <TouchableOpacity
-        className="absolute bottom-7 right-7 z-[3]"
+        className={styles.galleryButton}
         onPress={handleGallery}
         accessibilityLabel="Abrir galería"
         accessibilityRole="button"
@@ -234,11 +235,11 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       </TouchableOpacity>
 
       {Platform.OS !== 'web' && (
-        <View className="absolute top-3 right-3 flex-row justify-start items-center z-[3]">
+        <View className={styles.topControls}>
           {/* Se muestra el botón de flash solo si la cámara es trasera */}
           {facing === 'back' && (
             <TouchableOpacity
-              className="bg-transparent p-1 justify-center items-center rounded-xl"
+              className={styles.flashButton}
               onPress={toggleFlash}
               accessibilityLabel={
                 flash === 'off' ? 'Encender flash' : 'Apagar flash'
@@ -253,7 +254,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            className="bg-transparent p-1 justify-center items-center rounded-xl"
+            className={styles.cameraToggleButton}
             onPress={toggleCameraFacing}
             accessibilityLabel="Cambiar cámara"
             accessibilityRole="button"

@@ -20,6 +20,7 @@ import {
 import { getDoc, doc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { processChatWithAPI } from '@/api/processWithAPIService';
+import { styles } from '@/assets/styles/ChatStyles'; // Asegúrate de ajustar la ruta según corresponda
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -124,20 +125,20 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       }, 500);
       return () => clearInterval(interval);
     }, []);
-    return <Text className="text-base text-gray-500">{'.'.repeat(dotCount)}</Text>;
+    return <Text className={styles.typingIndicatorText}>{'.'.repeat(dotCount)}</Text>;
   };
 
   // Renderiza el indicador de "escribiendo..." del chatbot
   const renderTypingIndicator = useCallback(() => (
-    <View className="flex-row items-start my-1">
-      <View className="w-16 h-16 rounded-full overflow-hidden justify-center items-center mx-2">
+    <View className={styles.typingIndicatorContainer}>
+      <View className={styles.avatarContainer}>
         <Image
           source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
-          className="w-full h-full"
+          className={styles.avatarImage}
           resizeMode="cover"
         />
       </View>
-      <View className="bg-gray-300 p-2 rounded-lg max-w-[70%] flex-row items-center">
+      <View className={styles.typingIndicatorBubble}>
         <TypingIndicator />
       </View>
     </View>
@@ -210,21 +211,17 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     const isCloudinaryImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(item.text);
 
     return (
-      <View className="flex-row items-start my-1">
+      <View className={styles.messageContainer}>
         {isBotMessage && (
-          <View className="w-16 h-16 rounded-full overflow-hidden justify-center items-center mx-2">
+          <View className={styles.avatarContainer}>
             <Image
               source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
-              className="w-full h-full"
+              className={styles.avatarImage}
               resizeMode="cover"
             />
           </View>
         )}
-        <View
-          className={`p-2 rounded-lg max-w-[70%] flex-row items-center ${
-            isBotMessage ? 'bg-gray-300' : 'bg-[#B8E6B9] ml-auto'
-          }`}
-        >
+        <View className={isBotMessage ? styles.chatBubbleBot : styles.chatBubbleUser}>
           {isCloudinaryImage && item.text.startsWith('http') ? (
             <TouchableOpacity
               onPress={() => {
@@ -234,22 +231,21 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             >
               <Image
                 source={{ uri: item.text }}
-                className="w-[200px] h-[200px] rounded-lg my-1"
+                className={styles.messageImage}
                 resizeMode="cover"
               />
             </TouchableOpacity>
           ) : (
-            <Text className="text-base text-gray-500">
+            <Text className={styles.messageText}>
               {item.isSending ? '...' : item.text}
             </Text>
           )}
         </View>
         {isMyMessage && (
-          
           profileImage ? (
             <Image
               source={{ uri: profileImage }}
-              className="w-16 h-16 rounded-full overflow-hidden justify-center items-center mx-2"
+              className={styles.avatarContainer}
               resizeMode="cover"
             />
           ) : (
@@ -266,23 +262,22 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
               }}
             />
           )
-        
         )}
       </View>
     );
   }, [user]);
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="flex-col items-center bg-white py-5 px-4">
+    <View className={styles.container}>
+      <View className={styles.headerContainer}>
         <Image
           source={require('@/assets/images/Captura_de_pantalla_2025-01-26_094519-removebg-preview.png')}
-          className="w-24 h-24 rounded-xl mb-2"
+          className={styles.headerImage}
           resizeMode="cover"
         />
-        <Text className="text-2xl font-normal text-center">
-          <Text className="text-gray-400">DAL</Text>
-          <Text className="text-green-300">IA</Text>
+        <Text className={styles.headerText}>
+          <Text className={styles.headerSubTextGray}>DAL</Text>
+          <Text className={styles.headerSubTextGreen}>IA</Text>
         </Text>
       </View>
 
@@ -295,11 +290,11 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         ListFooterComponent={isBotTyping ? renderTypingIndicator : null}
       />
 
-      {error ? <Text className="text-red-500 mt-2 text-center">{error}</Text> : null}
+      {error ? <Text className={styles.errorText}>{error}</Text> : null}
 
-      <View className="flex-row items-center p-4 bg-white">
+      <View className={styles.inputContainer}>
         <TextInput
-          className="flex-1 h-12 border border-gray-300 rounded-full px-4 mr-2 text-gray-400"
+          className={styles.inputField}
           placeholder="Escribe un mensaje..."
           value={messageText}
           onChangeText={setMessageText}
@@ -307,9 +302,7 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           returnKeyType="send"
         />
         <TouchableOpacity
-          className={`w-14 h-14 rounded-full justify-center items-center ${
-            loading ? 'bg-green-300' : 'bg-[#5CB868]'
-          }`}
+          className={`${styles.sendButton} ${loading ? styles.sendButtonLoading : styles.sendButtonDefault}`}
           onPress={sendMessage}
           disabled={loading}
           accessibilityLabel="Enviar mensaje"
@@ -328,11 +321,11 @@ const ChatScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           <>
             <Image
               source={{ uri: selectedImage }}
-              className="w-full aspect-square rounded-lg"
+              className={styles.modalImage}
             />
           </>
         ) : (
-          <Text className="text-gray-500">No hay imagen seleccionada</Text>
+          <Text className={styles.modalText}>No hay imagen seleccionada</Text>
         )}
       </CustomModal>
     </View>

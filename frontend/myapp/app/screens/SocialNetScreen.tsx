@@ -1,4 +1,4 @@
-import { useState, useEffect , useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { collection, DocumentSnapshot, onSnapshot } from "firebase/firestore";
 import { firestore } from '@/Config/firebaseConfig';
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator"; // Para procesar la imagen
+import * as ImageManipulator from "expo-image-manipulator";
 import { getAuth } from "firebase/auth"; 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -31,26 +31,19 @@ import { UserData } from "@/types/User";
 import { uploadImageToCloudinary } from "@/api/cloudinaryService";
 import { SortType } from "@/types/SortType";
 import ExpandableButton from "@/Components/ExpandableButton";
+import { styles } from "@/assets/styles/SocialNetStyles"; // Importa los estilos extraídos
 
 interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-/**
- * SocialNet:
- * Pantalla principal de la red social, donde el usuario puede crear publicaciones,
- * ver las publicaciones de otros, dar like, comentar, y cargar más publicaciones de forma paginada.
- */
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
   const [users, setUsers] = useState<Map<string, UserData>>(new Map());
   const [content, setContent] = useState<string>("");
-  // "image" contendrá la URI confirmada para el post
   const [image, setImage] = useState<string | null>(null);
-  // "photo" contendrá el objeto de la imagen seleccionada y procesada
   const [photo, setPhoto] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
-  // Controla si se muestra el PhotoPreviewSection a pantalla completa
   const [showPhotoPreview, setShowPhotoPreview] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [comment, setComment] = useState<string>(""); 
@@ -62,11 +55,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [activeExpandableButtonId, setActiveExpandableButtonId] = useState<number | null>(1);
   const [sortType, setSortType] = useState<SortType>(SortType.DATE);
 
-  // Estados para mostrar la imagen de un post en modal
   const [modalPostVisible, setModalPostVisible] = useState<boolean>(false);
   const [selectedPostImage, setSelectedPostImage] = useState<string | null>(null);
 
-  // Estados para mostrar la imagen del usuario en modal
   const [modalProfileVisible, setModalProfileVisible] = useState<boolean>(false);
   const [selectedProfileImage, setSelectedProfileImage] = useState<string | null>(null);
 
@@ -92,7 +83,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     }, sortType, false);
   };
 
-  // Función común para seleccionar una imagen y mostrar el PhotoPreviewSection
   const pickImageAndPreview = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -110,7 +100,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
 
     if (!result.canceled && result.assets && result.assets[0]?.uri) {
       const asset = result.assets[0];
-      // Procesamos la imagen con ImageManipulator (similar a CameraCaptureScreen)
       const manipulatedImage = await ImageManipulator.manipulateAsync(
         asset.uri,
         [],
@@ -118,25 +107,21 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       );
       setPhoto(manipulatedImage);
       setShowPhotoPreview(true);
-      // Si se invoca desde el modal, se cierra éste
       setModalVisible(false);
     }
   };
 
-  // Cuando se confirma la imagen en PhotoPreviewSection se actualiza "image"
   const handleConfirmPhoto = () => {
     setImage(photo.uri);
     setPhoto(null);
     setShowPhotoPreview(false);
   };
 
-  // Si se decide retomar (elegir otra imagen) se descarta la imagen seleccionada
   const handleRetakePhoto = () => {
     setPhoto(null);
     setShowPhotoPreview(false);
   };
 
-  // Función para crear un nuevo post (sube la imagen a Cloudinary si existe)
   const handleCreatePost = async () => {
     if (!content) return;
 
@@ -160,12 +145,10 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       createdAt: new Date().toISOString(),
     });
 
-    // Al publicar, forzamos el refresco a "más recientes"
     if (sortType !== SortType.DATE) {
       setSortType(SortType.DATE);
       setActiveExpandableButtonId(1);
     } else {
-      // Si ya está en "más recientes", forzamos una recarga de los posts
       getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
         setSnapshots(newSnapshots);
       }, SortType.DATE, false);
@@ -185,7 +168,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const handleLike = async (postId: string, currentLikes: any) => {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
-
     if (!Array.isArray(currentLikes)) return;
     
     if (currentLikes.includes(userId)) {
@@ -219,22 +201,11 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   ) => {
     setComment("");
     const userId = auth.currentUser?.uid;
-    if (!userId) {
-      console.error("Usuario no autenticado");
-      return;
-    }
-  
-    if (!Array.isArray(currentComments)) {
-      console.error("El campo 'comments' no es un array:", currentComments);
-      return;
-    }
-  
+    if (!userId) return;
+    if (!Array.isArray(currentComments)) return;
+    
     try {
-      const commentToAdd = {
-        userId,
-        text: newComment,
-      };
-
+      const commentToAdd = { userId, text: newComment };
       const post = snapshots
         .filter((doc) => doc.id === postId)
         .map((doc) => ({
@@ -251,9 +222,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         sendPostNotification(post, userId, "Nuevo Comentario!", "ha comentado tu publicación:");
       }
 
-      // Recargar los posts después de agregar el comentario
       getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
-        setSnapshots(newSnapshots); // Actualiza el estado con los posts recargados
+        setSnapshots(newSnapshots);
       }, sortType, false);
     } catch (error) {
       console.error("Error al agregar el comentario al post:", error);
@@ -287,14 +257,13 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   useEffect(() => {
     const unsubscribeInitial = getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
       setSnapshots(newSnapshots);
-      // Escucha en tiempo real solo para actualizaciones de likes y comentarios
       const unsubscribeRealtime = onSnapshot(collection(firestore, "posts"), (snapshot) => {
         snapshot.docChanges().forEach((change) => {
           if (change.type === "modified") {
             setSnapshots((prevSnapshots) => {
               return prevSnapshots.map((doc) => {
                 if (doc.id === change.doc.id) {
-                  return change.doc; // Actualiza el documento modificado
+                  return change.doc;
                 }
                 return doc;
               });
@@ -333,19 +302,17 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     post: Post;
   }
   const PostItem: React.FC<PostItemProps> = ({ post }) => {
-    
     const postUser = users.get(post.userId);
     const showComments = visibleComments[post.id];
     const commentsLimit = commentsToShow[post.id] || 0;
     const currentUserId = auth.currentUser?.uid;
     const userHasLiked = currentUserId && Array.isArray(post.likes) && post.likes.includes(currentUserId);
     const createdTimeAgo = timeAgo(post.createdAt);
-    // Estado local para el comentario que se agregará a este post
     const [newComment, setNewComment] = useState("");
    
     return (
-      <ScrollView className="bg-[#F3F4F6] mb-2 rounded-lg flex gap-3">
-        <View className="flex flex-row items-center gap-2 px-4 pt-4">
+      <ScrollView className={styles.postItemRoot}>
+        <View className={styles.postHeaderContainer}>
           {postUser?.profileImage ? (
             <TouchableOpacity
               onPress={() => {
@@ -353,17 +320,17 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
                 setModalProfileVisible(true);
               }}
             >
-              <Image source={{ uri: postUser?.profileImage }} className="object-cover h-8 w-8 rounded-full" />
+              <Image source={{ uri: postUser?.profileImage }} className={styles.postUserProfileImage} />
             </TouchableOpacity>
           ) : (
             <FontAwesome6 name="user-circle" size={26} />
           )}
-          <Text className="color-[#5CB868] font-bold text-xl">
+          <Text className={styles.postUsernameText}>
             {postUser ? `${postUser.firstName.trim()} ${postUser.lastName.trim()}` : "Usuario Anónimo"}
           </Text>
         </View>
 
-        <Text className="text-xl px-4 py-2">{post.content}</Text>
+        <Text className={styles.postContentText}>{post.content}</Text>
 
         {post.imageUrl && (
           <TouchableOpacity
@@ -372,29 +339,29 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               setModalPostVisible(true);
             }}
           >
-            <Image source={{ uri: post.imageUrl }} className="w-auto aspect-square rounded-lg mx-2 object-cover" />
+            <Image source={{ uri: post.imageUrl }} className={styles.postImageContainer} />
           </TouchableOpacity>
         )}
 
-        <View className="flex flex-row items-center justify-start gap-2 px-4 pt-3 pb-2">
-          <TouchableOpacity onPress={() => handleLike(post.id, post.likes)} className="flex flex-row items-center gap-2 w-12">
+        <View className={styles.postActionsContainer}>
+          <TouchableOpacity onPress={() => handleLike(post.id, post.likes)} className={styles.likeButton}>
             <FontAwesome name={userHasLiked ? "heart" : "heart-o"} size={24} color="#5CB868" />
             <Text>{Array.isArray(post.likes) ? post.likes.length : 0}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => toggleCommentsVisibility(post.id)} className="flex flex-row items-center gap-2 w-12">
+          <TouchableOpacity onPress={() => toggleCommentsVisibility(post.id)} className={styles.commentButton}>
             <Fontisto name="comment" size={24} color="#5CB868" />
             <Text>{Array.isArray(post.comments) ? post.comments.length : 0}</Text>
           </TouchableOpacity>
         </View>
         
-        <Text className="text-[#565a63] px-4 pb-4">Hace {createdTimeAgo}</Text>
+        <Text className={styles.postTimeText}>Hace {createdTimeAgo}</Text>
 
         {showComments && (
-          <View className="flex gap-4 pb-4 px-5">
+          <View className={styles.commentsContainer}>
             {post.comments.slice(0, commentsLimit).map((comment, index) => {
               const commentUser = users.get(comment.userId);
               return (
-                <View className="flex flex-row items-center gap-2" key={index}>
+                <View className={styles.commentContainer} key={index}>
                   {commentUser?.profileImage ? (
                     <TouchableOpacity
                       onPress={() => {
@@ -402,12 +369,12 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
                         setModalProfileVisible(true);
                       }}
                     >
-                      <Image source={{ uri: commentUser.profileImage }} className="object-cover h-8 w-8 rounded-full" />
+                      <Image source={{ uri: commentUser.profileImage }} className={styles.commentUserProfileImage} />
                     </TouchableOpacity>
                   ) : (
                     <FontAwesome6 name="user-circle" size={27} />
                   )}
-                  <View className="flex">
+                  <View className={styles.commentTextContainer}>
                     <Text>
                       {commentUser
                         ? `${commentUser.firstName.trim()} ${commentUser.lastName.trim()}`
@@ -425,10 +392,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               </TouchableOpacity>
             )}
 
-            {/* Sección para agregar un comentario */}
-            <View className="flex flex-row gap-2 items-center">
+            <View className={styles.commentInputContainer}>
               <TextInput
-                className="flex-1 px-4 rounded-full text-xl bg-white"
+                className={styles.commentInput}
                 placeholder="Añadir un comentario..."
                 value={newComment}
                 onChangeText={setNewComment}
@@ -444,7 +410,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
                     setNewComment("");
                   }
                 }}
-                className="w-7"
+                className={styles.commentSendIcon}
               />
             </View>
           </View>
@@ -453,24 +419,18 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     );
   };
 
-  // Si se selecciona una imagen (inicial o al elegir otra) se muestra el PhotoPreviewSection
   if (showPhotoPreview && photo) {
     return (
-            <Modal
-              visible={!!photo}
-              animationType="slide"
-              onRequestClose={() => {}}
-            >
-      <PhotoPreviewSection
-        photo={photo}
-        onConfirm={handleConfirmPhoto}
-        handleRetakePhoto={handleRetakePhoto}
-        //setCurrentScreen={setCurrentScreen}
-      /></Modal>
+      <Modal visible={!!photo} animationType="slide" onRequestClose={() => {}}>
+        <PhotoPreviewSection
+          photo={photo}
+          onConfirm={handleConfirmPhoto}
+          handleRetakePhoto={handleRetakePhoto}
+        />
+      </Modal>
     );
   }
 
-  // Conversión de snapshots a objetos Post para la FlatList
   const postsData: Post[] = snapshots.map((doc) => ({
     id: doc.id,
     ...doc.data(),
@@ -479,14 +439,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const renderPost = ({ item }: { item: Post }) => <PostItem post={item} />;
 
   return (
-    <View className="p-4 flex-1">
+    <View className={styles.socialNetRoot}>
       {/* Título */}
-      <View className="py-4">
-        <Text className="text-4xl font-extrabold text-[#5CB868]">Mi mundo</Text>
+      <View className={styles.titleContainer}>
+        <Text className={styles.titleText}>Mi mundo</Text>
       </View>
 
       {/* Sección para crear post */}
-      <View className="flex flex-row items-center rounded-full gap-2">
+      <View className={styles.createPostContainer}>
         {profileImage ? (
           <TouchableOpacity
             onPress={() => {
@@ -494,13 +454,13 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               setModalProfileVisible(true);
             }}
           >
-            <Image source={{ uri: profileImage }} className="object-cover h-11 w-11 rounded-full" />
+            <Image source={{ uri: profileImage }} className={styles.profileImageThumbnail} />
           </TouchableOpacity>
         ) : (
           <MaterialIcons name="person" size={35} />
         )}
         <TextInput
-          className="flex-1 px-3 py-3 rounded-[20] font-semibold text-xl bg-[#F3F4F6]"
+          className={styles.postContentInput}
           placeholder="¿Qué estás pensando?"
           value={content}
           onChangeText={setContent}
@@ -508,12 +468,10 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           placeholderTextColor="#9095A1"
         />
         {image ? (
-          // Al tocar el thumbnail se abre el modal para ver la imagen seleccionada
           <Pressable onPress={() => setModalVisible(true)}>
-            <Image source={{ uri: image }} className="w-11 h-11 rounded-lg" />
+            <Image source={{ uri: image }} className={styles.postImageThumbnail} />
           </Pressable>
         ) : (
-          // Si aún no hay imagen, se llama a pickImageAndPreview para la selección inicial
           <MaterialIcons name="photo-library" size={35} color="#616161" onPress={pickImageAndPreview}/>
         )}
       </View>
@@ -522,40 +480,40 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       <CustomModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        width="w-3/4"
-        height="h-[41%]"
+        width={styles.modalWidth}
+        height={styles.modalHeight}
       >
         {image ? (
           <>
-            <Image source={{ uri: image }} className="w-full aspect-square rounded-lg" />
+            <Image source={{ uri: image }} className={styles.modalImage} />
             <TouchableOpacity
-              className="flex-row gap-2 items-center mt-4 px-4 py-2 bg-[#A5D6A7] rounded-lg"
+              className={styles.chooseImageButton}
               onPress={pickImageAndPreview}
             >
               <Feather name="image" size={20} color="#142C15" />
-              <Text className="text-[#142C15] font-bold">Elegir otra imagen</Text>
+              <Text className={styles.chooseImageButtonText}>Elegir otra imagen</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <Text className="text-gray-500">No hay imagen seleccionada</Text>
+          <Text className={styles.noImageText}>No hay imagen seleccionada</Text>
         )}
       </CustomModal>
 
       {/* Botón para publicar */}
-      <View className="my-3">
+      <View className={styles.publishButtonContainer}>
         <TouchableOpacity
-          className="bg-[#5CB868] py-3 px-4 rounded-[20px]"
+          className={styles.publishButton}
           onPress={handleCreatePost}
           disabled={loading}
         >
-          <Text className="text-[#fff] text-center text-xl font-medium">
+          <Text className={styles.publishButtonText}>
             {loading ? "Publicando..." : "Publicar"}
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Botones para ordenar publicaciones */}
-      <View className="flex flex-row justify-start gap-2 mb-4">
+      <View className={styles.sortButtonsContainer}>
         <ExpandableButton
           id={1}
           text="Más recientes"
@@ -595,15 +553,15 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         onEndReachedThreshold={0.5}
       />
 
-      {/* Modal para mostrar la imagen de un post (sin opción para elegir otra imagen) */}
+      {/* Modal para mostrar la imagen de un post */}
       <CustomModal
         visible={modalPostVisible}
         onClose={() => setModalPostVisible(false)}
       >
         {selectedPostImage ? (
-          <Image source={{ uri: selectedPostImage }} className="w-full aspect-square rounded-lg" />
+          <Image source={{ uri: selectedPostImage }} className={styles.modalPostImage} />
         ) : (
-          <Text className="text-gray-500">No hay imagen seleccionada</Text>
+          <Text className={styles.noImageText}>No hay imagen seleccionada</Text>
         )}
       </CustomModal>
 
@@ -613,9 +571,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         onClose={() => setModalProfileVisible(false)}
       >
         {selectedProfileImage ? (
-          <Image source={{ uri: selectedProfileImage }} className="w-full aspect-square rounded-lg" />
+          <Image source={{ uri: selectedProfileImage }} className={styles.modalProfileImage} />
         ) : (
-          <Text className="text-gray-500">No hay imagen seleccionada</Text>
+          <Text className={styles.noImageText}>No hay imagen seleccionada</Text>
         )}
       </CustomModal>
     </View>

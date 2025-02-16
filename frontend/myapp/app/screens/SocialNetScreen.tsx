@@ -8,6 +8,7 @@ import {
   Image,
   ScrollView,
   Pressable,
+  Modal,
 } from "react-native";
 import { collection, DocumentSnapshot, onSnapshot } from "firebase/firestore";
 import { firestore } from '@/Config/firebaseConfig';
@@ -455,12 +456,17 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   // Si se selecciona una imagen (inicial o al elegir otra) se muestra el PhotoPreviewSection
   if (showPhotoPreview && photo) {
     return (
+            <Modal
+              visible={!!photo}
+              animationType="slide"
+              onRequestClose={() => {}}
+            >
       <PhotoPreviewSection
         photo={photo}
         onConfirm={handleConfirmPhoto}
         handleRetakePhoto={handleRetakePhoto}
         //setCurrentScreen={setCurrentScreen}
-      />
+      /></Modal>
     );
   }
 

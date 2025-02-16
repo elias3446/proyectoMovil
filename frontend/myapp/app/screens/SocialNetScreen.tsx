@@ -451,13 +451,13 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     );
   }
 
-    // Conversión de snapshots a objetos Post para la FlatList
-    const postsData: Post[] = snapshots.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Post[];
-  
-    const renderPost = ({ item }: { item: Post }) => <PostItem post={item} />;
+  // Conversión de snapshots a objetos Post para la FlatList
+  const postsData: Post[] = snapshots.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Post[];
+
+  const renderPost = ({ item }: { item: Post }) => <PostItem post={item} />;
 
   return (
     <View className="p-4 flex-1">

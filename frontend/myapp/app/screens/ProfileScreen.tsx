@@ -31,6 +31,8 @@ import * as ImagePicker from "expo-image-picker";
 import NotificationBanner from "@/Components/NotificationBanner";
 import { FontAwesome } from "@expo/vector-icons";
 import { uploadImageToCloudinary } from "@/api/cloudinaryService";
+import { unregisterIndieDevice } from "native-notify";
+import { APP_ID, APP_TOKEN } from "@/api/notificationService";
 
 // Componente Modal personalizado para compatibilidad en web y native
 interface CustomModalProps {
@@ -335,6 +337,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     try {
       await signOut(auth);
       await AsyncStorage.clear();
+      unregisterIndieDevice(auth.currentUser?.uid, APP_ID, APP_TOKEN);
       showSuccess("Sesión cerrada correctamente");
       setTimeout(() => {
         setCurrentScreen("LoginScreen");

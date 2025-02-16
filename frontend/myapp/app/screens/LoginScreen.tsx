@@ -17,6 +17,7 @@ import { auth } from '@/Config/firebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import NotificationBanner from '@/Components/NotificationBanner';
 import { registerIndieID } from 'native-notify';
+import { APP_ID, APP_TOKEN } from '@/api/notificationService';
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -90,7 +91,7 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
       // Registro para notificaciones solo en dispositivos móviles (Android/iOS)
       if (Platform.OS !== 'web') {
-        registerIndieID(userCredential.user.uid, 27248, 'g7bm81eIUEY0Mmtod4FmYb');
+        registerIndieID(userCredential.user.uid, APP_ID, APP_TOKEN);
       } else {
         // En web se podría usar el API de Notificaciones del navegador si se desea
         console.log('Registro de notificaciones omitido en web');

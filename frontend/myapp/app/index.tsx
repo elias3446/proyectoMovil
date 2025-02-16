@@ -11,6 +11,7 @@ import MyTab from "@/Components/MyTab";
 import registerNNPushToken from "native-notify";
 import "../global.css";
 import { subscribeToAuthChanges } from "@/api/firebaseService";
+import { APP_ID, APP_TOKEN } from "@/api/notificationService";
 
 /**
  * Mapeo de nombres de pantalla a sus respectivos componentes.
@@ -27,7 +28,7 @@ const SCREENS: { [key: string]: React.FC<{ setCurrentScreen: (screen: string) =>
 
 export default function Index() {
   // Registro de notificaciones push
-  registerNNPushToken(27248, "g7bm81eIUEY0Mmtod4FmYb");
+  registerNNPushToken(APP_ID, APP_TOKEN);
 
   // Estados para autenticación y verificación de recursos
   const [isAuthenticated, setIsAuthenticated] = useState(false);

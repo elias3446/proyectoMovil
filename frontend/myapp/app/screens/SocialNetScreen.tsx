@@ -34,15 +34,6 @@ interface SocialNetProps {
   setCurrentScreen: (screen: string) => void;
 }
 
-const POST_LIMIT = 10;
-
-/**
- * getLastItem: Retorna el último elemento de un arreglo.
- */
-function getLastItem<T>(arr: T[]): T | undefined {
-  return arr.slice(-1)[0];
-}
-
 /**
  * SocialNet:
  * Pantalla principal de la red social, donde el usuario puede crear publicaciones,
@@ -246,6 +237,11 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       if (post.length > 0 && post[0].userId !== userId) {
         sendPostNotification(post, userId, "Nuevo Comentario!", "ha comentado tu publicación:");
       }
+
+      // Recargar los posts después de agregar el comentario
+      getPaginatedPosts(undefined, POST_LIMIT, (newSnapshots) => {
+        setSnapshots(newSnapshots); // Actualiza el estado con los posts recargados
+      }, sortType, false);
     } catch (error) {
       console.error("Error al agregar el comentario al post:", error);
     }
@@ -293,14 +289,14 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           }
         });
       });
+      return () => {
+        if (unsubscribeRealtime) unsubscribeRealtime();
+      };
+    }, sortType, false);
     return () => {
-      if (unsubscribeRealtime) unsubscribeRealtime();
+      if (unsubscribeInitial) unsubscribeInitial();
     };
-  }, sortType, false);
-  return () => {
-    if (unsubscribeInitial) unsubscribeInitial();
-  };
-}, [sortType]);
+  }, [sortType]);
 
   useEffect(() => {
     const userId = auth.currentUser?.uid;
@@ -416,21 +412,26 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               </TouchableOpacity>
             )}
 
+            {/* Sección para agregar un comentario */}
             <View className="flex flex-row gap-2 items-center">
               <TextInput
                 className="flex-1 px-4 rounded-full text-xl bg-white"
                 placeholder="Añadir un comentario..."
-                value={comment}
-                onChangeText={setComment}
+                value={newComment}
+                onChangeText={setNewComment}
                 placeholderTextColor="#9095A1"
               />
               <Ionicons
-                name={comment.trim() ? "paper-plane" : "paper-plane-outline"}
+                name={newComment.trim() ? "paper-plane" : "paper-plane-outline"}
                 size={24}
                 color="#5CB868"
-                onPress={() => handleAddComment(post.id, comment.trim(), post.comments)}
+                onPress={() => {
+                  if (newComment.trim()) {
+                    handleAddComment(post.id, newComment.trim(), post.comments);
+                    setNewComment("");
+                  }
+                }}
                 className="w-7"
-                disabled={comment.trim() === ""}
               />
             </View>
           </View>
@@ -451,13 +452,13 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     );
   }
 
-    // Conversión de snapshots a objetos Post para la FlatList
-    const postsData: Post[] = snapshots.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Post[];
-  
-    const renderPost = ({ item }: { item: Post }) => <PostItem post={item} />;
+  // Conversión de snapshots a objetos Post para la FlatList
+  const postsData: Post[] = snapshots.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Post[];
+
+  const renderPost = ({ item }: { item: Post }) => <PostItem post={item} />;
 
   return (
     <View className="p-4 flex-1">

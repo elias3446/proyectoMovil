@@ -145,7 +145,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             fontWeight: "800",
             textAlign: "center",
             marginBottom: 16,
-            color: "#5CB868",
+            color: "black",
           }}
         >
           Editar Perfil
@@ -196,10 +196,10 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
         <Text
           style={{
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: "bold",
             textAlign: "center",
-            color: "black",
+            color: "#9E9E9E",
           }}
         >
           {`${firstName} ${lastName}`.trim()}

@@ -11,7 +11,7 @@ export const styles = {
   // titleText:
   // • Tipografía: tamaño 4xl, extrabold
   // • Color: personalizado (#5CB868)
-  titleText: "text-4xl font-extrabold text-[#5CB868]",
+  titleText: "text-4xl font-extrabold text-black",
 
   // createPostContainer:
   // • Layout: fila (flex) con items centrados (items-center)
@@ -243,7 +243,7 @@ export const styles = {
   // postUsernameText:
   // • Tipografía: negrita (font-bold), tamaño de texto xl (text-xl)
   // • Color: personalizado (#5CB868) 
-  postUsernameText: "color-[#5CB868] font-bold text-xl",
+  postUsernameText: "text-[#5CB868] font-bold text-xl",
   
   // postContentText:
   // • Tipografía: tamaño xl (text-xl)

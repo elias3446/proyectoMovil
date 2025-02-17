@@ -33,7 +33,7 @@ export const styles = {
   // • Espaciado: padding horizontal (px-1) y margen inferior (mb-[6px])
   // • Tipografía: tamaño (text-base) y peso (font-bold)
   // • Color: texto negro (text-black)
-  labelSmall: "px-1 mb-[6px] text-base font-bold text-black",
+  labelSmall: "px-1 mb-[6px] text-base font-bold text-[#F3F4F6]",
 
   // inputName:
   // • Tamaño: ancho completo (w-full) y altura fija (h-[40px])

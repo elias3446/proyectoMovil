@@ -10,7 +10,7 @@ export const styles = {
   // • Color: fondo blanco (bg-white)
   // • Alineación: centra contenido (justify-center, items-center)
   // • Espaciado: margen superior (mt-10) y padding horizontal (px-5)
-  mainContainer: "flex-1 w-full max-w-[25rem] bg-white justify-center items-center mt-10 px-5",
+  mainContainer: "flex-1 w-full max-w-[25rem] bg-white justify-center items-center px-5",
 
   // emailFieldContainer:
   // • Tamaño: ancho completo (w-full)

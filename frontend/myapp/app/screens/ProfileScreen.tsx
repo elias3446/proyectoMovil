@@ -37,12 +37,17 @@ import { unregisterIndieDevice } from "native-notify";
 import { APP_ID, APP_TOKEN } from "@/api/notificationService";
 import { styles } from "@/assets/styles/ProfileStyles"; // Ajusta la ruta según corresponda
 
+// ===================== COMPONENTE MODAL PERSONALIZADO =====================
+
+/**
+ * CustomModal
+ * Componente modal reutilizable que adapta su comportamiento para web y dispositivos nativos.
+ */
 interface CustomModalProps {
   visible: boolean;
   onRequestClose: () => void;
   children: React.ReactNode;
 }
-
 const CustomModal: React.FC<CustomModalProps> = ({
   visible,
   onRequestClose,
@@ -51,14 +56,9 @@ const CustomModal: React.FC<CustomModalProps> = ({
   if (!visible) return null;
   if (Platform.OS === "web") {
     return (
-      <Pressable
-        className={styles.customModalWebPressable}
-        onPress={onRequestClose}
-      >
+      <Pressable className={styles.customModalWebPressable} onPress={onRequestClose}>
         <TouchableWithoutFeedback>
-          <View className={styles.customModalWebView}>
-            {children}
-          </View>
+          <View className={styles.customModalWebView}>{children}</View>
         </TouchableWithoutFeedback>
       </Pressable>
     );
@@ -96,9 +96,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
   );
 };
 
-interface ProfileScreenProps {
-  setCurrentScreen: (screen: string) => void;
-}
+// ===================== INTERFAZ DE DATOS DEL USUARIO =====================
 
 interface IUserData {
   firstName: string;
@@ -114,33 +112,491 @@ interface IUserData {
   customGender: string;
 }
 
+// ===================== SUBCOMPONENTES =====================
+
+/**
+ * ProfileHeader
+ * Muestra el encabezado del perfil con título, imagen de perfil y botón para cerrar sesión.
+ */
+interface ProfileHeaderProps {
+  firstName: string;
+  lastName: string;
+  profileImage: string | null;
+  newProfileImage: string | null;
+  onProfileImagePress: () => void;
+  onCameraPress: () => void;
+  onSignOutPress: () => void;
+}
+const ProfileHeader: React.FC<ProfileHeaderProps> = ({
+  firstName,
+  lastName,
+  profileImage,
+  newProfileImage,
+  onProfileImagePress,
+  onCameraPress,
+  onSignOutPress,
+}) => {
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View className={styles.headerContainer}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: "800",
+            textAlign: "center",
+            marginBottom: 16,
+            color: "#5CB868",
+          }}
+        >
+          Editar Perfil
+        </Text>
+        <View
+          style={{
+            width: 100,
+            height: 100,
+            borderRadius: 50,
+            backgroundColor: "#F3F4F6",
+            alignSelf: "center",
+            marginBottom: 12,
+            justifyContent: "center",
+            alignItems: "center",
+            position: "relative",
+          }}
+        >
+          {newProfileImage || profileImage ? (
+            <TouchableOpacity onPress={onProfileImagePress}>
+              <Image
+                source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
+                style={{ width: 100, height: 100, borderRadius: 50 }}
+              />
+            </TouchableOpacity>
+          ) : (
+            <Text style={{ color: "#9CA3AF" }}>Sin Imagen</Text>
+          )}
+          <TouchableOpacity
+            onPress={onCameraPress}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              right: 0,
+              padding: 8,
+            }}
+          >
+            <FontAwesome
+              name="camera"
+              size={18}
+              color="#fff"
+              style={{
+                backgroundColor: "#5CB868",
+                borderRadius: 20,
+                padding: 4,
+              }}
+            />
+          </TouchableOpacity>
+        </View>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: "bold",
+            textAlign: "center",
+            color: "black",
+          }}
+        >
+          {`${firstName} ${lastName}`.trim()}
+        </Text>
+        <TouchableOpacity
+          onPress={onSignOutPress}
+          style={{
+            position: "absolute",
+            right: 20,
+            top: 110,
+          }}
+        >
+          <View style={{ alignItems: "center" }}>
+            <FontAwesome name="sign-out" size={30} color="#5CB868" />
+            <Text style={{ color: "#5CB868", fontSize: 16 }}>Cerrar Sesión</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    </TouchableWithoutFeedback>
+  );
+};
+
+/**
+ * UserInfoForm
+ * Formulario para editar los datos básicos del usuario: nombre, apellido y correo.
+ */
+interface UserInfoFormProps {
+  firstName: string;
+  lastName: string;
+  email: string;
+  onFirstNameChange: (text: string) => void;
+  onLastNameChange: (text: string) => void;
+  onEmailChange: (text: string) => void;
+}
+const UserInfoForm: React.FC<UserInfoFormProps> = ({
+  firstName,
+  lastName,
+  email,
+  onFirstNameChange,
+  onLastNameChange,
+  onEmailChange,
+}) => (
+  <>
+    <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Nombre</Text>
+    <TextInput
+      className={styles.inputName}
+      placeholder="Nombre"
+      value={firstName}
+      onChangeText={onFirstNameChange}
+      placeholderTextColor="#9CA3AF"
+    />
+    <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Apellido</Text>
+    <TextInput
+      className={styles.inputName}
+      placeholder="Apellido"
+      value={lastName}
+      onChangeText={onLastNameChange}
+      placeholderTextColor="#9CA3AF"
+    />
+    <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Correo Electrónico</Text>
+    <TextInput
+      className={styles.inputEmail}
+      placeholder="Correo Electrónico"
+      value={email}
+      onChangeText={onEmailChange}
+      keyboardType="email-address"
+      placeholderTextColor="#9CA3AF"
+    />
+  </>
+);
+
+/**
+ * BirthDatePicker
+ * Permite seleccionar la fecha de nacimiento utilizando tres Pickers (día, mes y año).
+ */
+interface BirthDatePickerProps {
+  birthDay: string;
+  birthMonth: string;
+  birthYear: string;
+  onBirthDayChange: (value: string) => void;
+  onBirthMonthChange: (value: string) => void;
+  onBirthYearChange: (value: string) => void;
+}
+const BirthDatePicker: React.FC<BirthDatePickerProps> = ({
+  birthDay,
+  birthMonth,
+  birthYear,
+  onBirthDayChange,
+  onBirthMonthChange,
+  onBirthYearChange,
+}) => {
+  // Renderiza los ítems para los días
+  const renderDayItems = () =>
+    [...Array(31).keys()].map((day) => (
+      <Picker.Item key={day + 1} label={(day + 1).toString()} value={(day + 1).toString()} />
+    ));
+  // Renderiza los ítems para los meses
+  const renderMonthItems = () => {
+    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    return months.map((month, index) => (
+      <Picker.Item key={index} label={month} value={(index + 1).toString()} />
+    ));
+  };
+  // Renderiza los ítems para los años
+  const renderYearItems = () => {
+    const currentYear = new Date().getFullYear();
+    return [...Array(100).keys()].map((year) => {
+      const y = currentYear - year;
+      return <Picker.Item key={y} label={y.toString()} value={y.toString()} />;
+    });
+  };
+
+  return (
+    <>
+      <Text className={styles.birthDateLabel}>Fecha de nacimiento</Text>
+      <View className={styles.pickerContainer}>
+        <Picker
+          selectedValue={birthDay}
+          style={{
+            width: "33.33%",
+            height: 50,
+            paddingHorizontal: 15,
+            marginBottom: 12,
+            backgroundColor: "#F3F4F6",
+            borderRadius: 12,
+            color: "#000",
+          }}
+          onValueChange={onBirthDayChange}
+          accessibilityLabel="Día de nacimiento"
+        >
+          {renderDayItems()}
+        </Picker>
+        <Picker
+          selectedValue={birthMonth}
+          style={{
+            width: "33.33%",
+            height: 50,
+            paddingHorizontal: 15,
+            marginBottom: 12,
+            backgroundColor: "#F3F4F6",
+            borderRadius: 12,
+            color: "#000",
+          }}
+          onValueChange={onBirthMonthChange}
+          accessibilityLabel="Mes de nacimiento"
+        >
+          {renderMonthItems()}
+        </Picker>
+        <Picker
+          selectedValue={birthYear}
+          style={{
+            width: "33.33%",
+            height: 50,
+            paddingHorizontal: 15,
+            marginBottom: 12,
+            backgroundColor: "#F3F4F6",
+            borderRadius: 12,
+            color: "#000",
+          }}
+          onValueChange={onBirthYearChange}
+          accessibilityLabel="Año de nacimiento"
+        >
+          {renderYearItems()}
+        </Picker>
+      </View>
+    </>
+  );
+};
+
+/**
+ * GenderPicker
+ * Permite seleccionar el género del usuario y, si se elige "Personalizado", mostrar opciones adicionales.
+ */
+interface GenderPickerProps {
+  gender: string;
+  pronoun: string;
+  customGender: string;
+  onGenderChange: (value: string) => void;
+  onPronounChange: (value: string) => void;
+  onCustomGenderChange: (value: string) => void;
+}
+const GenderPicker: React.FC<GenderPickerProps> = ({
+  gender,
+  pronoun,
+  customGender,
+  onGenderChange,
+  onPronounChange,
+  onCustomGenderChange,
+}) => (
+  <>
+    <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Género</Text>
+    <Picker
+      selectedValue={gender}
+      style={{
+        width: "100%",
+        height: 50,
+        paddingHorizontal: 15,
+        marginBottom: 12,
+        backgroundColor: "#F3F4F6",
+        borderRadius: 12,
+        color: "#000",
+      }}
+      onValueChange={(itemValue) => {
+        onGenderChange(itemValue);
+        if (itemValue !== "O") onPronounChange("");
+      }}
+      accessibilityLabel="Género"
+    >
+      <Picker.Item label="Selecciona tu género" value="" />
+      <Picker.Item label="Mujer" value="F" />
+      <Picker.Item label="Hombre" value="M" />
+      <Picker.Item label="Personalizado" value="O" />
+    </Picker>
+    {gender === "O" && (
+      <>
+        <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>
+          Selecciona tu pronombre
+        </Text>
+        <Picker
+          selectedValue={pronoun}
+          style={{
+            height: 50,
+            paddingHorizontal: 15,
+            marginBottom: 12,
+            backgroundColor: "#F3F4F6",
+            borderRadius: 12,
+            color: "#000",
+          }}
+          onValueChange={onPronounChange}
+          accessibilityLabel="Pronombre"
+        >
+          <Picker.Item label="Selecciona tu pronombre" value="" />
+          <Picker.Item label='Femenino: "Salúdala por su cumpleaños"' value="Femenino" />
+          <Picker.Item label='Masculino: "Salúdalo por su cumpleaños"' value="Masculino" />
+          <Picker.Item label='Neutro: "Salúdalo(a) por su cumpleaños"' value="Neutro" />
+        </Picker>
+        <Text className={styles.pronounDescription}>
+          Tu pronombre será visible para todos.
+        </Text>
+        <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Género (opcional)</Text>
+        <TextInput
+          className={styles.customGenderInput}
+          placeholder="Escribe tu género"
+          value={customGender}
+          onChangeText={onCustomGenderChange}
+          accessibilityLabel="Género personalizado"
+        />
+      </>
+    )}
+  </>
+);
+
+/**
+ * PasswordChangeSection
+ * Sección para actualizar la contraseña, mostrando inputs para la contraseña actual y la nueva.
+ */
+interface PasswordChangeSectionProps {
+  currentPassword: string;
+  password: string;
+  onCurrentPasswordChange: (text: string) => void;
+  onPasswordChange: (text: string) => void;
+}
+const PasswordChangeSection: React.FC<PasswordChangeSectionProps> = ({
+  currentPassword,
+  password,
+  onCurrentPasswordChange,
+  onPasswordChange,
+}) => (
+  <>
+    <Text className={styles.labelSmall}
+          style={{ color: "#5CB868" }}>Modificar contraseña:</Text>
+    <TextInput
+      className={styles.passwordInput}
+      placeholder="Ingresa tu contraseña actual"
+      value={currentPassword}
+      onChangeText={onCurrentPasswordChange}
+      secureTextEntry
+      placeholderTextColor="#9CA3AF"
+    />
+    <TextInput
+      className={styles.passwordInput}
+      placeholder="Ingresa la nueva contraseña"
+      value={password}
+      onChangeText={onPasswordChange}
+      secureTextEntry
+      placeholderTextColor="#9CA3AF"
+    />
+  </>
+);
+
+/**
+ * SaveButton
+ * Botón para guardar los cambios realizados en el perfil.
+ */
+interface SaveButtonProps {
+  onPress: () => void;
+  loading: boolean;
+}
+const SaveButton: React.FC<SaveButtonProps> = ({ onPress, loading }) => (
+  <TouchableOpacity className={styles.saveButton} onPress={onPress} disabled={loading}>
+    <Text className={styles.saveButtonText}>{loading ? "Guardando..." : "Guardar Cambios"}</Text>
+  </TouchableOpacity>
+);
+
+/**
+ * SignOutModal
+ * Modal que solicita confirmación para cerrar sesión.
+ */
+interface SignOutModalProps {
+  visible: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+const SignOutModal: React.FC<SignOutModalProps> = ({ visible, onCancel, onConfirm }) => (
+  <CustomModal visible={visible} onRequestClose={onCancel}>
+    <View className={styles.modalContainer}>
+      <Text className={styles.modalTitle}>¿Seguro que deseas cerrar sesión?</Text>
+      <View className={styles.modalButtonContainer}>
+        <TouchableOpacity
+          className={styles.modalCancelButton}
+          onPress={onCancel}
+        >
+          <Text className={styles.modalButtonText}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity className={styles.modalSignOutButton} onPress={onConfirm}>
+          <Text className={styles.modalButtonText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </CustomModal>
+);
+
+/**
+ * ProfileImageModal
+ * Modal para mostrar la imagen de perfil en grande.
+ */
+interface ProfileImageModalProps {
+  visible: boolean;
+  imageUri: string | null;
+  onRequestClose: () => void;
+}
+const ProfileImageModal: React.FC<ProfileImageModalProps> = ({
+  visible,
+  imageUri,
+  onRequestClose,
+}) => (
+  <CustomModal visible={visible} onRequestClose={onRequestClose}>
+    {imageUri ? (
+      <Image source={{ uri: imageUri }} className={styles.profileImageModal} />
+    ) : (
+      <Text className={styles.textCenter}>No hay imagen disponible</Text>
+    )}
+  </CustomModal>
+);
+
+// ===================== COMPONENTE PRINCIPAL: ProfileScreen =====================
+
+interface ProfileScreenProps {
+  setCurrentScreen: (screen: string) => void;
+}
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
-  // Estados básicos
+  // Estados de datos básicos del usuario
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  // Imagen de perfil
+
+  // Estados para imagen de perfil
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [newProfileImage, setNewProfileImage] = useState<string | null>(null);
-  // Fecha de nacimiento y género
+
+  // Estados para fecha de nacimiento y género
   const [birthDay, setBirthDay] = useState("1");
   const [birthMonth, setBirthMonth] = useState("1");
   const [birthYear, setBirthYear] = useState(new Date().getFullYear().toString());
   const [gender, setGender] = useState("");
   const [pronoun, setPronoun] = useState("");
   const [customGender, setCustomGender] = useState("");
-  // Contraseña
+
+  // Estados para contraseña y reautenticación
   const [password, setPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
-  // Modal imagen de perfil y mensajes
+
+  // Estados para manejo de modales y mensajes
   const [showProfileImageModal, setShowProfileImageModal] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showSignOutModal, setShowSignOutModal] = useState(false);
 
-  // Datos originales para comparar cambios
+  // Guarda los datos originales para detectar cambios
   const [originalUserData, setOriginalUserData] = useState<IUserData>({
     firstName: "",
     lastName: "",
@@ -155,21 +611,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     customGender: "",
   });
 
-  const [currentUser, setCurrentUser] = useState(getAuth().currentUser);
   const auth = getAuth();
   const db = getFirestore();
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const { width } = Dimensions.get("window");
 
+  // Funciones para mostrar mensajes temporales
   const showError = useCallback((msg: string, timeout = 1500) => {
     setErrorMessage(msg);
     setTimeout(() => setErrorMessage(""), timeout);
   }, []);
-
   const showSuccess = useCallback((msg: string, timeout = 2000) => {
     setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(""), timeout);
   }, []);
 
+  // Escucha los cambios en el estado de autenticación
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
@@ -177,6 +634,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     return unsubscribe;
   }, [auth]);
 
+  // Escucha en tiempo real los cambios de datos del usuario en Firestore
   useEffect(() => {
     if (currentUser) {
       const userRef = doc(db, "users", currentUser.uid);
@@ -222,6 +680,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
   }, [currentUser, db, showError]);
 
+  // Función para seleccionar imagen de perfil mediante la galería
   const handleImagePick = useCallback(async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -238,27 +697,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     }
   }, [showError]);
 
-  const renderDayItems = useCallback(() => {
-    return [...Array(31).keys()].map((day) => (
-      <Picker.Item key={day + 1} label={(day + 1).toString()} value={(day + 1).toString()} />
-    ));
-  }, []);
-
-  const renderMonthItems = useCallback(() => {
-    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    return months.map((month, index) => (
-      <Picker.Item key={index} label={month} value={(index + 1).toString()} />
-    ));
-  }, []);
-
-  const renderYearItems = useCallback(() => {
-    const currentYear = new Date().getFullYear();
-    return [...Array(100).keys()].map((year) => {
-      const y = currentYear - year;
-      return <Picker.Item key={y} label={y.toString()} value={y.toString()} />;
-    });
-  }, []);
-
+  // Función para guardar los cambios en el perfil
   const handleSaveChanges = useCallback(async () => {
     if (!currentUser) {
       showError("No estás autenticado. Por favor, inicia sesión.");
@@ -276,10 +715,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           return;
         }
         try {
-          const credential = EmailAuthProvider.credential(
-            currentUser.email!,
-            currentPassword
-          );
+          const credential = EmailAuthProvider.credential(currentUser.email!, currentPassword);
           await reauthenticateWithCredential(currentUser, credential);
         } catch (error: any) {
           if (error.code === "auth/wrong-password") {
@@ -393,6 +829,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     showSuccess,
   ]);
 
+  // Función para cerrar sesión
   const handleSignOut = useCallback(async () => {
     try {
       await signOut(auth);
@@ -409,350 +846,77 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
 
   return (
     <View className={styles.profileScreenRoot}>
-      {/* Encabezado fijo: toca en cualquier parte para descartar el teclado */}
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View className={styles.headerContainer}>
-          <Text
-            style={{
-              fontSize: 24,
-              fontWeight: "800",
-              textAlign: "center",
-              marginBottom: 16,
-              color: "#5CB868",
-            }}
-          >
-            Editar Perfil
-          </Text>
-          <View
-            style={{
-              width: 100,
-              height: 100,
-              borderRadius: 50,
-              backgroundColor: "#F3F4F6",
-              alignSelf: "center",
-              marginBottom: 12,
-              justifyContent: "center",
-              alignItems: "center",
-              position: "relative",
-            }}
-          >
-            {newProfileImage || profileImage ? (
-              <TouchableOpacity onPress={() => setShowProfileImageModal(true)}>
-                <Image
-                  source={{
-                    uri: newProfileImage ? newProfileImage : profileImage!,
-                  }}
-                  style={{ width: 100, height: 100, borderRadius: 50 }}
-                />
-              </TouchableOpacity>
-            ) : (
-              <Text style={{ color: "#9CA3AF" }}>Sin Imagen</Text>
-            )}
-            <TouchableOpacity
-              onPress={handleImagePick}
-              style={{
-                position: "absolute",
-                bottom: 0,
-                right: 0,
-                padding: 8,
-              }}
-            >
-              <FontAwesome
-                name="camera"
-                size={18}
-                color="#fff"
-                style={{
-                  backgroundColor: "#5CB868",
-                  borderRadius: 20,
-                  padding: 4,
-                }}
-              />
-            </TouchableOpacity>
-          </View>
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: "bold",
-              textAlign: "center",
-              color: "black",
-            }}
-          >
-            {`${firstName} ${lastName}`.trim()}
-          </Text>
-          {/* Botón Cerrar Sesión: icono arriba, leyenda debajo; sin fondo */}
-          <TouchableOpacity
-            onPress={() => setShowSignOutModal(true)}
-            style={{
-              position: "absolute",
-              right: 20,
-              top: 110,
-            }}
-          >
-            <View style={{ alignItems: "center" }}>
-              <FontAwesome name="sign-out" size={30} color="#5CB868" />
-              <Text style={{ color: "#5CB868", fontSize: 16 }}>Cerrar Sesión</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </TouchableWithoutFeedback>
+      {/* Encabezado del perfil */}
+      <ProfileHeader
+        firstName={firstName}
+        lastName={lastName}
+        profileImage={profileImage}
+        newProfileImage={newProfileImage}
+        onProfileImagePress={() => setShowProfileImageModal(true)}
+        onCameraPress={handleImagePick}
+        onSignOutPress={() => setShowSignOutModal(true)}
+      />
 
-      {/* Contenido scrollable */}
+      {/* Contenido Scrollable */}
       <ScrollView
         className={styles.scrollView}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
       >
-        <Text
-          className={styles.labelSmall}
-          style={{ color: "#5CB868" }}
-        >
-          Nombre
-        </Text>
-        <TextInput
-          className={styles.inputName}
-          placeholder="Nombre"
-          value={firstName}
-          onChangeText={setFirstName}
-          placeholderTextColor="#9CA3AF"
-        />
-        <Text
-          className={styles.labelSmall}
-          style={{ color: "#5CB868" }}
-        >
-          Apellido
-        </Text>
-        <TextInput
-          className={styles.inputName}
-          placeholder="Apellido"
-          value={lastName}
-          onChangeText={setLastName}
-          placeholderTextColor="#9CA3AF"
-        />
-        <Text
-          className={styles.labelSmall}
-          style={{ color: "#5CB868" }}
-        >
-          Correo Electrónico
-        </Text>
-        <TextInput
-          className={styles.inputEmail}
-          placeholder="Correo Electrónico"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          placeholderTextColor="#9CA3AF"
+        <UserInfoForm
+          firstName={firstName}
+          lastName={lastName}
+          email={email}
+          onFirstNameChange={setFirstName}
+          onLastNameChange={setLastName}
+          onEmailChange={setEmail}
         />
 
-        <Text className={styles.birthDateLabel}>Fecha de nacimiento</Text>
-        <View className={styles.pickerContainer}>
-          <Picker
-            selectedValue={birthDay}
-            style={{
-              width: "33.33%",
-              height: 50,
-              paddingHorizontal: 15,
-              marginBottom: 12,
-              backgroundColor: "#F3F4F6",
-              borderRadius: 12,
-              color: "#000",
-            }}
-            onValueChange={(itemValue) => setBirthDay(itemValue)}
-            accessibilityLabel="Día de nacimiento"
-          >
-            {renderDayItems()}
-          </Picker>
-          <Picker
-            selectedValue={birthMonth}
-            style={{
-              width: "33.33%",
-              height: 50,
-              paddingHorizontal: 15,
-              marginBottom: 12,
-              backgroundColor: "#F3F4F6",
-              borderRadius: 12,
-              color: "#000",
-            }}
-            onValueChange={(itemValue) => setBirthMonth(itemValue)}
-            accessibilityLabel="Mes de nacimiento"
-          >
-            {renderMonthItems()}
-          </Picker>
-          <Picker
-            selectedValue={birthYear}
-            style={{
-              width: "33.33%",
-              height: 50,
-              paddingHorizontal: 15,
-              marginBottom: 12,
-              backgroundColor: "#F3F4F6",
-              borderRadius: 12,
-              color: "#000",
-            }}
-            onValueChange={(itemValue) => setBirthYear(itemValue)}
-            accessibilityLabel="Año de nacimiento"
-          >
-            {renderYearItems()}
-          </Picker>
-        </View>
-
-        <Text
-          className={styles.genderLabel}
-          style={{ color: "#5CB868" }}
-        >
-          Género
-        </Text>
-        <Picker
-          selectedValue={gender}
-          style={{
-            width: "100%",
-            height: 50,
-            paddingHorizontal: 15,
-            marginBottom: 12,
-            backgroundColor: "#F3F4F6",
-            borderRadius: 12,
-            color: "#000",
-          }}
-          onValueChange={(itemValue) => {
-            setGender(itemValue);
-            if (itemValue !== "O") setPronoun("");
-          }}
-          accessibilityLabel="Género"
-        >
-          <Picker.Item label="Selecciona tu género" value="" />
-          <Picker.Item label="Mujer" value="F" />
-          <Picker.Item label="Hombre" value="M" />
-          <Picker.Item label="Personalizado" value="O" />
-        </Picker>
-        {gender === "O" && (
-          <>
-            <Text
-              className={styles.pronounLabel}
-              style={{ color: "#5CB868" }}
-            >
-              Selecciona tu pronombre
-            </Text>
-            <Picker
-              selectedValue={pronoun}
-              style={{
-                height: 50,
-                paddingHorizontal: 15,
-                marginBottom: 12,
-                backgroundColor: "#F3F4F6",
-                borderRadius: 12,
-                color: "#000",
-              }}
-              onValueChange={(itemValue) => setPronoun(itemValue)}
-              accessibilityLabel="Pronombre"
-            >
-              <Picker.Item label="Selecciona tu pronombre" value="" />
-              <Picker.Item
-                label='Femenino: "Salúdala por su cumpleaños"'
-                value="Femenino"
-              />
-              <Picker.Item
-                label='Masculino: "Salúdalo por su cumpleaños"'
-                value="Masculino"
-              />
-              <Picker.Item
-                label='Neutro: "Salúdalo(a) por su cumpleaños"'
-                value="Neutro"
-              />
-            </Picker>
-            <Text className={styles.pronounDescription}>
-              Tu pronombre será visible para todos.
-            </Text>
-            <Text
-              className={styles.customGenderLabel}
-              style={{ color: "#5CB868" }}
-            >
-              Género (opcional)
-            </Text>
-            <TextInput
-              className={styles.customGenderInput}
-              placeholder="Escribe tu género"
-              value={customGender}
-              onChangeText={setCustomGender}
-              accessibilityLabel="Género personalizado"
-            />
-          </>
-        )}
-
-        <Text
-          className={styles.passwordLabel}
-          style={{ color: "#5CB868" }}
-        >
-          Modificar contraseña:
-        </Text>
-        <TextInput
-          className={styles.passwordInput}
-          placeholder="Ingresa tu contraseña actual"
-          value={currentPassword}
-          onChangeText={setCurrentPassword}
-          secureTextEntry
-          placeholderTextColor="#9CA3AF"
+        <BirthDatePicker
+          birthDay={birthDay}
+          birthMonth={birthMonth}
+          birthYear={birthYear}
+          onBirthDayChange={setBirthDay}
+          onBirthMonthChange={setBirthMonth}
+          onBirthYearChange={setBirthYear}
         />
-        <TextInput
-          className={styles.passwordInput}
-          placeholder="Ingresa la nueva contraseña"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholderTextColor="#9CA3AF"
+
+        <GenderPicker
+          gender={gender}
+          pronoun={pronoun}
+          customGender={customGender}
+          onGenderChange={setGender}
+          onPronounChange={setPronoun}
+          onCustomGenderChange={setCustomGender}
+        />
+
+        <PasswordChangeSection
+          currentPassword={currentPassword}
+          password={password}
+          onCurrentPasswordChange={setCurrentPassword}
+          onPasswordChange={setPassword}
         />
       </ScrollView>
 
-      {/* Pie de página fijo */}
+      {/* Botón de Guardar Cambios */}
       <View className={styles.footerContainer}>
-        <TouchableOpacity
-          className={styles.saveButton}
-          onPress={handleSaveChanges}
-          disabled={loading}
-        >
-          <Text className={styles.saveButtonText}>
-            {loading ? "Guardando..." : "Guardar Cambios"}
-          </Text>
-        </TouchableOpacity>
+        <SaveButton onPress={handleSaveChanges} loading={loading} />
       </View>
 
-      <CustomModal
+      {/* Modal para Confirmar Cierre de Sesión */}
+      <SignOutModal
         visible={showSignOutModal}
-        onRequestClose={() => setShowSignOutModal(false)}
-      >
-        <View className={styles.modalContainer}>
-          <Text className={styles.modalTitle}>
-            ¿Seguro que deseas cerrar sesión?
-          </Text>
-          <View className={styles.modalButtonContainer}>
-            <TouchableOpacity
-              className={styles.modalCancelButton}
-              onPress={() => setShowSignOutModal(false)}
-              style={{ marginBottom: 10 }}
-            >
-              <Text className={styles.modalButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className={styles.modalSignOutButton}
-              onPress={handleSignOut}
-            >
-              <Text className={styles.modalButtonText}>Cerrar Sesión</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </CustomModal>
+        onCancel={() => setShowSignOutModal(false)}
+        onConfirm={handleSignOut}
+      />
 
-      <CustomModal
+      {/* Modal para Visualizar Imagen de Perfil */}
+      <ProfileImageModal
         visible={showProfileImageModal}
+        imageUri={newProfileImage ? newProfileImage : profileImage}
         onRequestClose={() => setShowProfileImageModal(false)}
-      >
-        {newProfileImage || profileImage ? (
-          <Image
-            source={{ uri: newProfileImage ? newProfileImage : profileImage! }}
-            className={styles.profileImageModal}
-          />
-        ) : (
-          <Text className={styles.textCenter}>No hay imagen disponible</Text>
-        )}
-      </CustomModal>
+      />
 
+      {/* Notificaciones */}
       {errorMessage !== "" && (
         <NotificationBanner message={errorMessage} type="error" />
       )}

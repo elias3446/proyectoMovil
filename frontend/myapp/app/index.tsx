@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Image } from "react-native";
+
+// Importa las pantallas de la aplicación
 import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import AccountRecoveryScreen from "./screens/AccountRecoveryScreen";
@@ -7,14 +9,23 @@ import CameraCaptureScreen from "./screens/CameraCaptureScreen";
 import ChatScreen from "./screens/ChatScreen";
 import SocialNetScreen from "./screens/SocialNetScreen";
 import ProfileScreen from "./screens/ProfileScreen";
+
+// Componente de navegación inferior
 import MyTab from "@/Components/MyTab";
+
+// Registro de token para notificaciones push
 import registerNNPushToken from "native-notify";
-import "../global.css";
-import { subscribeToAuthChanges } from "@/api/firebaseService";
 import { APP_ID, APP_TOKEN } from "@/api/notificationService";
+
+// Estilos globales (si son necesarios)
+import "../global.css";
+
+// Función para suscribirse a los cambios de autenticación en Firebase
+import { subscribeToAuthChanges } from "@/api/firebaseService";
 
 /**
  * Mapeo de nombres de pantalla a sus respectivos componentes.
+ * Permite seleccionar el componente a renderizar según el estado de la aplicación.
  */
 const SCREENS: { [key: string]: React.FC<{ setCurrentScreen: (screen: string) => void }> } = {
   LoginScreen,
@@ -26,21 +37,26 @@ const SCREENS: { [key: string]: React.FC<{ setCurrentScreen: (screen: string) =>
   ProfileScreen,
 };
 
+/**
+ * Componente principal de la aplicación.
+ * Se encarga de gestionar el flujo inicial de autenticación, mostrar el splash y determinar
+ * qué pantalla renderizar en función del estado de la autenticación.
+ */
 export default function Index() {
-  // Registro de notificaciones push
+  // Registra el token para notificaciones push
   registerNNPushToken(APP_ID, APP_TOKEN);
 
-  // Estados para autenticación y verificación de recursos
+  // Estados de autenticación y temporización del splash
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [simulatedDelayCompleted, setSimulatedDelayCompleted] = useState(false);
 
-  // Estado para controlar la pantalla actual; se inicia en null para no renderizar ninguna pantalla hasta tener la información
+  // Estado para determinar la pantalla actual. Inicialmente es null para esperar la verificación.
   const [currentScreen, setCurrentScreen] = useState<string | null>(null);
 
   /**
-   * useEffect: Escucha cambios en la autenticación.
-   * Cuando se detecta el estado del usuario, se actualizan isAuthenticated y authChecked.
+   * useEffect: Escucha los cambios en la autenticación.
+   * Actualiza isAuthenticated y marca que la verificación se ha completado.
    */
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((user) => {
@@ -51,7 +67,7 @@ export default function Index() {
   }, []);
 
   /**
-   * useEffect: Simula una demora de 2 segundos para mostrar el splash.
+   * useEffect: Simula una demora (splash) de 2 segundos.
    */
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -61,8 +77,9 @@ export default function Index() {
   }, []);
 
   /**
-   * useEffect: Una vez completada la verificación de autenticación y la simulación,
-   * se establece la pantalla inicial de forma definitiva.
+   * useEffect: Una vez completados la verificación de autenticación y la demora del splash,
+   * se establece la pantalla inicial: "CameraCaptureScreen" si el usuario está autenticado,
+   * o "LoginScreen" en caso contrario.
    */
   useEffect(() => {
     if (authChecked && simulatedDelayCompleted) {
@@ -70,7 +87,7 @@ export default function Index() {
     }
   }, [authChecked, simulatedDelayCompleted, isAuthenticated]);
 
-  // Mientras currentScreen sea null (es decir, antes de que se complete la verificación y la simulación), se muestra el splash.
+  // Mientras no se defina la pantalla actual, se muestra el splash.
   if (currentScreen === null) {
     return (
       <View style={styles.splashContainer}>
@@ -82,10 +99,10 @@ export default function Index() {
     );
   }
 
-  // Selecciona el componente de pantalla según el estado actual.
+  // Selecciona el componente de pantalla correspondiente según el estado actual.
   const ScreenComponent = SCREENS[currentScreen] || SCREENS["LoginScreen"];
 
-  // Determina si se debe mostrar la barra de pestañas.
+  // Define si se debe mostrar la barra de pestañas según la pantalla actual.
   const shouldShowTab = [
     "CameraCaptureScreen",
     "ChatScreen",
@@ -95,11 +112,11 @@ export default function Index() {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Renderiza la pantalla actual */}
+      {/* Renderiza la pantalla principal */}
       <View style={{ flex: 1 }}>
         <ScreenComponent setCurrentScreen={setCurrentScreen} />
       </View>
-      {/* Muestra la barra de pestañas si corresponde */}
+      {/* Renderiza la barra de navegación inferior si corresponde */}
       {shouldShowTab && (
         <MyTab setCurrentScreen={setCurrentScreen} currentScreen={currentScreen} />
       )}
@@ -107,6 +124,9 @@ export default function Index() {
   );
 }
 
+/**
+ * Estilos para el Splash Screen.
+ */
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,

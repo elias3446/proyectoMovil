@@ -1,38 +1,52 @@
-import { collection, addDoc, getDocs, updateDoc, doc, DocumentSnapshot, query, orderBy, limit, startAfter, onSnapshot, getDoc } from 'firebase/firestore';
-import { auth, firestore } from '@/Config/firebaseConfig';
-import { Post } from '@/types/Post';
-import { UserData } from '@/types/User';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { SortType } from '@/types/SortType';
+import {
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  doc,
+  DocumentSnapshot,
+  query,
+  orderBy,
+  limit,
+  startAfter,
+  onSnapshot,
+  getDoc,
+} from "firebase/firestore";
+import { auth, firestore } from "@/Config/firebaseConfig";
+import { Post } from "@/types/Post";
+import { UserData } from "@/types/User";
+import { User, onAuthStateChanged } from "firebase/auth";
+import { SortType } from "@/types/SortType";
 
 /**
+ * subscribeToAuthChanges:
+ * --------------------------
  * Se suscribe a los cambios en la autenticación del usuario.
+ * Cada vez que el estado del usuario cambia, se ejecuta el callback proporcionado.
  *
- * @param {Function} callback - Función que se ejecuta cada vez que cambia el estado de autenticación.
- *                              Recibe el usuario actual (o null) como argumento.
- * @returns {Function} Función para cancelar la suscripción.
+ * @param callback - Función que se ejecuta con el usuario actual (o null) cuando cambia el estado de autenticación.
+ * @returns Una función para cancelar la suscripción.
  */
 export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
 /**
- * Obtiene los posts de manera paginada desde la colección "posts" en Firestore.
- * 
- * Este método realiza una consulta paginada para cargar los posts en bloques (páginas),
- * ordenados por la fecha de creación de manera descendente. Al pasar un documento de referencia 
- * (afterDoc), la consulta se ajustará para cargar los posts después del último documento de 
- * la página anterior, permitiendo la paginación. 
- * 
- * @param afterDoc - (Opcional) El último documento cargado en la página anterior. Si se pasa, 
- *                  la consulta cargará los posts después de este documento (paginación). 
- *                  Si no se pasa, la consulta cargará la primera página de posts.
- * @param limitPosts - El número máximo de posts a cargar por cada consulta (página).
- * @param callback - Una función de callback que se ejecutará cada vez que se obtengan nuevos 
- *                  documentos. Recibirá un arreglo de los nuevos `DocumentSnapshot`s cargados.
- * @returns Un callback para cancelar la suscripción (`unsubscribe`) a los cambios de la consulta. 
- *                  Este callback debe llamarse cuando ya no se necesiten más actualizaciones de los 
- *                  posts o cuando se desee detener la consulta paginada. Retorna null si ocurre un error.
+ * getPaginatedPosts:
+ * --------------------------
+ * Realiza una consulta paginada a la colección "posts" de Firestore.
+ *
+ * La consulta ordena los posts según el campo indicado en sortType (por ejemplo, fecha de creación)
+ * en orden descendente, y limita el número de documentos a cargar por página.
+ * Si se proporciona un documento (afterDoc), se usa para la paginación (startAfter).
+ * Además, se puede activar el modo realtime para recibir actualizaciones en vivo.
+ *
+ * @param afterDoc - (Opcional) Último documento de la página anterior para paginar.
+ * @param limitPosts - Número máximo de posts a cargar.
+ * @param callback - Función que se ejecuta con un arreglo de DocumentSnapshot cuando se reciben nuevos documentos.
+ * @param sortType - Campo por el cual se ordenarán los posts.
+ * @param realtime - Indica si se debe usar una suscripción en tiempo real o una consulta única.
+ * @returns Una función para cancelar la suscripción (si realtime es true), o una función vacía.
  */
 export const getPaginatedPosts = (
   afterDoc: DocumentSnapshot | undefined,
@@ -42,82 +56,84 @@ export const getPaginatedPosts = (
   realtime: boolean = false
 ): (() => void) | null => {
   try {
-    // Crea una consulta base para obtener los posts, ordenados por fecha de creación de manera descendente,
-    // y limitados al número especificado.
-    const queryRef = query(
+    // Crea la consulta base a la colección "posts", ordenada de forma descendente según el campo indicado
+    const baseQuery = query(
       collection(firestore, "posts"),
       orderBy(sortType, "desc"),
       limit(limitPosts)
     );
 
-    // Si se pasa un documento de referencia (afterDoc), se agrega la cláusula 'startAfter' para paginar
-    // y continuar cargando después del último documento de la página anterior.
-    const paginatedQuery = afterDoc ? query(queryRef, startAfter(afterDoc)) : queryRef;
+    // Si se proporciona un documento para paginación, se añade el filtro 'startAfter'
+    const paginatedQuery = afterDoc ? query(baseQuery, startAfter(afterDoc)) : baseQuery;
 
     if (realtime) {
-    // Se suscribe a los cambios en la consulta paginada utilizando 'onSnapshot'.
-    const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
-      const newSnapshots = snapshot.docs; // Obtiene los documentos nuevos del snapshot
-      callback(newSnapshots); // Llama a la función callback pasando los nuevos documentos
-    });
-
-    // Retorna la función para cancelar la suscripción cuando sea necesario.
-    return unsubscribe;
-    
-  } else {
-    // Consulta única
-    getDocs(paginatedQuery)
-      .then((snapshot) => {
+      // Modo realtime: se suscribe a la consulta mediante onSnapshot
+      const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
         callback(snapshot.docs);
-      })
-      .catch((error) => {
-        console.error("Error obteniendo posts paginados:", error);
       });
-      return () => {}; // Devuelve una función vacía para mantener la firma
+      return unsubscribe;
+    } else {
+      // Consulta única: se ejecuta la consulta y se llama al callback
+      getDocs(paginatedQuery)
+        .then((snapshot) => callback(snapshot.docs))
+        .catch((error) => {
+          console.error("Error obteniendo posts paginados:", error);
+        });
+      // Retorna una función vacía para mantener la firma
+      return () => {};
     }
   } catch (error) {
     console.error("Error obteniendo posts paginados:", error);
     return null;
   }
-}
+};
 
 /**
+ * addPost:
+ * --------------------------
  * Agrega un nuevo post a la colección "posts" en Firestore.
- * 
- * @param {Omit<Post, 'id'>} post - Objeto que representa el post a agregar, excluyendo el campo 'id'.
- * @returns {Promise<string | undefined>} - Retorna el ID del post agregado o `undefined` si ocurre un error.
+ *
+ * @param post - Objeto que representa el post a agregar (excluye el campo 'id').
+ * @returns Una promesa que se resuelve con el ID del post agregado o undefined si ocurre un error.
  */
-export const addPost = async (post: Omit<Post, 'id'>): Promise<string | undefined> => {
+export const addPost = async (post: Omit<Post, "id">): Promise<string | undefined> => {
   try {
     const docRef = await addDoc(collection(firestore, "posts"), post);
     return docRef.id;
   } catch (error) {
-    console.error("Error al agregar el post: ", error);
+    console.error("Error al agregar el post:", error);
   }
-}
+};
 
 /**
+ * updatePost:
+ * --------------------------
  * Actualiza un post existente en la colección "posts" de Firestore.
- * 
- * @param postId - ID del post que se desea actualizar.
- * @param data - Datos a actualizar en el post.
+ *
+ * @param postId - ID del post a actualizar.
+ * @param data - Objeto con los datos a actualizar.
  */
 export const updatePost = async (postId: string, data: any) => {
   try {
     const docRef = doc(firestore, "posts", postId);
     await updateDoc(docRef, data);
   } catch (error) {
-    console.error('Error al actualizar el post: ', error);
+    console.error("Error al actualizar el post:", error);
   }
-}
+};
 
 /**
+ * getAllUsers:
+ * --------------------------
  * Obtiene todos los usuarios de la colección "users" en Firestore.
- * @returns {Promise<Map<string, UserData>>} Mapa de usuarios con sus datos.
+ *
+ * Recorre el snapshot de la consulta y crea un mapa donde cada clave es el ID del usuario
+ * y el valor es un objeto con los datos del usuario.
+ *
+ * @returns Una promesa que se resuelve con un mapa de usuarios.
  */
 export const getAllUsers = async (): Promise<Map<string, UserData>> => {
   const usersMap = new Map<string, UserData>();
-
   try {
     const snapshot = await getDocs(collection(firestore, "users"));
     snapshot.forEach((doc) => {
@@ -131,21 +147,25 @@ export const getAllUsers = async (): Promise<Map<string, UserData>> => {
   } catch (error) {
     console.error("Error al obtener los datos de los usuarios:", error);
   }
-
   return usersMap;
-}
+};
 
 /**
+ * getProfileImageById:
+ * --------------------------
  * Obtiene la URL de la imagen de perfil de un usuario a partir de su ID.
- * 
- * @param userId - ID del usuario cuyo perfil se desea obtener.
- * @returns {Promise<string | null>} - Retorna la URL de la imagen de perfil si existe, o `null` si no se encuentra o hay un error.
+ *
+ * Consulta el documento correspondiente en la colección "users" y retorna la URL de la imagen
+ * si existe. Si no se encuentra o ocurre un error, retorna null.
+ *
+ * @param userId - ID del usuario.
+ * @returns Una promesa que se resuelve con la URL de la imagen de perfil o null.
  */
 export const getProfileImageById = async (userId: string): Promise<string | null> => {
   try {
-    const userRef = doc(collection(firestore, "users"), userId);
+    // Se obtiene la referencia al documento del usuario directamente.
+    const userRef = doc(firestore, "users", userId);
     const userSnap = await getDoc(userRef);
-
     if (userSnap.exists()) {
       const userData = userSnap.data();
       return userData.profileImage || null;

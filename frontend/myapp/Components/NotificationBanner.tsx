@@ -1,14 +1,29 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
 
-interface NotificationBanner {
+/**
+ * Props para el componente NotificationBanner.
+ * @property {string} message - El mensaje a mostrar en la notificación.
+ * @property {'error' | 'success' | 'info' | 'warning'} [type] - Tipo de notificación, que determina el estilo. Valor por defecto es 'info'.
+ */
+interface NotificationBannerProps {
   message: string;
-  type?: 'error' | 'success' | 'info' | 'warning';
+  type?: "error" | "success" | "info" | "warning";
 }
 
-const NotificationBanner: React.FC<NotificationBanner> = ({ message, type = 'info' }) => {
+/**
+ * NotificationBanner:
+ * Componente funcional que muestra un banner de notificación en la parte inferior de la pantalla.
+ * Se utiliza para informar al usuario de errores, éxitos, avisos o información.
+ *
+ * @param {NotificationBannerProps} props - Propiedades del componente.
+ * @returns {JSX.Element | null} - Renderiza el banner si hay un mensaje; de lo contrario, no renderiza nada.
+ */
+const NotificationBanner: React.FC<NotificationBannerProps> = ({ message, type = "info" }) => {
+  // Si no hay mensaje, no se renderiza nada.
   if (!message) return null;
 
+  // Define estilos específicos según el tipo de notificación.
   const typeStyles = {
     error: styles.error,
     success: styles.success,
@@ -23,7 +38,11 @@ const NotificationBanner: React.FC<NotificationBanner> = ({ message, type = 'inf
   );
 };
 
+/**
+ * Estilos del componente NotificationBanner.
+ */
 const styles = StyleSheet.create({
+  // Contenedor del banner, posicionado de forma absoluta en la parte inferior de la pantalla.
   notification: {
     position: "absolute",
     bottom: 20,
@@ -33,18 +52,23 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: "center",
   },
+  // Estilo para notificaciones de tipo "error".
   error: {
     backgroundColor: "#ff4d4f",
   },
+  // Estilo para notificaciones de tipo "success".
   success: {
     backgroundColor: "#52c41a",
   },
+  // Estilo para notificaciones de tipo "info".
   info: {
     backgroundColor: "#1890ff",
   },
+  // Estilo para notificaciones de tipo "warning".
   warning: {
     backgroundColor: "#faad14",
   },
+  // Estilo del texto del banner.
   notificationText: {
     color: "#fff",
     fontSize: 16,

@@ -18,20 +18,35 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import NotificationBanner from '@/Components/NotificationBanner';
 import { registerIndieID } from 'native-notify';
 import { APP_ID, APP_TOKEN } from '@/api/notificationService';
-import { styles } from '@/assets/styles/LoginStyles'; // Asegúrate de ajustar la ruta según corresponda
+import { styles } from '@/assets/styles/LoginStyles'; // Ajusta la ruta según corresponda
 
+/**
+ * Propiedades que recibe el componente LoginScreen.
+ */
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+/**
+ * Tipo para el banner de notificaciones.
+ */
 type NotificationType = 'error' | 'success';
 
+/**
+ * Estado para el banner de notificaciones.
+ */
 interface NotificationState {
   message: string;
   type: NotificationType | null;
 }
 
+/**
+ * Componente LoginScreen
+ * Permite iniciar sesión utilizando correo y contraseña.
+ * Se realiza la validación del formato del correo, se muestran notificaciones y se registra el dispositivo para notificaciones.
+ */
 const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
+  // Estados de la pantalla
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -41,10 +56,12 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   });
   const [passwordVisible, setPasswordVisible] = useState<boolean>(false);
 
-  // Ref para el input de contraseña (para gestionar el enfoque)
+  // Referencia para el TextInput de la contraseña para gestionar el enfoque
   const passwordInputRef = useRef<TextInput>(null);
 
-  // Función para limpiar notificaciones después de 3 segundos
+  /**
+   * Función para limpiar la notificación después de 3 segundos.
+   */
   const clearNotification = useCallback(() => {
     setNotification({ message: '', type: null });
   }, []);
@@ -59,22 +76,35 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     };
   }, [notification, clearNotification]);
 
-  // Validación básica del formato de correo
+  /**
+   * Valida el formato del correo utilizando una expresión regular.
+   * @param email - Correo electrónico a validar.
+   * @returns {boolean} - True si el formato es correcto, de lo contrario false.
+   */
   const validateEmail = (email: string): boolean => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
   };
 
-  // Alterna la visibilidad de la contraseña
+  /**
+   * Alterna la visibilidad de la contraseña.
+   */
   const togglePasswordVisibility = () => {
     setPasswordVisible((prev) => !prev);
   };
 
+  /**
+   * Maneja el inicio de sesión:
+   * - Valida que se hayan completado los campos y que el formato del correo sea correcto.
+   * - Intenta iniciar sesión con Firebase Authentication.
+   * - Registra el dispositivo para notificaciones en dispositivos móviles.
+   * - Muestra notificaciones de éxito o error.
+   */
   const handleLogin = async () => {
-    // Oculta el teclado (en web no afecta)
     Keyboard.dismiss();
     clearNotification();
 
+    // Validación básica de campos
     if (!email.trim() || !password) {
       setNotification({ message: 'Por favor, completa ambos campos.', type: 'error' });
       return;
@@ -87,10 +117,11 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
     setLoading(true);
     try {
+      // Intenta iniciar sesión con Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       setNotification({ message: 'Inicio de sesión exitoso', type: 'success' });
 
-      // Registro para notificaciones solo en dispositivos móviles (Android/iOS)
+      // Registro para notificaciones en dispositivos móviles (Android/iOS)
       if (Platform.OS !== 'web') {
         registerIndieID(userCredential.user.uid, APP_ID, APP_TOKEN);
       } else {
@@ -127,7 +158,9 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     }
   };
 
-  // Permite pasar del input de correo al de contraseña
+  /**
+   * Permite pasar del input de correo al de contraseña al enviar el formulario.
+   */
   const onEmailSubmitEditing = () => {
     passwordInputRef.current?.focus();
   };
@@ -137,93 +170,43 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className={styles.keyboardAvoidingView}
     >
-      <ScrollView contentContainerStyle={localStyles.scrollContainer} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={localStyles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
         <View className={styles.mainContainer}>
-          <Image
-            source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
-            style={localStyles.logoImage}
-            resizeMode="contain"
-          />
+          {/* Logo de la aplicación */}
+          <Logo />
 
           {/* Campo de correo electrónico */}
-          <View className={styles.emailFieldContainer}>
-            <Text className={styles.emailLabel}>Correo Electrónico</Text>
-            <View className={styles.emailInputContainer}>
-              <Ionicons className={styles.emailIcon} name="mail-outline" size={24} color="black" />
-              <TextInput
-                className={styles.emailInput}
-                placeholder="Ingresa tu correo"
-                placeholderTextColor="gray"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={email}
-                onChangeText={setEmail}
-                returnKeyType="next"
-                onSubmitEditing={onEmailSubmitEditing}
-                blurOnSubmit={false}
-              />
-            </View>
-          </View>
+          <EmailInput
+            email={email}
+            onChangeEmail={setEmail}
+            onSubmitEditing={onEmailSubmitEditing}
+          />
 
           {/* Campo de contraseña */}
-          <View className={styles.passwordFieldContainer}>
-            <Text className={styles.passwordLabel}>Contraseña</Text>
-            <View className={styles.passwordInputContainer}>
-              <Ionicons className={styles.passwordIcon} name="lock-closed-outline" size={24} color="black" />
-              <TextInput
-                ref={passwordInputRef}
-                className={styles.passwordInput}
-                placeholder="Ingresa tu contraseña"
-                placeholderTextColor="gray"
-                secureTextEntry={!passwordVisible}
-                value={password}
-                onChangeText={setPassword}
-                returnKeyType="done"
-                onSubmitEditing={handleLogin}
-              />
-              <TouchableOpacity
-                className={styles.passwordToggleButton}
-                onPress={togglePasswordVisibility}
-                accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                <Ionicons name={passwordVisible ? 'eye-off' : 'eye'} size={24} color="gray" />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <PasswordInput
+            password={password}
+            onChangePassword={setPassword}
+            passwordVisible={passwordVisible}
+            togglePasswordVisibility={togglePasswordVisibility}
+            onSubmitEditing={handleLogin}
+            inputRef={passwordInputRef}
+          />
 
           {/* Enlace para recuperar contraseña */}
-          <View className={styles.forgotPasswordContainer}>
-            <TouchableOpacity onPress={() => setCurrentScreen('AccountRecoveryScreen')}>
-              <Text className={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
-            </TouchableOpacity>
-          </View>
+          <ForgotPasswordLink onPress={() => setCurrentScreen('AccountRecoveryScreen')} />
 
           {/* Botón para iniciar sesión */}
-          <TouchableOpacity
-            className={styles.loginButton}
-            onPress={handleLogin}
-            disabled={loading}
-            accessibilityRole="button"
-            accessibilityLabel="Iniciar sesión"
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <Text className={styles.loginButtonText}>Iniciar sesión</Text>
-            )}
-          </TouchableOpacity>
+          <LoginButton onPress={handleLogin} loading={loading} />
 
           {/* Enlace para registrarse */}
-          <TouchableOpacity onPress={() => setCurrentScreen('RegisterScreen')}>
-            <Text className={styles.registerText}>
-              ¿No tienes cuenta? <Text className={styles.registerTextHighlight}>Registrarse</Text>
-            </Text>
-          </TouchableOpacity>
+          <RegisterLink onPress={() => setCurrentScreen('RegisterScreen')} />
         </View>
       </ScrollView>
 
-      {/* Notificaciones */}
+      {/* Banner de notificaciones */}
       {notification.message !== '' && notification.type && (
         <NotificationBanner message={notification.message} type={notification.type} />
       )}
@@ -231,6 +214,170 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   );
 };
 
+/* ────────────────────────────────────────────── */
+/*         COMPONENTES MODULARES INTERNOS         */
+/* ────────────────────────────────────────────── */
+
+/**
+ * Componente para mostrar el logo de la aplicación.
+ */
+const Logo: React.FC = () => (
+  <Image
+    source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
+    style={localStyles.logoImage}
+    resizeMode="contain"
+  />
+);
+
+/**
+ * Propiedades para el componente EmailInput.
+ */
+interface EmailInputProps {
+  email: string;
+  onChangeEmail: (text: string) => void;
+  onSubmitEditing: () => void;
+}
+
+/**
+ * Componente para el campo de correo electrónico.
+ */
+const EmailInput: React.FC<EmailInputProps> = ({ email, onChangeEmail, onSubmitEditing }) => (
+  <View className={styles.emailFieldContainer}>
+    <Text className={styles.emailLabel}>Correo Electrónico</Text>
+    <View className={styles.emailInputContainer}>
+      <Ionicons className={styles.emailIcon} name="mail-outline" size={24} color="black" />
+      <TextInput
+        className={styles.emailInput}
+        placeholder="Ingresa tu correo"
+        placeholderTextColor="gray"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={email}
+        onChangeText={onChangeEmail}
+        returnKeyType="next"
+        onSubmitEditing={onSubmitEditing}
+        blurOnSubmit={false}
+      />
+    </View>
+  </View>
+);
+
+/**
+ * Propiedades para el componente PasswordInput.
+ */
+interface PasswordInputProps {
+  password: string;
+  onChangePassword: (text: string) => void;
+  passwordVisible: boolean;
+  togglePasswordVisibility: () => void;
+  onSubmitEditing: () => void;
+  inputRef: React.RefObject<TextInput>;
+}
+
+/**
+ * Componente para el campo de contraseña.
+ */
+const PasswordInput: React.FC<PasswordInputProps> = ({
+  password,
+  onChangePassword,
+  passwordVisible,
+  togglePasswordVisibility,
+  onSubmitEditing,
+  inputRef,
+}) => (
+  <View className={styles.passwordFieldContainer}>
+    <Text className={styles.passwordLabel}>Contraseña</Text>
+    <View className={styles.passwordInputContainer}>
+      <Ionicons className={styles.passwordIcon} name="lock-closed-outline" size={24} color="black" />
+      <TextInput
+        ref={inputRef}
+        className={styles.passwordInput}
+        placeholder="Ingresa tu contraseña"
+        placeholderTextColor="gray"
+        secureTextEntry={!passwordVisible}
+        value={password}
+        onChangeText={onChangePassword}
+        returnKeyType="done"
+        onSubmitEditing={onSubmitEditing}
+      />
+      <TouchableOpacity
+        className={styles.passwordToggleButton}
+        onPress={togglePasswordVisibility}
+        accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+      >
+        <Ionicons name={passwordVisible ? 'eye-off' : 'eye'} size={24} color="gray" />
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+
+/**
+ * Propiedades para el componente ForgotPasswordLink.
+ */
+interface ForgotPasswordLinkProps {
+  onPress: () => void;
+}
+
+/**
+ * Componente para el enlace de recuperación de contraseña.
+ */
+const ForgotPasswordLink: React.FC<ForgotPasswordLinkProps> = ({ onPress }) => (
+  <View className={styles.forgotPasswordContainer}>
+    <TouchableOpacity onPress={onPress}>
+      <Text className={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+/**
+ * Propiedades para el componente LoginButton.
+ */
+interface LoginButtonProps {
+  onPress: () => void;
+  loading: boolean;
+}
+
+/**
+ * Componente para el botón de inicio de sesión.
+ */
+const LoginButton: React.FC<LoginButtonProps> = ({ onPress, loading }) => (
+  <TouchableOpacity
+    className={styles.loginButton}
+    onPress={onPress}
+    disabled={loading}
+    accessibilityRole="button"
+    accessibilityLabel="Iniciar sesión"
+  >
+    {loading ? (
+      <ActivityIndicator size="small" color="#FFF" />
+    ) : (
+      <Text className={styles.loginButtonText}>Iniciar sesión</Text>
+    )}
+  </TouchableOpacity>
+);
+
+/**
+ * Propiedades para el componente RegisterLink.
+ */
+interface RegisterLinkProps {
+  onPress: () => void;
+}
+
+/**
+ * Componente para el enlace de registro.
+ */
+const RegisterLink: React.FC<RegisterLinkProps> = ({ onPress }) => (
+  <TouchableOpacity onPress={onPress}>
+    <Text className={styles.registerText}>
+      ¿No tienes cuenta? <Text className={styles.registerTextHighlight}>Registrarse</Text>
+    </Text>
+  </TouchableOpacity>
+);
+
+/**
+ * Estilos locales para algunos componentes específicos.
+ */
 const localStyles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,

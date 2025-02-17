@@ -1,24 +1,24 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import {
   Text,
   TouchableOpacity,
   View,
   Platform,
   Modal,
-} from 'react-native';
-import Slider from '@react-native-community/slider';
-import { MaterialIcons } from '@expo/vector-icons';
+} from "react-native";
+import Slider from "@react-native-community/slider";
+import { MaterialIcons } from "@expo/vector-icons";
 import {
   CameraView,
   CameraType,
   useCameraPermissions,
   FlashMode,
-} from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
-import NotificationBanner from '@/Components/NotificationBanner';
-import { styles } from '@/assets/styles/CameraCaptureStyles'; // Ajusta la ruta según corresponda
+} from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import PhotoPreviewSection from "@/Components/PhotoPreviewSection";
+import NotificationBanner from "@/Components/NotificationBanner";
+import { styles } from "@/assets/styles/CameraCaptureStyles"; // Ajusta la ruta según corresponda
 
 /**
  * Propiedades que recibe el componente de captura de cámara.
@@ -31,9 +31,11 @@ interface CameraCaptureScreenProps {
  * Componente que permite capturar fotos utilizando la cámara del dispositivo o seleccionar una imagen de la galería.
  * Incluye controles para cambiar el zoom, el flash y alternar entre la cámara frontal y trasera.
  */
-const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScreen }) => {
+const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({
+  setCurrentScreen,
+}) => {
   // Estado para controlar la orientación de la cámara (trasera o frontal)
-  const [facing, setFacing] = useState<CameraType>('back');
+  const [facing, setFacing] = useState<CameraType>("back");
   // Estado y función para manejar los permisos de la cámara
   const [permission, requestPermission] = useCameraPermissions();
   // Estado para almacenar la foto capturada o seleccionada
@@ -41,11 +43,11 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
   // Estado para el nivel de zoom de la cámara (valor entre 0 y 1)
   const [zoom, setZoom] = useState(0);
   // Estado para controlar el modo del flash de la cámara
-  const [flash, setFlash] = useState<FlashMode>('off');
+  const [flash, setFlash] = useState<FlashMode>("off");
   // Referencia a la vista de la cámara para acceder a sus métodos
   const cameraRef = useRef<CameraView | null>(null);
   // Estado para mostrar mensajes de error
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
   // Estado para saber si la cámara está lista para capturar fotos
   const [isCameraReady, setIsCameraReady] = useState(false);
 
@@ -54,7 +56,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
    */
   useEffect(() => {
     if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(''), 3000);
+      const timer = setTimeout(() => setErrorMessage(""), 3000);
       return () => clearTimeout(timer);
     }
   }, [errorMessage]);
@@ -65,11 +67,11 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
    */
   useEffect(() => {
     const checkPermissions = async () => {
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         try {
           await navigator.mediaDevices.getUserMedia({ video: true });
         } catch (error) {
-          setErrorMessage('No se pudo acceder a la cámara en la web');
+          setErrorMessage("No se pudo acceder a la cámara en la web");
         }
       } else {
         if (!permission?.granted) {
@@ -105,11 +107,11 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
         if (takenPhoto) {
           setPhoto(takenPhoto);
         } else {
-          setErrorMessage('Error al tomar la foto');
+          setErrorMessage("Error al tomar la foto");
         }
       } catch (error) {
-        console.error('Error al capturar la foto:', error);
-        setErrorMessage('Error al capturar la foto');
+        console.error("Error al capturar la foto:", error);
+        setErrorMessage("Error al capturar la foto");
       }
     }
   }, [flash, permission, isCameraReady, requestPermission]);
@@ -147,8 +149,8 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
         setPhoto(manipulatedImage);
       }
     } catch (error) {
-      console.error('Error al abrir la galería:', error);
-      setErrorMessage('Error abriendo la galería');
+      console.error("Error al abrir la galería:", error);
+      setErrorMessage("Error abriendo la galería");
     }
   };
 
@@ -158,11 +160,11 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
    */
   const toggleCameraFacing = useCallback(() => {
     setFacing((prevFacing) => {
-      if (prevFacing === 'back') {
-        setFlash('off'); // Desactiva el flash cuando se usa la cámara frontal
-        return 'front';
+      if (prevFacing === "back") {
+        setFlash("off"); // Desactiva el flash cuando se usa la cámara frontal
+        return "front";
       }
-      return 'back';
+      return "back";
     });
   }, []);
 
@@ -170,11 +172,11 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
    * Alterna el estado del flash entre 'off' y 'auto'.
    */
   const toggleFlash = useCallback(() => {
-    setFlash((prevFlash) => (prevFlash === 'off' ? 'auto' : 'off'));
+    setFlash((prevFlash) => (prevFlash === "off" ? "auto" : "off"));
   }, []);
 
   // Si no se tienen permisos en dispositivos móviles (no web), se muestra un mensaje informativo.
-  if (!permission?.granted && Platform.OS !== 'web') {
+  if (!permission?.granted && Platform.OS !== "web") {
     return (
       <View className={styles.permissionView}>
         <Text className={styles.permissionText}>
@@ -200,7 +202,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
       </CameraView>
 
       {/* Controles de zoom (solo para dispositivos móviles) */}
-      {Platform.OS !== 'web' && (
+      {Platform.OS !== "web" && (
         <View className={styles.zoomControls}>
           {/* Botón para disminuir el zoom */}
           <TouchableOpacity
@@ -216,7 +218,7 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
           </TouchableOpacity>
 
           <Slider
-            style={{ width: '60%', height: 22 }}
+            style={{ width: "60%", height: 22 }}
             minimumValue={0}
             maximumValue={1}
             value={zoom}
@@ -244,13 +246,10 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
 
       {/* Botón de captura */}
       <View className={styles.captureContainer}>
-      <TouchableOpacity
+        <TouchableOpacity
           className={styles.captureButton}
           onPress={handleTakePhoto}
           disabled={!permission?.granted || !isCameraReady}
-          style={{
-            opacity: !permission?.granted || !isCameraReady ? 0.5 : 1,
-          }}
           accessibilityLabel="Tomar foto"
           accessibilityRole="button"
         >
@@ -271,18 +270,18 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
       </TouchableOpacity>
 
       {/* Controles superiores (flash y cambio de cámara) para dispositivos móviles */}
-      {Platform.OS !== 'web' && (
+      {Platform.OS !== "web" && (
         <View className={styles.topControls}>
           {/* Botón de flash (visible solo en cámara trasera) */}
-          {facing === 'back' && (
+          {facing === "back" && (
             <TouchableOpacity
               className={styles.flashButton}
               onPress={toggleFlash}
-              accessibilityLabel={flash === 'off' ? 'Encender flash' : 'Apagar flash'}
+              accessibilityLabel={flash === "off" ? "Encender flash" : "Apagar flash"}
               accessibilityRole="button"
             >
               <MaterialIcons
-                name={flash === 'off' ? 'flash-off' : 'flash-auto'}
+                name={flash === "off" ? "flash-off" : "flash-auto"}
                 size={50}
                 color="white"
               />
@@ -303,12 +302,8 @@ const CameraCaptureScreen: React.FC<CameraCaptureScreenProps> = ({ setCurrentScr
       {/* Banner de notificaciones para mostrar mensajes de error */}
       <NotificationBanner message={errorMessage} type="error" />
 
-      {/* Se muestra la vista previa de la foto en un Modal para permitir confirmar o retomar */}
-      <Modal
-        visible={!!photo}
-        animationType="slide"
-        onRequestClose={() => {}}
-      >
+      {/* Vista previa de la foto en un Modal para confirmar o retomar */}
+      <Modal visible={!!photo} animationType="slide" onRequestClose={() => {}}>
         <PhotoPreviewSection
           photo={photo}
           handleRetakePhoto={handleRetakePhoto}

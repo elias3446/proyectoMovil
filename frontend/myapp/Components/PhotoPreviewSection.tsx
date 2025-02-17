@@ -16,14 +16,17 @@ import NotificationBanner from "@/Components/NotificationBanner";
 import { uploadImageToCloudinary } from "@/api/cloudinaryService";
 import { processImageWithAPI } from "@/api/processWithAPIService";
 
+/**
+ * Props para el componente PhotoPreviewSection.
+ */
 interface PhotoPreviewSectionProps {
   /** Objeto que contiene la URI de la foto a previsualizar */
   photo: { uri: string };
-  /** Función para reintentar la captura (retomar la foto) */
+  /** Función para retomar la captura (descartar la imagen actual) */
   handleRetakePhoto: () => void;
-  /** Función opcional para cambiar de pantalla después de confirmar el envío */
+  /** (Opcional) Función para cambiar de pantalla después de confirmar el envío */
   setCurrentScreen?: (screen: string) => void;
-  /** Función opcional que se ejecuta en lugar de la lógica por defecto al confirmar */
+  /** (Opcional) Función personalizada que se ejecuta al confirmar el envío */
   onConfirm?: () => void;
 }
 
@@ -39,23 +42,23 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
   setCurrentScreen,
   onConfirm,
 }) => {
-  // Estado para almacenar mensajes de error y controlar el indicador de carga.
+  // Estado para almacenar mensajes de error e indicar carga
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Instancias de autenticación y Firestore.
+  // Instancias de autenticación y Firestore
   const auth = getAuth();
   const db = getFirestore();
 
   /**
    * handleSendPhoto:
-   * Función asíncrona que gestiona el envío de la imagen.
+   * Función asíncrona que gestiona el envío de la imagen:
    * - Verifica que el usuario esté autenticado y que exista una imagen.
-   * - Sube la imagen a Cloudinary.
+   * - Sube la imagen a Cloudinary en la carpeta "user_messages".
    * - Procesa la imagen mediante una API externa para obtener una respuesta del bot.
-   * - Si la respuesta indica "no hay plantas", muestra una alerta y permite retomar la foto.
-   * - Si se proporciona la función onConfirm, se ejecuta y se omite el flujo por defecto.
-   * - De lo contrario, almacena los mensajes en Firestore y cambia a la pantalla de Chat.
+   * - Si la respuesta es "no hay plantas", muestra una alerta y permite retomar la foto.
+   * - Si se proporciona la función onConfirm, se ejecuta esa lógica.
+   * - De lo contrario, almacena los mensajes en Firestore y cambia a la pantalla "ChatScreen".
    */
   const handleSendPhoto = useCallback(async () => {
     const user = auth.currentUser;
@@ -73,9 +76,7 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
     try {
       // Sube la imagen a Cloudinary en la carpeta "user_messages"
       const imageUrl = await uploadImageToCloudinary(photo.uri, "user_messages");
-      if (!imageUrl) {
-        throw new Error("Image URL is null");
-      }
+      if (!imageUrl) throw new Error("Image URL is null");
 
       // Procesa la imagen y obtiene la respuesta del bot
       const botResponseText = await processImageWithAPI(
@@ -83,32 +84,27 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
         (msg: string) => setErrorMessage(msg)
       );
 
-      // Si la respuesta es "no hay plantas", muestra una alerta y permite retomar la foto
+      // Si la respuesta es "no hay plantas", muestra alerta y permite retomar la imagen
       if (botResponseText && botResponseText.toLowerCase() === "no hay plantas") {
         Alert.alert(
           "Atención",
           botResponseText,
-          [
-            {
-              text: "OK",
-              onPress: handleRetakePhoto,
-            },
-          ],
+          [{ text: "OK", onPress: handleRetakePhoto }],
           { cancelable: false }
         );
         return;
       }
 
-      // Si se ha definido onConfirm, se utiliza esa lógica en lugar de la predeterminada
+      // Si se ha definido onConfirm, se ejecuta y se omite el flujo por defecto
       if (onConfirm) {
         onConfirm();
         return;
       }
 
-      // Definir el ID del receptor (reemplazar "receiverUID" por el valor real en producción)
+      // Define el ID del receptor (reemplazar "receiverUID" por el valor real en producción)
       const receiverUID = "receiverUID";
 
-      // Referencias a las colecciones de mensajes para el usuario y el receptor.
+      // Referencias a las colecciones de mensajes para el usuario y el receptor
       const userMessagesRef = collection(db, "users", user.uid, "messages");
       const receiverMessagesRef = collection(db, "users", receiverUID, "messages");
 
@@ -132,7 +128,7 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
       await addDoc(userMessagesRef, botMessage);
       await addDoc(receiverMessagesRef, botMessage);
 
-      // Cambia la pantalla a "ChatScreen" si se proporciona la función; de lo contrario, muestra un mensaje de éxito.
+      // Cambia la pantalla a "ChatScreen" o muestra un mensaje de éxito
       if (setCurrentScreen) {
         setCurrentScreen("ChatScreen");
       } else {
@@ -149,14 +145,10 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.imageContainer}>
-        {/* Muestra un banner de notificación en caso de error */}
+        {/* Muestra el banner de notificación en caso de error */}
         <NotificationBanner message={errorMessage} type="error" />
         {photo?.uri ? (
-          <Image
-            source={{ uri: photo.uri }}
-            style={styles.image}
-            resizeMode="contain"
-          />
+          <Image source={{ uri: photo.uri }} style={styles.image} resizeMode="contain" />
         ) : (
           <Text style={styles.noImageText}>No image available</Text>
         )}
@@ -176,7 +168,7 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Indicador de carga: se muestra de forma superpuesta si se está procesando */}
+      {/* Indicador de carga superpuesto */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#5CB868" />
@@ -184,9 +176,7 @@ const PhotoPreviewSection: React.FC<PhotoPreviewSectionProps> = ({
       )}
 
       {/* Muestra mensaje de error debajo de los botones, si existe */}
-      {errorMessage ? (
-        <Text style={styles.errorText}>{errorMessage}</Text>
-      ) : null}
+      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
     </SafeAreaView>
   );
 };

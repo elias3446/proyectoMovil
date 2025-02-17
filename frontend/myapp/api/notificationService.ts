@@ -1,20 +1,22 @@
 import axios from "axios";
 
 /**
- * Constantes de configuración para la notificación.
- * 
- * Nota: Para mayor seguridad, mueve estos valores a variables de entorno.
+ * Configuración para las notificaciones de Native Notify.
+ * Nota: Para producción, estos valores deben definirse como variables de entorno.
  */
-export const APP_ID = 27521;
-export const APP_TOKEN = "rNRgdCvDNRU32d09grVuSh";
+export const APP_ID = process.env.REACT_APP_NATIVE_NOTIFY_APP_ID
+  ? Number(process.env.REACT_APP_NATIVE_NOTIFY_APP_ID)
+  : 27521;
+export const APP_TOKEN = process.env.REACT_APP_NATIVE_NOTIFY_APP_TOKEN || "rNRgdCvDNRU32d09grVuSh";
 
 /**
  * sendNotificationMessage:
+ * --------------------------
  * Envía una notificación a través de la API de Native Notify.
  *
- * @param receiverId - El ID del receptor de la notificación.
- * @param title - El título de la notificación.
- * @param message - El mensaje que se enviará en la notificación.
+ * @param receiverId - ID del receptor de la notificación.
+ * @param title - Título de la notificación.
+ * @param message - Mensaje que se enviará en la notificación.
  * @returns Una promesa que se resuelve con la respuesta del servidor o undefined en caso de error.
  */
 export const sendNotificationMessage = async (
@@ -35,11 +37,10 @@ export const sendNotificationMessage = async (
     // Muestra en consola la respuesta para depuración.
     console.log("Notificación enviada:", response.data);
 
-    // Devuelve la respuesta obtenida de la API.
+    // Devuelve la respuesta de la API.
     return response.data;
   } catch (error: any) {
     // Registra el error en la consola para facilitar la depuración.
     console.error("Error al enviar la notificación:", error);
-    // Opcionalmente, se podría lanzar el error o retornar un valor predeterminado.
   }
 };

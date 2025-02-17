@@ -20,6 +20,7 @@ import { SortType } from "@/types/SortType";
 
 /**
  * subscribeToAuthChanges:
+ * --------------------------
  * Se suscribe a los cambios en la autenticación del usuario.
  * Cada vez que el estado del usuario cambia, se ejecuta el callback proporcionado.
  *
@@ -32,19 +33,20 @@ export const subscribeToAuthChanges = (callback: (user: User | null) => void) =>
 
 /**
  * getPaginatedPosts:
+ * --------------------------
  * Realiza una consulta paginada a la colección "posts" de Firestore.
  *
- * La consulta ordena los posts según el campo especificado en sortType (usualmente la fecha de creación)
+ * La consulta ordena los posts según el campo indicado en sortType (por ejemplo, fecha de creación)
  * en orden descendente, y limita el número de documentos a cargar por página.
  * Si se proporciona un documento (afterDoc), se usa para la paginación (startAfter).
  * Además, se puede activar el modo realtime para recibir actualizaciones en vivo.
  *
  * @param afterDoc - (Opcional) Último documento de la página anterior para paginar.
- * @param limitPosts - Número máximo de posts a cargar en la consulta.
- * @param callback - Función que se ejecuta con un arreglo de DocumentSnapshot cada vez que se reciben nuevos documentos.
+ * @param limitPosts - Número máximo de posts a cargar.
+ * @param callback - Función que se ejecuta con un arreglo de DocumentSnapshot cuando se reciben nuevos documentos.
  * @param sortType - Campo por el cual se ordenarán los posts.
- * @param realtime - Indica si se debe usar una suscripción en tiempo real (onSnapshot) o una consulta única.
- * @returns Una función para cancelar la suscripción si se usa el modo realtime; de lo contrario, una función vacía.
+ * @param realtime - Indica si se debe usar una suscripción en tiempo real o una consulta única.
+ * @returns Una función para cancelar la suscripción (si realtime es true), o una función vacía.
  */
 export const getPaginatedPosts = (
   afterDoc: DocumentSnapshot | undefined,
@@ -54,7 +56,7 @@ export const getPaginatedPosts = (
   realtime: boolean = false
 ): (() => void) | null => {
   try {
-    // Se crea la consulta base a la colección "posts", ordenada en forma descendente según el campo indicado
+    // Crea la consulta base a la colección "posts", ordenada de forma descendente según el campo indicado
     const baseQuery = query(
       collection(firestore, "posts"),
       orderBy(sortType, "desc"),
@@ -65,23 +67,19 @@ export const getPaginatedPosts = (
     const paginatedQuery = afterDoc ? query(baseQuery, startAfter(afterDoc)) : baseQuery;
 
     if (realtime) {
-      // Modo en tiempo real: se suscribe a los cambios usando onSnapshot
+      // Modo realtime: se suscribe a la consulta mediante onSnapshot
       const unsubscribe = onSnapshot(paginatedQuery, (snapshot) => {
-        // Se obtienen los documentos nuevos del snapshot
-        const newSnapshots = snapshot.docs;
-        callback(newSnapshots);
+        callback(snapshot.docs);
       });
       return unsubscribe;
     } else {
       // Consulta única: se ejecuta la consulta y se llama al callback
       getDocs(paginatedQuery)
-        .then((snapshot) => {
-          callback(snapshot.docs);
-        })
+        .then((snapshot) => callback(snapshot.docs))
         .catch((error) => {
           console.error("Error obteniendo posts paginados:", error);
         });
-      // Se retorna una función vacía para mantener la firma
+      // Retorna una función vacía para mantener la firma
       return () => {};
     }
   } catch (error) {
@@ -92,6 +90,7 @@ export const getPaginatedPosts = (
 
 /**
  * addPost:
+ * --------------------------
  * Agrega un nuevo post a la colección "posts" en Firestore.
  *
  * @param post - Objeto que representa el post a agregar (excluye el campo 'id').
@@ -108,6 +107,7 @@ export const addPost = async (post: Omit<Post, "id">): Promise<string | undefine
 
 /**
  * updatePost:
+ * --------------------------
  * Actualiza un post existente en la colección "posts" de Firestore.
  *
  * @param postId - ID del post a actualizar.
@@ -124,6 +124,7 @@ export const updatePost = async (postId: string, data: any) => {
 
 /**
  * getAllUsers:
+ * --------------------------
  * Obtiene todos los usuarios de la colección "users" en Firestore.
  *
  * Recorre el snapshot de la consulta y crea un mapa donde cada clave es el ID del usuario
@@ -151,6 +152,7 @@ export const getAllUsers = async (): Promise<Map<string, UserData>> => {
 
 /**
  * getProfileImageById:
+ * --------------------------
  * Obtiene la URL de la imagen de perfil de un usuario a partir de su ID.
  *
  * Consulta el documento correspondiente en la colección "users" y retorna la URL de la imagen
@@ -161,8 +163,8 @@ export const getAllUsers = async (): Promise<Map<string, UserData>> => {
  */
 export const getProfileImageById = async (userId: string): Promise<string | null> => {
   try {
-    // Se obtiene la referencia al documento del usuario
-    const userRef = doc(collection(firestore, "users"), userId);
+    // Se obtiene la referencia al documento del usuario directamente.
+    const userRef = doc(firestore, "users", userId);
     const userSnap = await getDoc(userRef);
     if (userSnap.exists()) {
       const userData = userSnap.data();

@@ -9,7 +9,6 @@ import {
   ScrollView,
   Pressable,
   Modal,
-  Keyboard,
 } from "react-native";
 import { collection, DocumentSnapshot, onSnapshot } from "firebase/firestore";
 import { firestore } from "@/Config/firebaseConfig";
@@ -52,11 +51,11 @@ interface SocialNetProps {
  * Permite ver y crear publicaciones, interactuar (likes y comentarios) y navegar entre contenido.
  */
 const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
-  // Estados para posts y usuarios
+  // Estados para publicaciones y usuarios
   const [snapshots, setSnapshots] = useState<DocumentSnapshot[]>([]);
   const [users, setUsers] = useState<Map<string, UserData>>(new Map());
 
-  // Estados para creación de post
+  // Estados para creación de publicación
   const [content, setContent] = useState<string>("");
   const [image, setImage] = useState<string | null>(null);
   const [photo, setPhoto] = useState<any>(null);
@@ -65,14 +64,13 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const [loading, setLoading] = useState<boolean>(false);
 
   // Estados para comentarios
-  const [comment, setComment] = useState<string>("");
   const [visibleComments, setVisibleComments] = useState<{ [postId: string]: boolean }>({});
   const [commentsToShow, setCommentsToShow] = useState<{ [postId: string]: number }>({});
 
-  // Estado para la imagen de perfil del usuario (para mostrar en creación de post)
+  // Estado para la imagen de perfil del usuario (para mostrar en creación de publicación)
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  // Constante para definir el límite de posts a cargar
+  // Constante para definir el límite de publicaciones a cargar
   const POST_LIMIT = 10;
 
   // Estados para botones expandibles y ordenamiento de publicaciones
@@ -91,8 +89,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   const getLastItem = <T,>(arr: T[]): T | undefined => arr[arr.length - 1];
 
   /**
-   * Carga más publicaciones utilizando paginación y actualiza el estado,
-   * combinando de forma única las publicaciones anteriores con las nuevas.
+   * fetchMorePosts:
+   * Carga más publicaciones utilizando paginación y combina de forma única las publicaciones anteriores con las nuevas.
    */
   const fetchMorePosts = useCallback(() => {
     getPaginatedPosts(
@@ -101,12 +99,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       (newSnapshots) => {
         setSnapshots((prevSnapshots) => {
           const uniqueSnapshotsMap = new Map<string, DocumentSnapshot>();
-          prevSnapshots.forEach((doc) => {
-            uniqueSnapshotsMap.set(doc.id, doc);
-          });
-          newSnapshots.forEach((doc) => {
-            uniqueSnapshotsMap.set(doc.id, doc);
-          });
+          prevSnapshots.forEach((doc) => uniqueSnapshotsMap.set(doc.id, doc));
+          newSnapshots.forEach((doc) => uniqueSnapshotsMap.set(doc.id, doc));
           return Array.from(uniqueSnapshotsMap.values());
         });
       },
@@ -116,7 +110,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   }, [snapshots, sortType]);
 
   /**
-   * Permite al usuario seleccionar una imagen de la galería y previsualizarla.
+   * pickImageAndPreview:
+   * Permite al usuario seleccionar una imagen de la galería, procesarla y mostrar una previsualización.
    */
   const pickImageAndPreview = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -145,7 +140,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   }, []);
 
   /**
-   * Confirma la imagen seleccionada para el post.
+   * handleConfirmPhoto:
+   * Confirma la imagen previsualizada para el post.
    */
   const handleConfirmPhoto = useCallback(() => {
     if (photo) {
@@ -156,7 +152,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   }, [photo]);
 
   /**
-   * Permite retomar la selección de imagen (descartar la actual).
+   * handleRetakePhoto:
+   * Permite descartar la imagen previsualizada y retomar la selección.
    */
   const handleRetakePhoto = useCallback(() => {
     setPhoto(null);
@@ -164,8 +161,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   }, []);
 
   /**
-   * Crea una nueva publicación. Si se adjunta una imagen, se sube a Cloudinary.
-   * Luego se agrega el post a Firebase y se actualiza la lista de publicaciones.
+   * handleCreatePost:
+   * Crea una nueva publicación, sube la imagen (si existe) a Cloudinary,
+   * guarda el post en Firebase y actualiza la lista de publicaciones.
    */
   const handleCreatePost = useCallback(async () => {
     if (!content) return;
@@ -205,14 +203,15 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   }, [content, auth, image, sortType]);
 
   /**
-   * Envía una notificación relacionada con una acción en un post (like o comentario).
+   * sendPostNotification:
+   * Envía una notificación relacionada con una acción (like o comentario) en un post.
    */
   const sendPostNotification = useCallback(
-    async (post: Post[], userId: string, title: string, message: string) => {
+    async (postArray: Post[], userId: string, title: string, message: string) => {
       const user = users.get(userId);
-      const postContent = post[0].content;
+      const postContent = postArray[0].content;
       await sendNotificationMessage(
-        post[0].userId,
+        postArray[0].userId,
         title,
         `${user?.firstName.trim()} ${message} ${postContent}`
       );
@@ -221,8 +220,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   );
 
   /**
-   * Maneja el like en una publicación. Si el usuario ya le dio like, se quita; si no, se agrega.
-   * Además, envía una notificación si la publicación no es del mismo usuario.
+   * handleLike:
+   * Maneja el like en una publicación; lo agrega o quita y envía una notificación si corresponde.
    */
   const handleLike = useCallback(
     async (postId: string, currentLikes: any) => {
@@ -236,7 +235,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           likesCount: currentLikes.length - 1,
         });
       } else {
-        const post = snapshots
+        const postArray = snapshots
           .filter((doc) => doc.id === postId)
           .map((doc) => ({ id: doc.id, ...doc.data() })) as Post[];
 
@@ -245,9 +244,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           likesCount: currentLikes.length + 1,
         });
 
-        if (post.length > 0 && post[0].userId !== userId) {
+        if (postArray.length > 0 && postArray[0].userId !== userId) {
           await sendPostNotification(
-            post,
+            postArray,
             userId,
             "Nuevo like!",
             "ha dado like a tu publicación:"
@@ -259,23 +258,23 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   );
 
   /**
-   * Maneja la adición de un comentario a una publicación.
+   * handleAddComment:
+   * Agrega un comentario a una publicación, actualiza el contador y refresca la lista.
    */
   const handleAddComment = useCallback(
     async (
       postId: string,
-      newComment: string,
+      newCommentText: string,
       currentComments: Array<{ userId: string; text: string }>
     ) => {
       // Reinicia el input de comentario
-      setComment("");
       const userId = auth.currentUser?.uid;
       if (!userId) return;
       if (!Array.isArray(currentComments)) return;
 
       try {
-        const commentToAdd = { userId, text: newComment };
-        const post = snapshots
+        const commentToAdd = { userId, text: newCommentText };
+        const postArray = snapshots
           .filter((doc) => doc.id === postId)
           .map((doc) => ({ id: doc.id, ...doc.data() })) as Post[];
 
@@ -284,9 +283,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           commentsCount: currentComments.length + 1,
         });
 
-        if (post.length > 0 && post[0].userId !== userId) {
+        if (postArray.length > 0 && postArray[0].userId !== userId) {
           sendPostNotification(
-            post,
+            postArray,
             userId,
             "Nuevo Comentario!",
             "ha comentado tu publicación:"
@@ -304,53 +303,52 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           false
         );
       } catch (error) {
-        console.error("Error al agregar el comentario al post:", error);
+        console.error("Error al agregar el comentario:", error);
       }
     },
     [auth, snapshots, sortType, sendPostNotification]
   );
 
   /**
-   * Alterna la visibilidad de los comentarios para un post determinado.
+   * toggleCommentsVisibility:
+   * Alterna la visibilidad de los comentarios para un post.
    */
   const toggleCommentsVisibility = useCallback(
     (postId: string) => {
-      setVisibleComments((prevState) => ({
-        ...prevState,
-        [postId]: !prevState[postId],
+      setVisibleComments((prev) => ({
+        ...prev,
+        [postId]: !prev[postId],
       }));
       if (!visibleComments[postId]) {
-        setCommentsToShow((prevState) => ({
-          ...prevState,
-          [postId]: 5,
-        }));
+        setCommentsToShow((prev) => ({ ...prev, [postId]: 5 }));
       }
     },
     [visibleComments]
   );
 
   /**
-   * Aumenta el número de comentarios a mostrar para un post.
+   * loadMoreComments:
+   * Incrementa el número de comentarios a mostrar para un post.
    */
   const loadMoreComments = useCallback((postId: string) => {
-    setCommentsToShow((prevState) => ({
-      ...prevState,
-      [postId]: (prevState[postId] || 5) + 10,
+    setCommentsToShow((prev) => ({
+      ...prev,
+      [postId]: (prev[postId] || 5) + 10,
     }));
   }, []);
 
   /**
-   * Cambia el tipo de ordenamiento al presionar un botón.
+   * handleButtonPress:
+   * Cambia el tipo de ordenamiento de las publicaciones.
    */
   const handleButtonPress = useCallback((newSortType: SortType) => {
     setSortType(newSortType);
   }, []);
 
   /**
-   * Efecto para cargar las publicaciones inicialmente y actualizar en tiempo real.
+   * Efecto para cargar inicialmente las publicaciones y actualizar en tiempo real.
    */
   useEffect(() => {
-    // Carga inicial paginada
     const unsubscribeInitial = getPaginatedPosts(
       undefined,
       POST_LIMIT,
@@ -362,8 +360,8 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
           (snapshot) => {
             snapshot.docChanges().forEach((change) => {
               if (change.type === "modified") {
-                setSnapshots((prevSnapshots) =>
-                  prevSnapshots.map((doc) =>
+                setSnapshots((prev) =>
+                  prev.map((doc) =>
                     doc.id === change.doc.id ? change.doc : doc
                   )
                 );
@@ -384,8 +382,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
   }, [sortType]);
 
   /**
-   * Efecto para obtener los datos de los usuarios (para notificaciones y visualización) y la imagen
-   * de perfil del usuario actual.
+   * Efecto para obtener los datos de los usuarios y la imagen de perfil del usuario actual.
    */
   useEffect(() => {
     const userId = auth.currentUser?.uid;
@@ -405,8 +402,16 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     fetchUserProfileImage();
   }, []);
 
+  // Mapea los DocumentSnapshots a datos de tipo Post
+  const postsData: Post[] = snapshots.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Post[];
+
   /**
-   * Componente para renderizar un post individual.
+   * Componente PostItem:
+   * Renderiza una publicación individual, mostrando la cabecera (imagen y nombre),
+   * contenido, imagen (si existe), acciones (like y comentario) y la sección de comentarios.
    */
   interface PostItemProps {
     post: Post;
@@ -478,22 +483,18 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
               size={24}
               color="#5CB868"
             />
-            <Text>
-              {Array.isArray(post.likes) ? post.likes.length : 0}
-            </Text>
+            <Text>{Array.isArray(post.likes) ? post.likes.length : 0}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => toggleCommentsVisibility(post.id)}
             className={styles.commentButton}
           >
             <Fontisto name="comment" size={24} color="#5CB868" />
-            <Text>
-              {Array.isArray(post.comments) ? post.comments.length : 0}
-            </Text>
+            <Text>{Array.isArray(post.comments) ? post.comments.length : 0}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Tiempo transcurrido desde la creación del post */}
+        {/* Tiempo transcurrido desde la publicación */}
         <Text className={styles.postTimeText}>Hace {createdTimeAgo}</Text>
 
         {/* Sección de comentarios */}
@@ -577,14 +578,6 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
     );
   }
 
-  // Mapear los snapshots a datos del post
-  const postsData: Post[] = snapshots.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Post[];
-
-  const renderPost = ({ item }: { item: Post }) => <PostItem post={item} />;
-
   return (
     <View className={styles.socialNetRoot}>
       {/* Título principal */}
@@ -592,7 +585,7 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
         <Text className={styles.titleText}>Mi mundo</Text>
       </View>
 
-      {/* Sección para crear un post */}
+      {/* Sección para crear una publicación */}
       <View className={styles.createPostContainer}>
         {profileImage ? (
           <TouchableOpacity
@@ -707,9 +700,9 @@ const SocialNet: React.FC<SocialNetProps> = ({ setCurrentScreen }) => {
       <FlatList
         data={postsData}
         keyExtractor={(item) => item.id}
-        renderItem={renderPost}
+        renderItem={({ item }) => <PostItem post={item} />}
         showsVerticalScrollIndicator={false}
-        onEndReached={() => fetchMorePosts()}
+        onEndReached={fetchMorePosts}
         onEndReachedThreshold={0.5}
       />
 

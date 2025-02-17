@@ -1,14 +1,14 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
 
 /**
- * Propiedades que recibe el componente NotificationBanner.
+ * Props para el componente NotificationBanner.
  * @property {string} message - El mensaje a mostrar en la notificación.
  * @property {'error' | 'success' | 'info' | 'warning'} [type] - Tipo de notificación, que determina el estilo. Valor por defecto es 'info'.
  */
 interface NotificationBannerProps {
   message: string;
-  type?: 'error' | 'success' | 'info' | 'warning';
+  type?: "error" | "success" | "info" | "warning";
 }
 
 /**
@@ -19,11 +19,11 @@ interface NotificationBannerProps {
  * @param {NotificationBannerProps} props - Propiedades del componente.
  * @returns {JSX.Element | null} - Renderiza el banner si hay un mensaje; de lo contrario, no renderiza nada.
  */
-const NotificationBanner: React.FC<NotificationBannerProps> = ({ message, type = 'info' }) => {
+const NotificationBanner: React.FC<NotificationBannerProps> = ({ message, type = "info" }) => {
   // Si no hay mensaje, no se renderiza nada.
   if (!message) return null;
 
-  // Se definen estilos específicos para cada tipo de notificación.
+  // Define estilos específicos según el tipo de notificación.
   const typeStyles = {
     error: styles.error,
     success: styles.success,
@@ -52,19 +52,19 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: "center",
   },
-  // Estilo para el tipo de notificación "error".
+  // Estilo para notificaciones de tipo "error".
   error: {
     backgroundColor: "#ff4d4f",
   },
-  // Estilo para el tipo de notificación "success".
+  // Estilo para notificaciones de tipo "success".
   success: {
     backgroundColor: "#52c41a",
   },
-  // Estilo para el tipo de notificación "info".
+  // Estilo para notificaciones de tipo "info".
   info: {
     backgroundColor: "#1890ff",
   },
-  // Estilo para el tipo de notificación "warning".
+  // Estilo para notificaciones de tipo "warning".
   warning: {
     backgroundColor: "#faad14",
   },

@@ -20,6 +20,80 @@ interface AccountRecoveryScreenProps {
   setCurrentScreen: (screen: string) => void;
 }
 
+// Propiedades para el componente de entrada de correo
+interface EmailInputProps {
+  email: string;
+  onChangeEmail: (text: string) => void;
+}
+
+/**
+ * Componente de entrada de correo electrónico.
+ */
+const EmailInput: React.FC<EmailInputProps> = ({ email, onChangeEmail }) => {
+  return (
+    <View className={styles.emailContainer}>
+      <Text className={styles.emailLabel}>Correo Electrónico</Text>
+      <View className={styles.inputContainer}>
+        <Ionicons
+          name="mail-outline"
+          size={24}
+          color="black"
+          className={styles.emailIcon}
+        />
+        <TextInput
+          className={styles.emailInput}
+          placeholder="Ingresa tu correo"
+          placeholderTextColor="gray"
+          value={email}
+          onChangeText={onChangeEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoFocus
+        />
+      </View>
+    </View>
+  );
+};
+
+// Propiedades para el componente de botones de acción
+interface ActionButtonsProps {
+  isLoading: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}
+
+/**
+ * Componente que renderiza los botones de acción: Cancelar y Buscar.
+ */
+const ActionButtons: React.FC<ActionButtonsProps> = ({
+  isLoading,
+  onCancel,
+  onSubmit,
+}) => {
+  return (
+    <View className={styles.buttonsContainer}>
+      <TouchableOpacity
+        className={styles.cancelButton}
+        onPress={onCancel}
+        disabled={isLoading}
+        accessibilityLabel="Cancelar"
+      >
+        <Text className={styles.buttonText}>Cancelar</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        className={styles.searchButton}
+        onPress={onSubmit}
+        disabled={isLoading}
+        accessibilityLabel="Buscar"
+      >
+        <Text className={styles.buttonText}>
+          {isLoading ? "Cargando..." : "Buscar"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 /**
  * Componente que permite a los usuarios recuperar su cuenta ingresando su correo electrónico.
  * Realiza la validación del correo, envía la solicitud de recuperación a Firebase y muestra notificaciones.
@@ -48,7 +122,7 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
    * Realiza las validaciones correspondientes y utiliza Firebase para enviar el correo.
    */
   const handleSubmit = useCallback(async () => {
-    // Reinicia los mensajes de error y éxito
+    // Reinicia los mensajes de error y éxito y oculta el teclado
     setErrorMessage("");
     setSuccessMessage("");
     Keyboard.dismiss();
@@ -123,49 +197,14 @@ const AccountRecoveryScreen: React.FC<AccountRecoveryScreenProps> = ({
           </Text>
 
           {/* Campo de entrada para el correo electrónico */}
-          <View className={styles.emailContainer}>
-            <Text className={styles.emailLabel}>Correo Electrónico</Text>
-            <View className={styles.inputContainer}>
-              <Ionicons
-                name="mail-outline"
-                size={24}
-                color="black"
-                className={styles.emailIcon}
-              />
-              <TextInput
-                className={styles.emailInput}
-                placeholder="Ingresa tu correo"
-                placeholderTextColor="gray"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoFocus
-              />
-            </View>
-          </View>
+          <EmailInput email={email} onChangeEmail={setEmail} />
 
           {/* Botones de acción: Cancelar y Buscar */}
-          <View className={styles.buttonsContainer}>
-            <TouchableOpacity
-              className={styles.cancelButton}
-              onPress={() => setCurrentScreen("LoginScreen")}
-              disabled={isLoading}
-              accessibilityLabel="Cancelar"
-            >
-              <Text className={styles.buttonText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className={styles.searchButton}
-              onPress={handleSubmit}
-              disabled={isLoading}
-              accessibilityLabel="Buscar"
-            >
-              <Text className={styles.buttonText}>
-                {isLoading ? "Cargando..." : "Buscar"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <ActionButtons
+            isLoading={isLoading}
+            onCancel={() => setCurrentScreen("LoginScreen")}
+            onSubmit={handleSubmit}
+          />
         </View>
       </ScrollView>
 

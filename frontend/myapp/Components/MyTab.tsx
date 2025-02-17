@@ -1,9 +1,9 @@
-import React, { memo } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import React, { memo } from "react";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 /**
- * Propiedades del componente MyTab.
+ * Props para el componente MyTab.
  */
 interface MyTabProps {
   /** Función para cambiar la pantalla actual */
@@ -20,30 +20,15 @@ interface MyTabProps {
 const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
   // Arreglo de pestañas con sus propiedades: nombre de pantalla, ícono y etiqueta de accesibilidad.
   const tabs = [
-    {
-      screen: 'CameraCaptureScreen',
-      icon: 'camera',
-      accessibilityLabel: 'Cámara',
-    },
-    {
-      screen: 'ChatScreen',
-      icon: 'robot',
-      accessibilityLabel: 'Chat',
-    },
-    {
-      screen: 'SocialNetScreen',
-      icon: 'earth',
-      accessibilityLabel: 'Red Social',
-    },
-    {
-      screen: 'ProfileScreen',
-      icon: 'account-circle',
-      accessibilityLabel: 'Perfil',
-    },
+    { screen: "CameraCaptureScreen", icon: "camera", accessibilityLabel: "Cámara" },
+    { screen: "ChatScreen", icon: "robot", accessibilityLabel: "Chat" },
+    { screen: "SocialNetScreen", icon: "earth", accessibilityLabel: "Red Social" },
+    { screen: "ProfileScreen", icon: "account-circle", accessibilityLabel: "Perfil" },
   ];
 
   /**
-   * Cambia la pantalla actual cuando se presiona un botón de la pestaña.
+   * handleTabPress:
+   * Cambia la pantalla actual al presionar un botón.
    * @param screen - Nombre de la pantalla a activar.
    */
   const handleTabPress = (screen: string): void => {
@@ -51,12 +36,13 @@ const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
   };
 
   /**
+   * getIconColor:
    * Retorna el color del ícono dependiendo de si la pantalla está activa.
    * @param screen - Nombre de la pantalla asociada al ícono.
    * @returns Color en formato hexadecimal.
    */
   const getIconColor = (screen: string): string => {
-    return currentScreen === screen ? '#5cb868' : '#616161';
+    return currentScreen === screen ? "#5cb868" : "#616161";
   };
 
   return (
@@ -80,13 +66,13 @@ const MyTab: React.FC<MyTabProps> = ({ setCurrentScreen, currentScreen }) => {
 // Estilos para el componente MyTab.
 const styles = StyleSheet.create({
   tabContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#ffffff',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "#ffffff",
     paddingVertical: 12,
   },
   tabButton: {
-    alignItems: 'center',
+    alignItems: "center",
     padding: 12,
   },
 });

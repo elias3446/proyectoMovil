@@ -1,7 +1,8 @@
 /**
  * postData:
+ * --------------------------
  * Función auxiliar para enviar solicitudes POST a una API con payload JSON.
- * 
+ *
  * @param url - La URL del endpoint de la API.
  * @param data - Los datos a enviar en formato JSON.
  * @returns Una promesa que se resuelve con la respuesta parseada como JSON.
@@ -26,6 +27,7 @@ async function postData<T>(url: string, data: any): Promise<T> {
 
 /**
  * processImageWithAPI:
+ * --------------------------
  * Envía la URI de una imagen a un endpoint para su procesamiento y retorna la respuesta.
  *
  * @param imageUri - La URI de la imagen a procesar.
@@ -43,7 +45,7 @@ export const processImageWithAPI = async (
     setErrorMessage("");
     
     // URL del endpoint para el procesamiento de imagen.
-    const apiUrl = "http://3.84.59.94:5000/process_image";
+    const apiUrl = process.env.REACT_APP_IMAGE_PROCESSING_URL || "http://3.84.59.94:5000/process_image";
     
     // Realiza la solicitud POST enviando la URI de la imagen.
     const data = await postData<{ respuesta?: string }>(apiUrl, { image_url: imageUri });
@@ -59,6 +61,7 @@ export const processImageWithAPI = async (
 
 /**
  * processChatWithAPI:
+ * --------------------------
  * Envía un mensaje de chat a un endpoint para su procesamiento y retorna la respuesta.
  *
  * @param currentMessageText - El texto del mensaje a procesar.
@@ -78,7 +81,7 @@ export const processChatWithAPI = async (
     setErrorMessage("");
     
     // URL del endpoint para el procesamiento del chat.
-    const apiUrl = "http://3.84.59.94:5000/chat";
+    const apiUrl = process.env.REACT_APP_CHAT_PROCESSING_URL || "http://3.84.59.94:5000/chat";
     
     // Realiza la solicitud POST enviando el mensaje y el UID del usuario.
     const data = await postData<{ response?: string }>(apiUrl, { message: currentMessageText, user: userUid });

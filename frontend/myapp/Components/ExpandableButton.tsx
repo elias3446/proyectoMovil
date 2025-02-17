@@ -35,28 +35,28 @@ const ExpandableButton: React.FC<ExpandableButtonProps> = ({
   setActiveId,
   onPress,
 }) => {
-  // Determina si este botón está activo comparando su id con el activeId
+  // Determina si este botón está activo comparando su id con el activeId.
   const isActive = activeId === id;
 
-  // Define un valor animado para el ancho del botón: 175 si activo, 55 si no.
+  // Valor animado para el ancho del botón: 175 si activo, 55 si no.
   const widthAnim = useRef(new Animated.Value(isActive ? 175 : 55)).current;
 
   /**
-   * useEffect para animar el ancho cada vez que cambie el estado activo.
-   * Se utiliza Animated.timing para suavizar la transición de ancho.
+   * useEffect: Anima el ancho del botón cada vez que cambia el estado activo.
+   * Se utiliza Animated.timing para suavizar la transición.
    */
   useEffect(() => {
     Animated.timing(widthAnim, {
       toValue: isActive ? 175 : 55,
       duration: 300,
-      useNativeDriver: false, // El ancho no es una propiedad soportada por el native driver.
+      useNativeDriver: false, // El ancho no es soportado por el native driver.
     }).start();
   }, [isActive, widthAnim]);
 
   /**
-   * Función que maneja el evento de presionar el botón.
-   * - Si el botón no está activo, lo establece como activo.
-   * - Llama a la función onPress pasada como prop.
+   * handlePress:
+   * Maneja el evento de presionar el botón. Si el botón no está activo, lo establece como activo
+   * y luego ejecuta la función onPress pasada como prop.
    */
   const handlePress = () => {
     if (!isActive) {
@@ -68,7 +68,6 @@ const ExpandableButton: React.FC<ExpandableButtonProps> = ({
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
       <Animated.View
-        // Se define un estilo en línea combinando propiedades fijas y el ancho animado.
         style={[
           {
             flexDirection: "row",
@@ -97,7 +96,6 @@ const ExpandableButton: React.FC<ExpandableButtonProps> = ({
               marginLeft: 16,
               position: "absolute",
               left: 40,
-              // La opacidad del texto se interpola en función del ancho animado para un efecto suave.
               opacity: widthAnim.interpolate({
                 inputRange: [50, 180],
                 outputRange: [0, 1],

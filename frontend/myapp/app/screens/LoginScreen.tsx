@@ -5,12 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Image,
   ActivityIndicator,
   Keyboard,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '@/Config/firebaseConfig';
@@ -18,6 +18,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import NotificationBanner from '@/Components/NotificationBanner';
 import { registerIndieID } from 'native-notify';
 import { APP_ID, APP_TOKEN } from '@/api/notificationService';
+import { styles } from '@/assets/styles/LoginStyles'; // Asegúrate de ajustar la ruta según corresponda
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -93,7 +94,6 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       if (Platform.OS !== 'web') {
         registerIndieID(userCredential.user.uid, APP_ID, APP_TOKEN);
       } else {
-        // En web se podría usar el API de Notificaciones del navegador si se desea
         console.log('Registro de notificaciones omitido en web');
       }
 
@@ -135,23 +135,23 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white"
+      className={styles.keyboardAvoidingView}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        <View className="flex-1 w-full max-w-[25rem] bg-white justify-center items-center mt-10 px-5">
+      <ScrollView contentContainerStyle={localStyles.scrollContainer} keyboardShouldPersistTaps="handled">
+        <View className={styles.mainContainer}>
           <Image
             source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
-            style={styles.logoImage}
+            style={localStyles.logoImage}
             resizeMode="contain"
           />
 
           {/* Campo de correo electrónico */}
-          <View className="w-full mb-4">
-            <Text className="font-bold text-left mb-1 text-black text-lg">Correo Electrónico</Text>
-            <View className="w-full flex-row items-center bg-[#F3F4F6] rounded-xl relative">
-              <Ionicons className="absolute left-3 z-20" name="mail-outline" size={24} color="black" />
+          <View className={styles.emailFieldContainer}>
+            <Text className={styles.emailLabel}>Correo Electrónico</Text>
+            <View className={styles.emailInputContainer}>
+              <Ionicons className={styles.emailIcon} name="mail-outline" size={24} color="black" />
               <TextInput
-                className="flex-1 h-12 pl-11 pr-12 text-base text-black bg-[#F3F4F6] rounded-xl border-0"
+                className={styles.emailInput}
                 placeholder="Ingresa tu correo"
                 placeholderTextColor="gray"
                 keyboardType="email-address"
@@ -167,13 +167,13 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </View>
 
           {/* Campo de contraseña */}
-          <View className="w-full mb-4">
-            <Text className="font-bold text-left mb-1 text-black text-lg">Contraseña</Text>
-            <View className="w-full flex-row items-center bg-[#F3F4F6] rounded-xl relative">
-              <Ionicons className="absolute left-3 z-20" name="lock-closed-outline" size={24} color="black" />
+          <View className={styles.passwordFieldContainer}>
+            <Text className={styles.passwordLabel}>Contraseña</Text>
+            <View className={styles.passwordInputContainer}>
+              <Ionicons className={styles.passwordIcon} name="lock-closed-outline" size={24} color="black" />
               <TextInput
                 ref={passwordInputRef}
-                className="flex-1 h-12 pl-11 pr-12 text-base text-black bg-[#F3F4F6] rounded-xl border-0"
+                className={styles.passwordInput}
                 placeholder="Ingresa tu contraseña"
                 placeholderTextColor="gray"
                 secureTextEntry={!passwordVisible}
@@ -183,7 +183,7 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
                 onSubmitEditing={handleLogin}
               />
               <TouchableOpacity
-                className="absolute items-center right-4 z-20"
+                className={styles.passwordToggleButton}
                 onPress={togglePasswordVisibility}
                 accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
@@ -193,15 +193,15 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           </View>
 
           {/* Enlace para recuperar contraseña */}
-          <View className="w-full items-end mb-5">
+          <View className={styles.forgotPasswordContainer}>
             <TouchableOpacity onPress={() => setCurrentScreen('AccountRecoveryScreen')}>
-              <Text className="text-[#5CB868]">¿Olvidaste tu contraseña?</Text>
+              <Text className={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
             </TouchableOpacity>
           </View>
 
           {/* Botón para iniciar sesión */}
           <TouchableOpacity
-            className="w-full h-12 bg-[#5CB868] justify-center items-center rounded-xl mb-5"
+            className={styles.loginButton}
             onPress={handleLogin}
             disabled={loading}
             accessibilityRole="button"
@@ -210,14 +210,14 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
             {loading ? (
               <ActivityIndicator size="small" color="#FFF" />
             ) : (
-              <Text className="font-bold text-white text-lg">Iniciar sesión</Text>
+              <Text className={styles.loginButtonText}>Iniciar sesión</Text>
             )}
           </TouchableOpacity>
 
           {/* Enlace para registrarse */}
           <TouchableOpacity onPress={() => setCurrentScreen('RegisterScreen')}>
-            <Text className="text-base text-center mt-7 text-black">
-              ¿No tienes cuenta? <Text className="font-bold text-[#5CB868]">Registrarse</Text>
+            <Text className={styles.registerText}>
+              ¿No tienes cuenta? <Text className={styles.registerTextHighlight}>Registrarse</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -231,7 +231,7 @@ const LoginScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const localStyles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',

@@ -7,6 +7,8 @@ import {
   ScrollView,
   Dimensions,
   Image,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
@@ -14,6 +16,7 @@ import { getFirestore, doc, setDoc } from "firebase/firestore";
 import NotificationBanner from "@/Components/NotificationBanner";
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
+import { styles } from "@/assets/styles/RegisterStyles"; // Ajusta la ruta según corresponda
 
 interface RegisterScreenProps {
   setCurrentScreen: (screen: string) => void;
@@ -27,9 +30,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
   const [password, setPassword] = useState("");
   const [birthDay, setBirthDay] = useState("1");
   const [birthMonth, setBirthMonth] = useState("1");
-  const [birthYear, setBirthYear] = useState(
-    new Date().getFullYear().toString()
-  );
+  const [birthYear, setBirthYear] = useState(new Date().getFullYear().toString());
   const [gender, setGender] = useState("");
   const [pronoun, setPronoun] = useState("");
   const [customGender, setCustomGender] = useState("");
@@ -188,134 +189,58 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
   }, []);
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-      className="bg-white mt-[-50px] p-5 flex-grow"
-    >
-      <View
-        className={`w-full bg-white rounded-xl relative ${
-          width > 400 ? "max-w-[25rem]" : "max-w-[calc(100%-40px)]"
-        }`}
+    <View className={styles.registerScreenRoot}>
+      {/* Encabezado fijo (toca para cerrar el teclado) */}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View className={styles.headerContainer}>
+          <Image
+            source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
+            className={styles.headerImage}
+            resizeMode="contain"
+          />
+          <Text className={styles.headerTitle}>
+            Crea una cuenta
+          </Text>
+        </View>
+      </TouchableWithoutFeedback>
+
+      {/* Contenido scrollable (solo el formulario) con contenedor intermedio */}
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: 20,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+        className={styles.scrollView}
       >
-        {/* Logo */}
-        <Image
-          source={require('@/assets/images/2a2cb89c-eb6b-46c2-a235-3f5ab59d888e-removebg-preview.png')}
-          className="w-3/5 aspect-square self-center mb-[-40px]"
-          resizeMode="contain"
-        />
-        <Text className="font-bold text-2xl text-center mb-5">
-          Crea una cuenta
-        </Text>
-        {/* Nombre y Apellido */}
-        <View className="flex-row justify-between mb-3">
-          <TextInput
-            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${
-              firstName ? "text-black" : "text-[#9CA3AF]"
-            }`}
-            placeholder="Nombre"
-            value={firstName}
-            onChangeText={setFirstName}
-            accessibilityLabel="Nombre"
-          />
-          <TextInput
-            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-[48%] ${
-              lastName ? "text-black" : "text-[#9CA3AF]"
-            }`}
-            placeholder="Apellido"
-            value={lastName}
-            onChangeText={setLastName}
-            accessibilityLabel="Apellido"
-          />
-        </View>
-        {/* Fecha de Nacimiento */}
-        <Text className="text-base text-black mb-2 font-bold">
-          Fecha de nacimiento
-        </Text>
-        <View className="flex-row justify-between mb-3">
-          <Picker
-            selectedValue={birthDay}
-            style={{
-              width: "33.33%",
-              height: 50,
-              paddingHorizontal: 15,
-              marginBottom: 12,
-              backgroundColor: "#F3F4F6",
-              borderRadius: 12,
-              color: "#000",
-            }}
-            onValueChange={(itemValue) => setBirthDay(itemValue)}
-            accessibilityLabel="Día de nacimiento"
-          >
-            {renderDayItems()}
-          </Picker>
-          <Picker
-            selectedValue={birthMonth}
-            style={{
-              width: "33.33%",
-              height: 50,
-              paddingHorizontal: 15,
-              marginBottom: 12,
-              backgroundColor: "#F3F4F6",
-              borderRadius: 12,
-              color: "#000",
-            }}
-            onValueChange={(itemValue) => setBirthMonth(itemValue)}
-            accessibilityLabel="Mes de nacimiento"
-          >
-            {renderMonthItems()}
-          </Picker>
-          <Picker
-            selectedValue={birthYear}
-            style={{
-              width: "33.33%",
-              height: 50,
-              paddingHorizontal: 15,
-              marginBottom: 12,
-              backgroundColor: "#F3F4F6",
-              borderRadius: 12,
-              color: "#000",
-            }}
-            onValueChange={(itemValue) => setBirthYear(itemValue)}
-            accessibilityLabel="Año de nacimiento"
-          >
-            {renderYearItems()}
-          </Picker>
-        </View>
-        {/* Género */}
-        <Text className="text-base text-black mb-2 font-bold">Género</Text>
-        <Picker
-          selectedValue={gender}
-          style={{
-            width: "100%",
-            height: 50,
-            paddingHorizontal: 15,
-            marginBottom: 12,
-            backgroundColor: "#F3F4F6",
-            borderRadius: 12,
-            color: "#000",
-          }}
-          onValueChange={(itemValue) => {
-            setGender(itemValue);
-            if (itemValue !== "O") setPronoun("");
-          }}
-          accessibilityLabel="Género"
-        >
-          <Picker.Item label="Selecciona tu género" value="" />
-          <Picker.Item label="Mujer" value="F" />
-          <Picker.Item label="Hombre" value="M" />
-          <Picker.Item label="Personalizado" value="O" />
-        </Picker>
-        {gender === "O" && (
-          <>
-            <Text className="text-base text-black mb-2 font-bold">
-              Selecciona tu pronombre
-            </Text>
+        <View className={styles.formContainer}>
+          {/* Nombre y Apellido */}
+          <View className={styles.rowInputContainer}>
+            <TextInput
+              className={styles.inputFirstName}
+              placeholder="Nombre"
+              value={firstName}
+              onChangeText={setFirstName}
+              accessibilityLabel="Nombre"
+            />
+            <TextInput
+              className={styles.inputLastName}
+              placeholder="Apellido"
+              value={lastName}
+              onChangeText={setLastName}
+              accessibilityLabel="Apellido"
+            />
+          </View>
+          {/* Fecha de Nacimiento */}
+          <Text className={styles.birthDateLabel}>
+            Fecha de nacimiento
+          </Text>
+          <View className={styles.birthDateContainer}>
             <Picker
-              selectedValue={pronoun}
+              selectedValue={birthDay}
               style={{
+                width: "33.33%",
                 height: 50,
                 paddingHorizontal: 15,
                 marginBottom: 12,
@@ -323,120 +248,195 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ setCurrentScreen }) => 
                 borderRadius: 12,
                 color: "#000",
               }}
-              onValueChange={(itemValue) => setPronoun(itemValue)}
-              accessibilityLabel="Pronombre"
+              onValueChange={(itemValue) => setBirthDay(itemValue)}
+              accessibilityLabel="Día de nacimiento"
             >
-              <Picker.Item label="Selecciona tu pronombre" value="" />
-              <Picker.Item
-                label='Femenino: "Salúdala por su cumpleaños"'
-                value="Femenino"
-              />
-              <Picker.Item
-                label='Masculino: "Salúdalo por su cumpleaños"'
-                value="Masculino"
-              />
-              <Picker.Item
-                label='Neutro: "Salúdalo(a) por su cumpleaños"'
-                value="Neutro"
-              />
+              {renderDayItems()}
             </Picker>
-            <Text className="text-xs text-[#666] mb-3">
-              Tu pronombre será visible para todos.
-            </Text>
-            <Text className="text-base text-black mb-2 font-bold">
-              Género (opcional)
-            </Text>
-            <TextInput
-              className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${
-                customGender ? "text-black" : "text-[#9CA3AF]"
-              }`}
-              placeholder="Escribe tu género"
-              value={customGender}
-              onChangeText={setCustomGender}
-              accessibilityLabel="Género personalizado"
-            />
-          </>
-        )}
-        {/* Correo Electrónico */}
-        <TextInput
-          className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${
-            email ? "text-black" : "text-[#9CA3AF]"
-          }`}
-          placeholder="Correo electrónico"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          accessibilityLabel="Correo electrónico"
-        />
-        {/* Contraseña */}
-        <View className="relative">
-          <TextInput
-            className={`h-14 px-4 mb-3 rounded-xl text-lg bg-[#F3F4F6] w-full ${
-              password ? "text-black" : "text-[#9CA3AF]"
-            }`}
-            placeholder="Contraseña nueva"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            accessibilityLabel="Contraseña nueva"
-          />
-          <View className="absolute z-20 right-4 top-3">
-            <TouchableOpacity
-              onPress={() => setShowPassword((prev) => !prev)}
-              accessibilityLabel="Mostrar u ocultar contraseña"
+            <Picker
+              selectedValue={birthMonth}
+              style={{
+                width: "33.33%",
+                height: 50,
+                paddingHorizontal: 15,
+                marginBottom: 12,
+                backgroundColor: "#F3F4F6",
+                borderRadius: 12,
+                color: "#000",
+              }}
+              onValueChange={(itemValue) => setBirthMonth(itemValue)}
+              accessibilityLabel="Mes de nacimiento"
             >
-              <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={24}
-                color="gray"
+              {renderMonthItems()}
+            </Picker>
+            <Picker
+              selectedValue={birthYear}
+              style={{
+                width: "33.33%",
+                height: 50,
+                paddingHorizontal: 15,
+                marginBottom: 12,
+                backgroundColor: "#F3F4F6",
+                borderRadius: 12,
+                color: "#000",
+              }}
+              onValueChange={(itemValue) => setBirthYear(itemValue)}
+              accessibilityLabel="Año de nacimiento"
+            >
+              {renderYearItems()}
+            </Picker>
+          </View>
+          {/* Género */}
+          <Text className={styles.genderLabel}>Género</Text>
+          <Picker
+            selectedValue={gender}
+            style={{
+              width: "100%",
+              height: 50,
+              paddingHorizontal: 15,
+              marginBottom: 12,
+              backgroundColor: "#F3F4F6",
+              borderRadius: 12,
+              color: "#000",
+            }}
+            onValueChange={(itemValue) => {
+              setGender(itemValue);
+              if (itemValue !== "O") setPronoun("");
+            }}
+            accessibilityLabel="Género"
+          >
+            <Picker.Item label="Selecciona tu género" value="" />
+            <Picker.Item label="Mujer" value="F" />
+            <Picker.Item label="Hombre" value="M" />
+            <Picker.Item label="Personalizado" value="O" />
+          </Picker>
+          {gender === "O" && (
+            <>
+              <Text className={styles.pronounLabel}>
+                Selecciona tu pronombre
+              </Text>
+              <Picker
+                selectedValue={pronoun}
+                style={{
+                  height: 50,
+                  paddingHorizontal: 15,
+                  marginBottom: 12,
+                  backgroundColor: "#F3F4F6",
+                  borderRadius: 12,
+                  color: "#000",
+                }}
+                onValueChange={(itemValue) => setPronoun(itemValue)}
+                accessibilityLabel="Pronombre"
+              >
+                <Picker.Item label="Selecciona tu pronombre" value="" />
+                <Picker.Item
+                  label='Femenino: "Salúdala por su cumpleaños"'
+                  value="Femenino"
+                />
+                <Picker.Item
+                  label='Masculino: "Salúdalo por su cumpleaños"'
+                  value="Masculino"
+                />
+                <Picker.Item
+                  label='Neutro: "Salúdalo(a) por su cumpleaños"'
+                  value="Neutro"
+                />
+              </Picker>
+              <Text className={styles.pronounDescription}>
+                Tu pronombre será visible para todos.
+              </Text>
+              <Text className={styles.customGenderLabel}>
+                Género (opcional)
+              </Text>
+              <TextInput
+                className={styles.inputCustomGender}
+                placeholder="Escribe tu género"
+                value={customGender}
+                onChangeText={setCustomGender}
+                accessibilityLabel="Género personalizado"
               />
-            </TouchableOpacity>
+            </>
+          )}
+          {/* Correo Electrónico */}
+          <TextInput
+            className={styles.inputEmail}
+            placeholder="Correo electrónico"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            accessibilityLabel="Correo electrónico"
+          />
+          {/* Contraseña */}
+          <View className={styles.passwordContainer}>
+            <TextInput
+              className={styles.inputPassword}
+              placeholder="Contraseña nueva"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              accessibilityLabel="Contraseña nueva"
+            />
+            <View className={styles.passwordToggleContainer}>
+              <TouchableOpacity
+                onPress={() => setShowPassword((prev) => !prev)}
+                accessibilityLabel="Mostrar u ocultar contraseña"
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={24}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-        {/* Términos y Condiciones */}
-        <View className="flex-row items-center mb-3">
-          <Checkbox
-            value={acceptTerms}
-            onValueChange={setAcceptTerms}
-            className="mr-2"
-            accessibilityLabel="Aceptar Términos y Condiciones"
-          />
-          <TouchableOpacity onPress={() => {}}>
-            <Text className="text-base text-black">
-              Acepto los{" "}
-              <Text
-                className="text-[#5CB868]"
-                onPress={() => {}}
-                accessibilityLabel="Ver Términos y Condiciones"
-              >
-                Términos &amp; Condiciones
+      </ScrollView>
+
+      {/* Pie de página fijo (toca para cerrar el teclado) */}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View className={styles.footerContainer}>
+          <View className={styles.termsContainer}>
+            <Checkbox
+              value={acceptTerms}
+              onValueChange={setAcceptTerms}
+              className={styles.checkboxMargin}
+              accessibilityLabel="Aceptar Términos y Condiciones"
+            />
+            <TouchableOpacity onPress={() => {}}>
+              <Text className={styles.termsText}>
+                Acepto los{" "}
+                <Text
+                  className={styles.termsLink}
+                  onPress={() => {}}
+                  accessibilityLabel="Ver Términos y Condiciones"
+                >
+                  Términos &amp; Condiciones
+                </Text>
               </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            className={styles.registerButton}
+            onPress={handleRegister}
+            disabled={loading}
+            accessibilityLabel="Registrar cuenta"
+            accessibilityRole="button"
+          >
+            <Text className={styles.registerButtonText}>
+              {loading ? "Cargando..." : "Registrar"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCurrentScreen("LoginScreen")}>
+            <Text className={styles.loginLinkContainer}>
+              <Text className={styles.loginLinkText}>¿Ya tienes cuenta?</Text>
+              <Text className={styles.loginLinkHighlight}> Iniciar sesión</Text>
             </Text>
           </TouchableOpacity>
         </View>
-        {/* Botón de Registro */}
-        <TouchableOpacity
-          className="items-center my-3 p-4 rounded-xl bg-[#5CB868]"
-          onPress={handleRegister}
-          disabled={loading}
-          accessibilityLabel="Registrar cuenta"
-          accessibilityRole="button"
-        >
-          <Text className="text-white font-bold text-lg">
-            {loading ? "Cargando..." : "Registrar"}
-          </Text>
-        </TouchableOpacity>
-        {/* Enlace a Iniciar Sesión */}
-        <TouchableOpacity onPress={() => setCurrentScreen("LoginScreen")}>
-          <Text className="text-black text-center mt-3 text-base">
-            <Text className="text-black">¿Ya tienes cuenta?</Text>
-            <Text className="text-[#5CB868]"> Iniciar sesión</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
+      </TouchableWithoutFeedback>
       <NotificationBanner message={errorMessage} type="error" />
       <NotificationBanner message={successMessage} type="success" />
-    </ScrollView>
+    </View>
   );
 };
 

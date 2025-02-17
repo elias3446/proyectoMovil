@@ -1,12 +1,24 @@
-import { CameraView, CameraType, useCameraPermissions, FlashMode } from 'expo-camera';
+import {
+  CameraView,
+  CameraType,
+  useCameraPermissions,
+  FlashMode,
+} from 'expo-camera';
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Text, TouchableOpacity, View, Platform } from 'react-native';
+import {
+  Text,
+  TouchableOpacity,
+  View,
+  Platform,
+  Modal,
+} from 'react-native';
 import Slider from '@react-native-community/slider';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator'; // Para procesar la imagen
+import * as ImageManipulator from 'expo-image-manipulator';
 import PhotoPreviewSection from '@/Components/PhotoPreviewSection';
 import NotificationBanner from '@/Components/NotificationBanner';
+import { styles } from '@/assets/styles/CameraCaptureStyles'; // Ajusta la ruta según corresponda
 
 interface LoginProps {
   setCurrentScreen: (screen: string) => void;
@@ -49,7 +61,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     checkPermissions();
   }, [permission, requestPermission]);
 
-  // Captura la foto
+  // Captura la foto sin desmontar la cámara
   const handleTakePhoto = useCallback(async () => {
     if (!permission?.granted) {
       await requestPermission();
@@ -62,7 +74,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
           quality: 1,
           base64: true,
           exif: true,
-          flash,
+          flash, // Se utiliza el valor actual del estado
         };
         const takenPhoto = await cameraRef.current.takePictureAsync(options);
         if (takenPhoto) {
@@ -77,7 +89,7 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     }
   }, [flash, permission, isCameraReady, requestPermission]);
 
-  // Reinicia la toma de foto
+  // Reinicia la toma de foto (se cierra el Modal)
   const handleRetakePhoto = useCallback(() => {
     setPhoto(null);
   }, []);
@@ -96,7 +108,11 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         const manipulatedImage = await ImageManipulator.manipulateAsync(
           asset.uri,
           [],
-          { compress: 1, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          {
+            compress: 1,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          }
         );
         setPhoto(manipulatedImage);
       }
@@ -106,41 +122,37 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
     }
   };
 
-  // Alterna entre la cámara trasera y frontal
+  // Alterna entre la cámara trasera y frontal, y deshabilita el flash al cambiar a frontal
   const toggleCameraFacing = useCallback(() => {
-    setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
+    setFacing((prev) => {
+      if (prev === 'back') {
+        setFlash('off'); // Deshabilitar flash al cambiar a cámara frontal
+        return 'front';
+      } else {
+        return 'back';
+      }
+    });
   }, []);
 
-  // Alterna el flash
+  // Alterna el flash (solo se muestra en cámara trasera)
   const toggleFlash = useCallback(() => {
     setFlash((prev) => (prev === 'off' ? 'auto' : 'off'));
   }, []);
 
-  // Si no se tienen permisos y no es web, se muestra un mensaje de espera
+  // Muestra un mensaje si no hay permisos (para plataformas móviles)
   if (!permission?.granted && Platform.OS !== 'web') {
     return (
-      <View className="flex-1 justify-center items-center p-5">
-        <Text className="text-center mb-5 text-base text-black">
+      <View className={styles.permissionView}>
+        <Text className={styles.permissionText}>
           Solicitando acceso a la cámara...
         </Text>
       </View>
     );
   }
 
-  // Si ya se tomó una foto, se muestra la sección de vista previa
-  if (photo) {
-    return (
-      <PhotoPreviewSection
-        photo={photo}
-        handleRetakePhoto={handleRetakePhoto}
-        setCurrentScreen={setCurrentScreen}
-      />
-    );
-  }
-
   return (
-    <View className="flex-1 bg-white justify-center">
-      {/* Cámara: se ocupa todo el espacio */}
+    <View className={styles.rootView}>
+      {/* La cámara se monta siempre, de modo que su estado se conserva */}
       <CameraView
         style={{ flex: 1 }}
         facing={facing}
@@ -149,14 +161,18 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
         flash={flash}
         onCameraReady={() => setIsCameraReady(true)}
       >
-        <View className="absolute inset-0 border border-white opacity-60" />
+        <View className={styles.cameraOverlay} />
       </CameraView>
 
       {Platform.OS !== 'web' && (
-        <View className="absolute bottom-32 left-0 right-0 flex-row justify-center items-center space-x-1">
+        <View className={styles.zoomControls}>
           {/* Botón para disminuir zoom */}
           <TouchableOpacity
-            onPress={() => setZoom((prev) => Math.max(0, prev - 0.1))}
+            onPress={() =>
+              setZoom((prev) =>
+                Math.max(0, parseFloat((prev - 0.1).toFixed(1)))
+              )
+            }
             accessibilityLabel="Disminuir zoom"
             accessibilityRole="button"
           >
@@ -177,7 +193,11 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
           {/* Botón para aumentar zoom */}
           <TouchableOpacity
-            onPress={() => setZoom((prev) => Math.min(1, prev + 0.1))}
+            onPress={() =>
+              setZoom((prev) =>
+                Math.min(1, parseFloat((prev + 0.1).toFixed(1)))
+              )
+            }
             accessibilityLabel="Aumentar zoom"
             accessibilityRole="button"
           >
@@ -187,24 +207,26 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       )}
 
       {/* Botón de captura */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white h-[100px] flex-row justify-center items-center">
+      <View className={styles.captureContainer}>
         <TouchableOpacity
-          className="rounded-full"
+          className={styles.captureButton}
           onPress={handleTakePhoto}
           disabled={!permission?.granted || !isCameraReady}
-          style={{ opacity: !permission?.granted || !isCameraReady ? 0.5 : 1 }}
+          style={{
+            opacity: !permission?.granted || !isCameraReady ? 0.5 : 1,
+          }}
           accessibilityLabel="Tomar foto"
           accessibilityRole="button"
         >
-          <View className="border-4 border-[#A5D6A7] rounded-full p-1">
-            <View className="bg-[#5CB868] rounded-full w-[60px] h-[60px]" />
+          <View className={styles.captureBorder}>
+            <View className={styles.captureInner} />
           </View>
         </TouchableOpacity>
       </View>
 
       {/* Botón para abrir la galería */}
       <TouchableOpacity
-        className="absolute bottom-7 right-7 z-[3]"
+        className={styles.galleryButton}
         onPress={handleGallery}
         accessibilityLabel="Abrir galería"
         accessibilityRole="button"
@@ -213,17 +235,26 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
       </TouchableOpacity>
 
       {Platform.OS !== 'web' && (
-        <View className="absolute top-3 right-3 flex-row justify-start items-center z-[3]">
+        <View className={styles.topControls}>
+          {/* Se muestra el botón de flash solo si la cámara es trasera */}
+          {facing === 'back' && (
+            <TouchableOpacity
+              className={styles.flashButton}
+              onPress={toggleFlash}
+              accessibilityLabel={
+                flash === 'off' ? 'Encender flash' : 'Apagar flash'
+              }
+              accessibilityRole="button"
+            >
+              <MaterialIcons
+                name={flash === 'off' ? 'flash-off' : 'flash-auto'}
+                size={50}
+                color="white"
+              />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            className="bg-transparent p-1 justify-center items-center rounded-xl"
-            onPress={toggleFlash}
-            accessibilityLabel={flash === 'off' ? 'Encender flash' : 'Apagar flash'}
-            accessibilityRole="button"
-          >
-            <MaterialIcons name={flash === 'off' ? 'flash-off' : 'flash-auto'} size={50} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="bg-transparent p-1 justify-center items-center rounded-xl"
+            className={styles.cameraToggleButton}
             onPress={toggleCameraFacing}
             accessibilityLabel="Cambiar cámara"
             accessibilityRole="button"
@@ -235,6 +266,19 @@ const CameraCaptureScreen: React.FC<LoginProps> = ({ setCurrentScreen }) => {
 
       {/* Banner de notificaciones para mostrar errores */}
       <NotificationBanner message={errorMessage} type="error" />
+
+      {/* Se muestra la PhotoPreviewSection en un Modal, sin alterar su lugar en la estructura */}
+      <Modal
+        visible={!!photo}
+        animationType="slide"
+        onRequestClose={() => {}}
+      >
+        <PhotoPreviewSection
+          photo={photo}
+          handleRetakePhoto={handleRetakePhoto}
+          setCurrentScreen={setCurrentScreen}
+        />
+      </Modal>
     </View>
   );
 };

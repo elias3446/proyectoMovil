@@ -206,7 +206,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           style={{
             position: "absolute",
             right: 20,
-            top: 110,
+            top: 100,
           }}
         >
           <View style={{ alignItems: "center" }}>

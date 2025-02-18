@@ -57,7 +57,7 @@ export const styles = {
   // • Espaciado: margen superior (mt-4), padding horizontal (px-4) y vertical (py-2)
   // • Color: fondo personalizado (#A5D6A7)
   // • Forma: bordes redondeados (rounded-lg)
-  chooseImageButton: "flex-row gap-2 items-center mt-4 px-4 py-2 bg-[#A5D6A7] rounded-lg",
+  chooseImageButton: "flex-row gap-2 items-center mt-2 px-4 py-2 bg-[#A5D6A7] rounded-lg",
   
   // chooseImageButtonText:
   // • Tipografía: negrita (font-bold)

@@ -140,7 +140,7 @@ export const styles = {
 
   // modalButtonContainer:
   // • Layout: columna (flex-col) y centrado de contenido (items-center)
-  modalButtonContainer: "flex flex-col items-center",
+  modalButtonContainer: "flex flex-col items-center gap-4",
 
   // modalCancelButton:
   // • Tamaño: ancho fijo (w-[140px])

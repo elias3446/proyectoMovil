@@ -107,9 +107,6 @@ interface IUserData {
   birthDay: string;
   birthMonth: string;
   birthYear: string;
-  gender: string;
-  pronoun: string;
-  customGender: string;
 }
 
 // ===================== SUBCOMPONENTES =====================
@@ -373,92 +370,6 @@ const BirthDatePicker: React.FC<BirthDatePickerProps> = ({
 };
 
 /**
- * GenderPicker
- * Permite seleccionar el género del usuario y, si se elige "Personalizado", mostrar opciones adicionales.
- */
-interface GenderPickerProps {
-  gender: string;
-  pronoun: string;
-  customGender: string;
-  onGenderChange: (value: string) => void;
-  onPronounChange: (value: string) => void;
-  onCustomGenderChange: (value: string) => void;
-}
-const GenderPicker: React.FC<GenderPickerProps> = ({
-  gender,
-  pronoun,
-  customGender,
-  onGenderChange,
-  onPronounChange,
-  onCustomGenderChange,
-}) => (
-  <>
-    <Text className={styles.labelSmall}
-          style={{ color: "#5CB868" }}>Género</Text>
-    <Picker
-      selectedValue={gender}
-      style={{
-        width: "100%",
-        height: 50,
-        paddingHorizontal: 15,
-        marginBottom: 12,
-        backgroundColor: "#F3F4F6",
-        borderRadius: 12,
-        color: "#000",
-      }}
-      onValueChange={(itemValue) => {
-        onGenderChange(itemValue);
-        if (itemValue !== "O") onPronounChange("");
-      }}
-      accessibilityLabel="Género"
-    >
-      <Picker.Item label="Selecciona tu género" value="" />
-      <Picker.Item label="Mujer" value="F" />
-      <Picker.Item label="Hombre" value="M" />
-      <Picker.Item label="Personalizado" value="O" />
-    </Picker>
-    {gender === "O" && (
-      <>
-        <Text className={styles.labelSmall}
-          style={{ color: "#5CB868" }}>
-          Selecciona tu pronombre
-        </Text>
-        <Picker
-          selectedValue={pronoun}
-          style={{
-            height: 50,
-            paddingHorizontal: 15,
-            marginBottom: 12,
-            backgroundColor: "#F3F4F6",
-            borderRadius: 12,
-            color: "#000",
-          }}
-          onValueChange={onPronounChange}
-          accessibilityLabel="Pronombre"
-        >
-          <Picker.Item label="Selecciona tu pronombre" value="" />
-          <Picker.Item label='Femenino: "Salúdala por su cumpleaños"' value="Femenino" />
-          <Picker.Item label='Masculino: "Salúdalo por su cumpleaños"' value="Masculino" />
-          <Picker.Item label='Neutro: "Salúdalo(a) por su cumpleaños"' value="Neutro" />
-        </Picker>
-        <Text className={styles.pronounDescription}>
-          Tu pronombre será visible para todos.
-        </Text>
-        <Text className={styles.labelSmall}
-          style={{ color: "#5CB868" }}>Género (opcional)</Text>
-        <TextInput
-          className={styles.customGenderInput}
-          placeholder="Escribe tu género"
-          value={customGender}
-          onChangeText={onCustomGenderChange}
-          accessibilityLabel="Género personalizado"
-        />
-      </>
-    )}
-  </>
-);
-
-/**
  * PasswordChangeSection
  * Sección para actualizar la contraseña, mostrando inputs para la contraseña actual y la nueva.
  */
@@ -581,9 +492,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
   const [birthDay, setBirthDay] = useState("1");
   const [birthMonth, setBirthMonth] = useState("1");
   const [birthYear, setBirthYear] = useState(new Date().getFullYear().toString());
-  const [gender, setGender] = useState("");
-  const [pronoun, setPronoun] = useState("");
-  const [customGender, setCustomGender] = useState("");
 
   // Estados para contraseña y reautenticación
   const [password, setPassword] = useState("");
@@ -606,9 +514,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     birthDay: "1",
     birthMonth: "1",
     birthYear: new Date().getFullYear().toString(),
-    gender: "",
-    pronoun: "",
-    customGender: "",
   });
 
   const auth = getAuth();
@@ -651,9 +556,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
             setBirthDay(data.birthDay || "1");
             setBirthMonth(data.birthMonth || "1");
             setBirthYear(data.birthYear || new Date().getFullYear().toString());
-            setGender(data.gender || "");
-            setPronoun(data.pronoun || "");
-            setCustomGender(data.customGender || "");
             setOriginalUserData({
               firstName: data.firstName || "",
               lastName: data.lastName || "",
@@ -663,9 +565,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
               birthDay: data.birthDay || "1",
               birthMonth: data.birthMonth || "1",
               birthYear: data.birthYear || new Date().getFullYear().toString(),
-              gender: data.gender || "",
-              pronoun: data.pronoun || "",
-              customGender: data.customGender || "",
             });
             AsyncStorage.setItem("userData", JSON.stringify(data));
           }
@@ -777,9 +676,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         birthDay,
         birthMonth,
         birthYear,
-        gender,
-        pronoun,
-        customGender,
       });
 
       const updatedUserData: IUserData = {
@@ -791,9 +687,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
         birthDay,
         birthMonth,
         birthYear,
-        gender,
-        pronoun,
-        customGender,
       };
       await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
       setOriginalUserData(updatedUserData);
@@ -821,9 +714,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
     birthDay,
     birthMonth,
     birthYear,
-    gender,
-    pronoun,
-    customGender,
     db,
     showError,
     showSuccess,
@@ -878,15 +768,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ setCurrentScreen }) => {
           onBirthDayChange={setBirthDay}
           onBirthMonthChange={setBirthMonth}
           onBirthYearChange={setBirthYear}
-        />
-
-        <GenderPicker
-          gender={gender}
-          pronoun={pronoun}
-          customGender={customGender}
-          onGenderChange={setGender}
-          onPronounChange={setPronoun}
-          onCustomGenderChange={setCustomGender}
         />
 
         <PasswordChangeSection
